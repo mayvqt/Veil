@@ -40,6 +40,8 @@ func handleImportCommand(args []string) bool {
 }
 
 func runClient() error {
+	defer cleanupTerminalImageCache()
+
 	appDir, err := executableDir()
 	if err != nil {
 		return fmt.Errorf("could not detect app directory: %w", err)
@@ -75,6 +77,8 @@ func runClient() error {
 		roomKey:    roomKey,
 		roomName:   roomName,
 		serverBase: base,
+		session:    sessionToken,
+		credential: cfg.CredentialID,
 		selfName:   displayName,
 		lines: append([]line{
 			{user: "system", text: "connected"},

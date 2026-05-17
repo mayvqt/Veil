@@ -124,7 +124,7 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 }
 
 func (s *Store) SaveMessage(senderID, ciphertext, nonce string) error {
-	if len(ciphertext) > 65536 || len(nonce) > 128 {
+	if len(ciphertext) > 4*1024*1024 || len(nonce) > 128 {
 		return errors.New("message too large")
 	}
 	_, err := s.DB.Exec("INSERT INTO messages (id, sender_id, ciphertext, nonce, created_at) VALUES (?, ?, ?, ?, ?)", uuid.NewString(), senderID, ciphertext, nonce, now())
