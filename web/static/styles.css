@@ -242,6 +242,13 @@
       color: var(--accent-2);
       font-weight: 700;
     }
+    .mention-self {
+      background: rgba(255, 127, 155, 0.2);
+      color: #ff9ab0;
+      background: color-mix(in srgb, var(--danger) 20%, transparent);
+      color: color-mix(in srgb, var(--danger) 78%, #fff 22%);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
+    }
     .line-text a, .invite-out a {
       color: var(--accent);
       text-decoration: underline;

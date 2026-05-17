@@ -282,7 +282,9 @@ function renderMentions(text){
   return String(text ?? '').replace(/(^|[\s(])@([a-z0-9._-]{1,48})\b/gi,(all,prefix,raw)=>{
     const match=findMentionMatch(raw);
     if(!match) return `${prefix}@${raw}`;
-    return `${prefix}<span class="mention">@${esc(match)}</span>`;
+    const selfMention = !!currentDisplayName && match.toLowerCase()===String(currentDisplayName).toLowerCase();
+    const mentionClass = selfMention ? 'mention mention-self' : 'mention';
+    return `${prefix}<span class="${mentionClass}">@${esc(match)}</span>`;
   });
 }
 function renderRichText(text){
