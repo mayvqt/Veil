@@ -40,7 +40,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.Close()
-	c.SetReadLimit(64 * 1024)
+	c.SetReadLimit(5 * 1024 * 1024)
 	_ = c.SetReadDeadline(time.Now().Add(wsPongWait))
 	c.SetPongHandler(func(string) error {
 		return c.SetReadDeadline(time.Now().Add(wsPongWait))

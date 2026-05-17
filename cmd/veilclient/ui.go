@@ -131,7 +131,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case wsReconnectMsg:
 		if x.err != nil {
 			m.lines = append(m.lines, line{user: "system", text: "reconnect failed; retrying"})
-			return m, retryReconnectAfter(2*time.Second)
+			return m, retryReconnectAfter(2 * time.Second)
 		}
 		if m.ws != nil && m.ws != x.ws {
 			_ = m.ws.Close()
@@ -206,13 +206,13 @@ func (m model) View() string {
 		if start+i >= len(m.lines) {
 			textStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("246")).Italic(true)
 		}
-		rendered = append(rendered, nameStyle.Render(name)+lipgloss.NewStyle().Foreground(lipgloss.Color("243")).Render(": ")+textStyle.Render(terminalSafeText(ln.text)))
+		rendered = append(rendered, nameStyle.Render(name)+lipgloss.NewStyle().Foreground(lipgloss.Color("243")).Render(": ")+textStyle.Render(displayMessageText(ln.text)))
 	}
 
 	chatArea := lipgloss.NewStyle().Width(contentW).Height(msgHeight).Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("59")).Padding(0, 1).Render(strings.Join(rendered, "\n"))
 	header := headerStyle.Render(" "+m.roomName+" ") + " " + subtle.Render("AES-256-GCM E2EE") + "  " + subtle.Render(m.serverBase)
 	meta := subtle.Render("You: " + m.selfName + "   Lines: " + fmt.Sprintf("%d", len(m.lines)))
-	inputLine := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("72")).Padding(0, 1).Width(contentW).Render(inputStyle.Render(terminalSafeText(m.input)))
+	inputLine := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).BorderForeground(lipgloss.Color("72")).Padding(0, 1).Width(contentW).Render(inputStyle.Render(displayMessageText(m.input)))
 	content := lipgloss.JoinVertical(lipgloss.Left, header, meta, chatArea, inputLine)
 	boxed := panelStyle.Render(content)
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, boxed)

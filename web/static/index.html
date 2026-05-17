@@ -62,6 +62,11 @@
     }
 
     .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      align-self: start;
+      overflow: auto;
       border-right: 1px solid var(--line);
       background: linear-gradient(180deg, var(--sidebar-a), var(--sidebar-b));
       display: grid;
@@ -149,6 +154,42 @@
     .line-time { color: var(--quiet); font-size: .78rem; }
     .line-user { font-weight: 600; }
     .line-text { color: var(--ink); }
+    .line-media {
+      display: grid;
+      gap: 6px;
+      max-width: min(520px, 100%);
+    }
+    .chat-image {
+      display: block;
+      max-width: min(480px, 100%);
+      max-height: 360px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      object-fit: contain;
+      cursor: zoom-in;
+    }
+    .image-meta { color: var(--muted); font-size: .78rem; }
+    .image-lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(0,0,0,.78);
+    }
+    .image-lightbox.open { display: grid; }
+    .image-lightbox img {
+      max-width: min(1100px, 96vw);
+      max-height: 88vh;
+      object-fit: contain;
+      border: 1px solid var(--line-2);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      cursor: zoom-out;
+    }
 
     .composer {
       border-top: 1px solid var(--line);
@@ -202,6 +243,28 @@
       line-height: 1;
     }
     .emoji-choice:hover { border-color: var(--accent); background: var(--surface-2); }
+    .attachment-preview {
+      grid-column: 1 / -1;
+      display: none;
+      grid-template-columns: 92px minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 10px;
+    }
+    .attachment-preview.ready { display: grid; }
+    .attachment-preview img {
+      width: 92px;
+      height: 70px;
+      object-fit: contain;
+      border-radius: 6px;
+      background: var(--bg);
+    }
+    .attachment-preview strong { display: block; }
+    .attachment-preview small { color: var(--muted); display: block; margin-top: 3px; }
+    .drop-ready { outline: 2px solid var(--accent); outline-offset: -4px; }
 
     .admin-grid {
       display: grid;
@@ -338,7 +401,7 @@
 
     @media (max-width: 980px) {
       .chat-shell { grid-template-columns: 1fr; }
-      .sidebar { grid-template-columns: 1fr; grid-template-rows: auto auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; }
+      .sidebar { position: static; height: auto; grid-template-columns: 1fr; grid-template-rows: auto auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; }
       .nav { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
       .whoami { display: none; }
       .admin-grid { grid-template-columns: 1fr; }
@@ -346,6 +409,8 @@
       .split-grid { grid-template-columns: 1fr; }
       .composer { grid-template-columns: minmax(0, 1fr) 44px; }
       .composer #send { grid-column: 1 / -1; }
+      .attachment-preview { grid-template-columns: 76px minmax(0, 1fr); }
+      .attachment-preview button { grid-column: 1 / -1; }
     }
 
     @keyframes fadein {
@@ -356,6 +421,7 @@
 </head>
 <body>
   <main class="app" id="app"></main>
+  <div id="imageLightbox" class="image-lightbox" role="dialog" aria-modal="true" aria-label="Image preview"><img id="imageLightboxImg" alt=""/></div>
 <script>
 const app = document.getElementById('app');
 let roomKeyHex = localStorage.getItem('veil.roomKeyHex') || '';
@@ -368,6 +434,7 @@ let wsReconnectAttempts = 0;
 let activeEmojiPicker = null;
 let activeEmojiToggle = null;
 let emojiOutsideHandlerBound = false;
+let pendingAttachment = null;
 let roomName = '';
 const VIEW_CHAT = 'chat';
 const VIEW_KEYS = 'keys';
@@ -380,6 +447,8 @@ let myUserID = '';
 const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
 const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
 const EMOJI_CHOICES = ['😀','😄','😂','😊','😍','😎','🥳','😭','😅','😐','🙃','😉','👍','👎','👏','🙌','🙏','💪','🔥','✨','💯','❤️','💙','💚','👀','🤔','✅','❌','⚠️','🔒','🫡','🎉'];
+const IMAGE_MAX_BYTES = 1024 * 1024;
+const IMAGE_TYPES = new Set(['image/png','image/jpeg','image/webp','image/gif']);
 const EMOTICON_MAP = {
   ':)':'😊', ':-)':'😊',
   ':D':'😄', ':-D':'😄',
@@ -504,6 +573,11 @@ function resetTheme(){
   localStorage.removeItem(THEME_STORAGE_KEY);
   applyTheme(DEFAULT_THEME);
 }
+function formatBytes(bytes){
+  if(bytes < 1024) return `${bytes} B`;
+  if(bytes < 1024*1024) return `${Math.round(bytes/1024)} KB`;
+  return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+}
 function bytesToHex(bytes){ let out=''; for(const b of bytes) out += b.toString(16).padStart(2,'0'); return out; }
 function hexToBytes(hex){ if(typeof hex!=='string' || hex.length%2!==0) throw new Error('invalid hex'); const out=new Uint8Array(hex.length/2); for(let i=0;i<hex.length;i+=2) out[i/2]=parseInt(hex.slice(i,i+2),16); return out; }
 function randomBytes(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return a; }
@@ -551,6 +625,55 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   return bytesToHex(roomBytes);
 }
 function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-text">${esc(text)}</span></div>`; }
+function parseMessagePayload(text){
+  try{
+    const payload=JSON.parse(text);
+    if(!payload || payload.v!==1) return {type:'text', text};
+    if(payload.type==='image' && IMAGE_TYPES.has(payload.mime) && typeof payload.data==='string'){
+      return {
+        type:'image',
+        mime:payload.mime,
+        data:payload.data,
+        name:typeof payload.name==='string' ? payload.name.slice(0,120) : 'image',
+        size:Number.isFinite(payload.size) ? payload.size : 0,
+        caption:typeof payload.caption==='string' ? payload.caption : ''
+      };
+    }
+  }catch{}
+  return {type:'text', text};
+}
+function drawMessage(name,text,ts=''){
+  const c=userColor(name);
+  const payload=parseMessagePayload(text);
+  if(payload.type!=='image') return drawLine(name,text,ts);
+  const src=`data:${payload.mime};base64,${payload.data}`;
+  const caption=payload.caption ? `<span class="line-text">${esc(payload.caption)}</span>` : '';
+  return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-media"><img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" loading="lazy" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
+}
+function scrollChatToBottom(){
+  const messages=$('messages');
+  if(!messages) return;
+  const scroll=()=>{
+    messages.scrollTop=messages.scrollHeight;
+    if(messages.parentElement) messages.parentElement.scrollTop=messages.parentElement.scrollHeight;
+    if(messages.lastElementChild) messages.lastElementChild.scrollIntoView({block:'end'});
+    window.scrollTo(0, document.documentElement.scrollHeight);
+  };
+  scroll();
+  requestAnimationFrame(scroll);
+  setTimeout(scroll,50);
+  setTimeout(scroll,250);
+  setTimeout(scroll,750);
+}
+function bindMessageImageScroll(){
+  const messages=$('messages');
+  if(!messages) return;
+  messages.querySelectorAll('img.chat-image').forEach((img)=>{
+    if(img.dataset.scrollBound==='1') return;
+    img.dataset.scrollBound='1';
+    img.addEventListener('load',scrollChatToBottom,{once:true});
+  });
+}
 
 function persistIdentity(){
   localStorage.setItem('veil.credentialId', currentCredentialId);
@@ -562,6 +685,30 @@ function setStatus(el, text, tone=''){
   if(!el) return;
   el.textContent = text;
   el.className = tone ? `status ${tone}` : 'status';
+}
+
+function bindImageLightbox(){
+  const lightbox=$('imageLightbox');
+  const img=$('imageLightboxImg');
+  if(!lightbox || !img || lightbox.dataset.bound==='1') return;
+  lightbox.dataset.bound='1';
+
+  document.addEventListener('click',(e)=>{
+    const target=e.target;
+    if(!(target instanceof HTMLImageElement) || !target.dataset.fullImage) return;
+    img.src=target.dataset.fullImage;
+    img.alt=target.alt || 'Image preview';
+    lightbox.classList.add('open');
+  });
+  lightbox.addEventListener('click',()=>{
+    lightbox.classList.remove('open');
+    img.removeAttribute('src');
+  });
+  document.addEventListener('keydown',(e)=>{
+    if(e.key!=='Escape' || !lightbox.classList.contains('open')) return;
+    lightbox.classList.remove('open');
+    img.removeAttribute('src');
+  });
 }
 
 async function joinWithToken(token, name){
@@ -637,6 +784,7 @@ function chatPanelHTML(){
       <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
       <div class="panel"><div id="messages" class="chat-log"></div></div>
       <div class="composer">
+        <div id="attachmentPreview" class="attachment-preview"></div>
         <input id="m" placeholder="Type message"/>
         <div class="emoji-wrap">
           <button id="emojiToggle" class="secondary emoji-btn" type="button" title="Emoji (Ctrl+E)" aria-label="Emoji" aria-expanded="false">☺</button>
@@ -807,9 +955,10 @@ async function loadHistory(){
   for(const m of history.data.messages.reverse()){
     let plain='[decrypt failed]';
     try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,m.nonce,m.ciphertext); }catch{}
-    messages.insertAdjacentHTML('beforeend',drawLine(m.display_name,plain,m.created_at));
+    messages.insertAdjacentHTML('beforeend',drawMessage(m.display_name,plain,m.created_at));
   }
-  messages.scrollTop=messages.scrollHeight;
+  bindMessageImageScroll();
+  scrollChatToBottom();
 }
 
 function scheduleSocketReconnect(){
@@ -850,8 +999,9 @@ function ensureSocket(){
     if(!messages) return;
     let plain='[decrypt failed]';
     try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,x.data.nonce,x.data.ciphertext);}catch{}
-    messages.insertAdjacentHTML('beforeend',drawLine(x.data.display_name,plain,new Date().toISOString()));
-    messages.scrollTop=messages.scrollHeight;
+    messages.insertAdjacentHTML('beforeend',drawMessage(x.data.display_name,plain,new Date().toISOString()));
+    bindMessageImageScroll();
+    scrollChatToBottom();
   };
   socket.onclose=()=>{
     if(ws===socket) ws=null;
@@ -931,6 +1081,7 @@ function bindChatActions(){
   const sendBtn=$('send');
   const input=$('m');
   if(!sendBtn || !input) return;
+  const preview=$('attachmentPreview');
   const emojiToggle=$('emojiToggle');
   const emojiPicker=$('emojiPicker');
   activeEmojiPicker=emojiPicker;
@@ -965,6 +1116,44 @@ function bindChatActions(){
     const end=input.selectionEnd ?? after.length;
     input.value=after;
     input.setSelectionRange(Math.max(0,start-diff), Math.max(0,end-diff));
+  };
+  const clearAttachment=()=>{
+    pendingAttachment=null;
+    if(preview){
+      preview.classList.remove('ready');
+      preview.innerHTML='';
+    }
+  };
+  const showAttachment=()=>{
+    if(!preview || !pendingAttachment) return;
+    preview.classList.add('ready');
+    preview.innerHTML=`<img src="${esc(pendingAttachment.url)}" alt="${esc(pendingAttachment.name)}"/><div><strong>${esc(pendingAttachment.name)}</strong><small>${esc(pendingAttachment.mime)} · ${esc(formatBytes(pendingAttachment.size))}</small></div><button id="clearAttachment" class="secondary" type="button">Remove</button>`;
+    const clearBtn=$('clearAttachment');
+    if(clearBtn) clearBtn.onclick=clearAttachment;
+  };
+  const attachImage=async(file)=>{
+    if(!file) return;
+    if(!IMAGE_TYPES.has(file.type)){
+      alert('Only PNG, JPEG, WebP, and GIF images are supported.');
+      return;
+    }
+    if(file.size > IMAGE_MAX_BYTES){
+      alert(`Image is too large. Limit is ${formatBytes(IMAGE_MAX_BYTES)}.`);
+      return;
+    }
+    const dataURL=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(String(reader.result||''));
+      reader.onerror=()=>reject(reader.error||new Error('read failed'));
+      reader.readAsDataURL(file);
+    });
+    const marker=`data:${file.type};base64,`;
+    if(!dataURL.startsWith(marker)){
+      alert('Image could not be prepared safely.');
+      return;
+    }
+    pendingAttachment={name:file.name||'pasted-image', mime:file.type, size:file.size, data:dataURL.slice(marker.length), url:dataURL};
+    showAttachment();
   };
 
   if(emojiToggle && emojiPicker){
@@ -1016,14 +1205,40 @@ function bindChatActions(){
       },{capture:true});
     }
   }
+  if(preview && pendingAttachment) showAttachment();
+
+  input.addEventListener('paste',(e)=>{
+    const item=[...(e.clipboardData?.items || [])].find((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type));
+    if(!item) return;
+    const file=item.getAsFile();
+    if(!file) return;
+    e.preventDefault();
+    attachImage(file).catch(()=>alert('Image paste failed.'));
+  });
+
+  input.addEventListener('dragover',(e)=>{
+    if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
+      e.preventDefault();
+      input.classList.add('drop-ready');
+    }
+  });
+  input.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
+  input.addEventListener('drop',(e)=>{
+    input.classList.remove('drop-ready');
+    const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
+    if(!file) return;
+    e.preventDefault();
+    attachImage(file).catch(()=>alert('Image drop failed.'));
+  });
 
   sendBtn.onclick=async()=>{
     convertInputEmoticons();
     const text=input.value.trim();
-    if(!text) return;
+    if(!text && !pendingAttachment) return;
     if(!roomKeyHex){ alert('No room key loaded. Import room.keys first.'); return; }
     try{
-      const enc=await encryptText(roomKeyHex,text);
+      const payload=pendingAttachment ? JSON.stringify({v:1,type:'image',mime:pendingAttachment.mime,name:pendingAttachment.name,size:pendingAttachment.size,data:pendingAttachment.data,caption:text}) : text;
+      const enc=await encryptText(roomKeyHex,payload);
       const conn=await ensureSocket();
       if(!conn || conn.readyState!==WebSocket.OPEN){
         alert('Connection lost. Reconnecting...');
@@ -1032,6 +1247,7 @@ function bindChatActions(){
       }
       conn.send(JSON.stringify({ciphertext:enc.ciphertext,nonce:enc.nonce}));
       input.value='';
+      clearAttachment();
       input.focus();
     }catch{ alert('Message could not be sent.'); }
   };
@@ -1206,6 +1422,8 @@ async function chatView(){
 }
 
 (async()=>{
+  if('scrollRestoration' in history) history.scrollRestoration='manual';
+  bindImageLightbox();
   applyTheme(currentTheme());
   const path=window.location.pathname;
   const inviteMatch=path.match(/^\/invite\/([^/]+)$/);
