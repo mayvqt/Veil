@@ -6,39 +6,43 @@
   <title>Veil</title>
   <style>
     :root {
-      --bg: #111716;
-      --bg-2: #18211f;
-      --ink: #f5f1e8;
-      --muted: #a7b3ab;
-      --quiet: #75847d;
-      --panel: #1d2724;
-      --panel-2: #24312d;
-      --surface: #141d1b;
-      --surface-2: #202b28;
-      --line: #33443f;
-      --line-2: #49645c;
-      --accent: #8bd8bd;
-      --accent-2: #ffd166;
-      --accent-soft: rgba(139,216,189,.12);
-      --accent-grid: rgba(139,216,189,.12);
-      --app-shell: rgba(17,23,22,.94);
-      --sidebar-a: rgba(36,49,45,.98);
-      --sidebar-b: rgba(18,27,25,.98);
-      --topbar-bg: rgba(20,29,27,.78);
-      --composer-bg: rgba(20,29,27,.86);
-      --panel-grad-a: rgba(36,49,45,.92);
-      --panel-grad-b: rgba(25,35,32,.94);
-      --chat-grad-a: rgba(29,39,36,.92);
-      --chat-grad-b: rgba(20,29,27,.98);
-      --button-a: #2c5b4e;
-      --button-b: #23483e;
-      --button-hover-a: #357061;
-      --button-hover-b: #28574b;
-      --placeholder: #7f9189;
-      --active-ink: #eafff8;
-      --danger: #ff8f70;
-      --ok: #8bd8bd;
-      --shadow: 0 18px 60px rgba(0, 0, 0, .32);
+      --bg: #130f12;
+      --bg-2: #20141c;
+      --ink: #f9edf5;
+      --muted: #c3a6b9;
+      --quiet: #9a7d8f;
+      --panel: #2b1b27;
+      --panel-2: #3a2534;
+      --surface: #1f141c;
+      --surface-2: #2a1b26;
+      --line: #533244;
+      --line-2: #6a4157;
+      --accent: #ff9d66;
+      --accent-2: #ff78b2;
+      --accent-soft: rgba(255,157,102,.14);
+      --focus-ring: rgba(255,157,102,.24);
+      --accent-grid: rgba(255,157,102,.09);
+      --app-shell: rgba(19,15,18,.94);
+      --sidebar-a: rgba(43,27,39,.98);
+      --sidebar-b: rgba(28,19,26,.98);
+      --topbar-bg: rgba(31,20,28,.74);
+      --composer-bg: rgba(31,20,28,.86);
+      --panel-grad-a: rgba(55,34,49,.88);
+      --panel-grad-b: rgba(31,20,28,.95);
+      --chat-grad-a: rgba(43,27,39,.92);
+      --chat-grad-b: rgba(28,19,26,.98);
+      --button-a: #d17346;
+      --button-b: #af5e35;
+      --button-hover-a: #ea8757;
+      --button-hover-b: #ca6f42;
+      --placeholder: #9e8093;
+      --active-ink: #fff4fb;
+      --danger: #ff7f9b;
+      --ok: #ff78b2;
+      --shadow: 0 20px 56px rgba(0, 0, 0, .38);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -86,20 +90,21 @@
     .nav-btn {
       text-align: left;
       border: 1px solid var(--line);
-      background: rgba(20,29,27,.74);
+      background: rgba(0,0,0,.14);
       color: var(--ink);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       padding: 11px 12px;
       font-weight: 600;
       cursor: pointer;
+      transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
     }
-    .nav-btn:hover { border-color: var(--line-2); }
+    .nav-btn:hover { border-color: var(--line-2); transform: translateY(-1px); }
     .nav-btn.active { border-color: var(--accent); background: var(--accent-soft); color: var(--active-ink); }
     .whoami {
       margin-top: auto;
       border: 1px solid var(--line);
-      background: rgba(20,29,27,.82);
-      border-radius: 6px;
+      background: rgba(0,0,0,.2);
+      border-radius: var(--radius-sm);
       padding: 12px;
       font-size: .85rem;
     }
@@ -146,7 +151,7 @@
       display: grid;
       align-content: start;
       gap: 5px;
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       overflow: auto;
       box-shadow: var(--shadow);
     }
@@ -164,7 +169,7 @@
       max-width: min(480px, 100%);
       max-height: 360px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       background: var(--surface);
       object-fit: contain;
       cursor: zoom-in;
@@ -185,7 +190,7 @@
       max-height: 88vh;
       object-fit: contain;
       border: 1px solid var(--line-2);
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       background: var(--surface);
       box-shadow: var(--shadow);
       cursor: zoom-out;
@@ -224,7 +229,7 @@
       grid-template-columns: repeat(8, 1fr);
       gap: 6px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       padding: 10px;
       background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
       box-shadow: var(--shadow);
@@ -250,7 +255,7 @@
       gap: 10px;
       align-items: center;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       background: var(--surface);
       padding: 10px;
     }
@@ -275,12 +280,12 @@
     .card {
       border: 1px solid var(--line);
       background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       padding: 16px;
       display: grid;
       gap: 12px;
       align-content: start;
-      box-shadow: 0 12px 34px rgba(0,0,0,.18);
+      box-shadow: 0 14px 34px rgba(0,0,0,.25);
     }
     .card h3 { margin: 0; font-size: 1rem; }
     .invite-out {
@@ -290,8 +295,8 @@
       border: 1px solid var(--line);
       background: var(--surface);
       padding: 10px;
-      border-radius: 6px;
-      color: #d6ebe2;
+      border-radius: var(--radius-sm);
+      color: var(--ink);
       font-family: "Cascadia Mono", "IBM Plex Mono", "SF Mono", monospace;
       font-size: .82rem;
       word-break: break-all;
@@ -304,7 +309,7 @@
       border: 1px solid var(--line);
       background: var(--surface);
       padding: 10px;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
     }
     .admin-user {
       display: grid;
@@ -313,7 +318,7 @@
       align-items: center;
       border: 1px solid var(--line);
       padding: 10px;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       background: var(--panel);
     }
     .admin-actions {
@@ -344,7 +349,7 @@
       align-items: center;
       border: 1px solid var(--line);
       background: var(--surface);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       padding: 10px;
     }
     .theme-row label { display: grid; gap: 3px; font-weight: 650; }
@@ -364,7 +369,7 @@
 
     button, input, select {
       border: 1px solid var(--line-2);
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       background: var(--surface);
       color: var(--ink);
       font: inherit;
@@ -374,19 +379,25 @@
       background: linear-gradient(180deg, var(--button-a), var(--button-b));
       font-weight: 600;
       cursor: pointer;
+      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
     }
-    button:hover { background: linear-gradient(180deg, var(--button-hover-a), var(--button-hover-b)); }
+    button:hover { background: linear-gradient(180deg, var(--button-hover-a), var(--button-hover-b)); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,.28); }
+    button:active { transform: translateY(0); }
     button.secondary { background: var(--surface-2); }
     button:disabled { opacity: .55; cursor: default; }
     input::placeholder { color: var(--placeholder); }
-    input:focus, select:focus { outline: none; border-color: var(--accent); }
+    input:focus, select:focus, button:focus-visible {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--focus-ring);
+    }
 
     .boot-wrap { min-height: 100vh; display: grid; place-items: center; padding: 18px; }
     .boot-card {
       width: min(760px, 100%);
       border: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(36,49,45,.98), rgba(25,35,32,.98));
-      border-radius: 10px;
+      background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
+      border-radius: var(--radius-lg);
       box-shadow: var(--shadow);
       padding: 26px;
       display: grid;
@@ -398,6 +409,35 @@
     .access-pane { display: grid; gap: 12px; align-content: start; }
     .access-pane h3 { margin: 0; font-size: 1rem; }
     .divider { height: 1px; background: var(--line); margin: 2px 0; }
+    .auth-shell { width: min(680px, 100%); }
+    .auth-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+    }
+    .auth-card h3 {
+      margin: 0;
+      font-size: 1.02rem;
+    }
+    .auth-copy {
+      color: var(--muted);
+      font-size: .9rem;
+      line-height: 1.45;
+    }
+    .auth-actions {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: minmax(0, 1fr);
+      margin-top: 4px;
+    }
+    .status-note {
+      font-size: .82rem;
+      color: var(--quiet);
+      line-height: 1.4;
+    }
 
     @media (max-width: 980px) {
       .chat-shell { grid-template-columns: 1fr; }
@@ -436,6 +476,7 @@ let activeEmojiToggle = null;
 let emojiOutsideHandlerBound = false;
 let pendingAttachment = null;
 let roomName = '';
+let seenMessageIDs = new Set();
 const VIEW_CHAT = 'chat';
 const VIEW_KEYS = 'keys';
 const VIEW_CONTROL = 'control';
@@ -462,22 +503,33 @@ const EMOTICON_MAP = {
 };
 const PBKDF2_ITERS = 600000;
 const THEME_STORAGE_KEY = 'veil.theme';
+const VEIL_THEME = {
+  bg:'#0b0f17',
+  bg2:'#121827',
+  panel:'#141b2b',
+  surface:'#0f1523',
+  ink:'#e9edf8',
+  muted:'#98a6c3',
+  accent:'#6fb4ff',
+  accent2:'#72e5c2',
+  danger:'#ff8c9c'
+};
 const DEFAULT_THEME = {
-  bg:'#111716',
-  bg2:'#18211f',
-  panel:'#1d2724',
-  surface:'#141d1b',
-  ink:'#f5f1e8',
-  muted:'#a7b3ab',
-  accent:'#8bd8bd',
-  accent2:'#ffd166',
-  danger:'#ff8f70'
+  bg:'#130f12',
+  bg2:'#20141c',
+  panel:'#2b1b27',
+  surface:'#1f141c',
+  ink:'#f9edf5',
+  muted:'#c3a6b9',
+  accent:'#ff9d66',
+  accent2:'#ff78b2',
+  danger:'#ff7f9b'
 };
 const THEME_PRESETS = {
-  veil: DEFAULT_THEME,
-  ember: {bg:'#171312',bg2:'#221817',panel:'#2a201e',surface:'#1f1715',ink:'#fff4eb',muted:'#c4aaa0',accent:'#ffb36b',accent2:'#7dd3c7',danger:'#ff7a7a'},
-  midnight: {bg:'#0f1320',bg2:'#171d2d',panel:'#20283a',surface:'#151b2a',ink:'#edf3ff',muted:'#aab6cc',accent:'#8fc7ff',accent2:'#ffd166',danger:'#ff8da1'},
-  graphite: {bg:'#121212',bg2:'#1d1d1d',panel:'#262626',surface:'#191919',ink:'#f4f4f0',muted:'#b7b7ad',accent:'#d5f56f',accent2:'#8bd8bd',danger:'#ff917d'}
+  veil: VEIL_THEME,
+  ember: DEFAULT_THEME,
+  midnight: {bg:'#08101c',bg2:'#111d33',panel:'#162640',surface:'#0e1a2f',ink:'#e8f1ff',muted:'#98aecf',accent:'#67b6ff',accent2:'#60e3d0',danger:'#ff8ea8'},
+  graphite: {bg:'#101214',bg2:'#191d23',panel:'#21262f',surface:'#171b22',ink:'#eef0f4',muted:'#a2acbc',accent:'#8ab4ff',accent2:'#88e0c4',danger:'#ff9aa4'}
 };
 
 const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -540,6 +592,7 @@ function applyTheme(theme){
   root.setProperty('--accent',t.accent);
   root.setProperty('--accent-2',t.accent2);
   root.setProperty('--accent-soft',rgbaHex(t.accent,.14));
+  root.setProperty('--focus-ring',rgbaHex(t.accent,.24));
   root.setProperty('--accent-grid',rgbaHex(t.accent,.12));
   root.setProperty('--active-ink',mixHex(t.ink,t.accent,.18));
   root.setProperty('--danger',t.danger);
@@ -679,6 +732,12 @@ function persistIdentity(){
   localStorage.setItem('veil.credentialId', currentCredentialId);
   localStorage.setItem('veil.displayName', currentDisplayName);
   localStorage.setItem('veil.roomKeyHex', roomKeyHex);
+}
+
+function clearInviteTokenFromURL(){
+  if(!window.location.pathname.startsWith('/invite/')) return;
+  const cleanURL = '/' + window.location.search + window.location.hash;
+  window.history.replaceState({}, '', cleanURL);
 }
 
 function setStatus(el, text, tone=''){
@@ -870,8 +929,12 @@ function controlPanelHTML(){
         <div class="admin-grid">
           <section class="card">
             <h3>Invites</h3>
-            <button id="invite">Create Invite</button>
+            <div class="theme-actions">
+              <button id="invite">Create Invite</button>
+              <button id="revokeUnusedInvites" class="secondary">Revoke Unused</button>
+            </div>
             <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
+            <div id="inviteList" class="admin-users"></div>
           </section>
 
           <section class="card" style="grid-column:1 / -1;">
@@ -899,7 +962,7 @@ async function bootView(){
 }
 
 async function accessView(){
-  app.innerHTML = `<section class="boot-wrap"><div class="boot-card"><div class="eyebrow">room found</div><div class="boot-title">Access Veil</div><div class="muted">Restore an existing identity or join with an invite token.</div><div class="split-grid"><section class="access-pane"><h3>Returning user</h3><input id="accessPassphrase" placeholder="Restore passphrase"/><input id="accessImportFile" type="file" accept=".keys,application/json"/><button id="accessImportBtn">Import room.keys</button><div id="importOut" class="status"></div></section><section class="access-pane"><h3>New invite</h3><input id="inviteToken" placeholder="Invite token"/><input id="name" placeholder="Display name"/><button id="joinByToken">Join Room</button><div id="joinOut" class="status"></div></section></div></div></section>`;
+  app.innerHTML = `<section class="boot-wrap"><div class="boot-card auth-shell"><div class="eyebrow">room found</div><div class="boot-title">Welcome Back</div><div class="muted">Restore your saved identity to re-enter this Veil room.</div><section class="auth-card"><h3>Returning User</h3><div class="auth-copy">Import your encrypted <code>room.keys</code> file and unlock it with your passphrase.</div><input id="accessPassphrase" placeholder="Restore passphrase" autocomplete="off"/><input id="accessImportFile" type="file" accept=".keys,application/json"/><div class="auth-actions"><button id="accessImportBtn">Restore Session</button></div><div id="importOut" class="status"></div><div class="status-note">Passphrase and key handling stay in your browser.</div></section></div></section>`;
 
   $('accessImportBtn').onclick=async()=>{
     const fileEl=$('accessImportFile'); const out=$('importOut');
@@ -920,27 +983,17 @@ async function accessView(){
     }
   };
 
-  $('joinByToken').onclick=async()=>{
-    const token=$('inviteToken').value.trim();
-    const name=$('name').value.trim();
-    const out=$('joinOut');
-    if(!token){ out.textContent='Invite token is required.'; return; }
-    if(!name){ out.textContent='Display name is required.'; return; }
-    const res = await joinWithToken(token, name);
-    if(!res.ok){ out.textContent=res.data.error||'Join failed'; return; }
-    out.textContent='Joined successfully.';
-    chatView();
-  };
 }
 
 async function inviteView(token){
-  app.innerHTML = `<section class="boot-wrap"><div class="boot-card"><div class="eyebrow">invite</div><div class="boot-title">Join Veil Room</div><div class="muted">Choose the display name other members will see.</div><div class="boot-grid"><input id="name" placeholder="Display name"/><button id="join">Join Room</button><div id="joinOut" class="status">Invite token detected and ready.</div></div></div></section>`;
+  app.innerHTML = `<section class="boot-wrap"><div class="boot-card auth-shell"><div class="eyebrow">invite link</div><div class="boot-title">Join Veil Room</div><div class="muted">Create your room identity with a display name to continue.</div><section class="auth-card"><h3>New Member</h3><div class="auth-copy">This invite can be used once. After joining, the token is cleared from your address bar automatically.</div><input id="name" placeholder="Display name" autocomplete="nickname"/><div class="auth-actions"><button id="join">Join Securely</button></div><div id="joinOut" class="status">Invite token detected and ready.</div></section></div></section>`;
   $('join').onclick=async()=>{
     const name=$('name').value.trim();
     const out=$('joinOut');
     if(!name){ out.textContent='Display name is required.'; return; }
     const res = await joinWithToken(token, name);
     if(!res.ok){ out.textContent=res.data.error||'Join failed'; return; }
+    clearInviteTokenFromURL();
     out.textContent='Joined successfully. Import room.keys to decrypt history.';
     chatView();
   };
@@ -951,14 +1004,26 @@ async function loadHistory(){
   if(!messages) return;
   const history = await api('/api/messages');
   if(!history.ok) return;
+  seenMessageIDs = new Set();
   messages.innerHTML='';
   for(const m of history.data.messages.reverse()){
-    let plain='[decrypt failed]';
-    try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,m.nonce,m.ciphertext); }catch{}
-    messages.insertAdjacentHTML('beforeend',drawMessage(m.display_name,plain,m.created_at));
+    await appendMessageRecord(messages, m);
   }
   bindMessageImageScroll();
   scrollChatToBottom();
+}
+
+async function appendMessageRecord(messagesEl, record){
+  if(!messagesEl || !record) return;
+  const messageID = String(record.id || '').trim();
+  if(messageID){
+    if(seenMessageIDs.has(messageID)) return;
+    seenMessageIDs.add(messageID);
+  }
+  let plain='[decrypt failed]';
+  try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,record.nonce,record.ciphertext); }catch{}
+  const row = drawMessage(record.display_name, plain, record.created_at || new Date().toISOString());
+  messagesEl.insertAdjacentHTML('beforeend', row);
 }
 
 function scheduleSocketReconnect(){
@@ -988,6 +1053,9 @@ function ensureSocket(){
 
     socket.onopen=()=>{
       wsReconnectAttempts=0;
+      if(currentView===VIEW_CHAT){
+        loadHistory();
+      }
       finish(socket);
     };
     socket.onerror=()=>finish(null);
@@ -997,9 +1065,7 @@ function ensureSocket(){
     if(x.type!=='message') return;
     const messages=document.getElementById('messages');
     if(!messages) return;
-    let plain='[decrypt failed]';
-    try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,x.data.nonce,x.data.ciphertext);}catch{}
-    messages.insertAdjacentHTML('beforeend',drawMessage(x.data.display_name,plain,new Date().toISOString()));
+    await appendMessageRecord(messages, x.data || {});
     bindMessageImageScroll();
     scrollChatToBottom();
   };
@@ -1359,15 +1425,57 @@ function bindThemeActions(){
 
 function bindControlActions(){
   const inviteBtn=$('invite');
+  const inviteOut=$('inviteOut');
+  const inviteList=$('inviteList');
+  const revokeUnusedBtn=$('revokeUnusedInvites');
+
+  const refreshInvites=async()=>{
+    if(!inviteList) return;
+    const r=await api('/api/admin/invites');
+    if(!r.ok){
+      inviteList.innerHTML = `<div class="muted">${esc(r.data.error || 'failed to load invites')}</div>`;
+      return;
+    }
+    inviteList.innerHTML='';
+    for(const inv of (r.data.invites || [])){
+      const row=document.createElement('div');
+      row.className='admin-user';
+      const remaining=Math.max(0, Number(inv.max_uses||0)-Number(inv.uses||0));
+      const state=inv.revoked ? 'revoked' : (remaining===0 ? 'used' : 'active');
+      row.innerHTML=`<div><strong>${esc(inv.id)}</strong><div class="admin-role">${esc(state)} · uses ${esc(String(inv.uses||0))}/${esc(String(inv.max_uses||0))} · expires ${esc(inv.expires_at||'n/a')}</div></div><div class="admin-actions">${inv.revoked?'<span class="muted">locked</span>':`<button class="secondary" data-revoke-invite="${esc(inv.id)}">Revoke</button>`}</div>`;
+      inviteList.appendChild(row);
+    }
+    inviteList.querySelectorAll('button[data-revoke-invite]').forEach((btn)=>{
+      btn.addEventListener('click', async()=>{
+        const inviteID = btn.getAttribute('data-revoke-invite');
+        const resp = await api('/api/admin/revoke-invite',{method:'POST',body:JSON.stringify({invite_id:inviteID})});
+        if(!resp.ok){
+          if(inviteOut) inviteOut.textContent = resp.data.error || 'failed';
+          return;
+        }
+        if(inviteOut) inviteOut.textContent = `Revoked invite ${inviteID}`;
+        refreshInvites();
+      });
+    });
+  };
+
   if(inviteBtn){
     inviteBtn.onclick=async()=>{
-      const out=$('inviteOut');
       const r=await api('/api/invite',{method:'POST'});
-      out.textContent = r.ok ? `${location.origin}${r.data.invite_link}` : (r.data.error || 'failed');
+      if(inviteOut) inviteOut.textContent = r.ok ? `${location.origin}${r.data.invite_link}` : (r.data.error || 'failed');
+      refreshInvites();
+    };
+  }
+  if(revokeUnusedBtn){
+    revokeUnusedBtn.onclick=async()=>{
+      const r=await api('/api/admin/revoke-unused-invites',{method:'POST',body:JSON.stringify({})});
+      if(inviteOut) inviteOut.textContent = r.ok ? `Revoked ${r.data.revoked} unused invites` : (r.data.error || 'failed');
+      refreshInvites();
     };
   }
 
   renderAdminUsers();
+  refreshInvites();
 }
 
 function renderPanelHTML(){

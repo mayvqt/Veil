@@ -73,6 +73,9 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/api/admin/users", s.listUsers)
 	r.Post("/api/admin/role", s.changeRole)
 	r.Post("/api/admin/remove-user", s.removeUser)
+	r.Get("/api/admin/invites", s.listInvites)
+	r.Post("/api/admin/revoke-invite", s.revokeInvite)
+	r.Post("/api/admin/revoke-unused-invites", s.revokeUnusedInvites)
 	r.Get("/ws", s.ws)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	return r
@@ -117,11 +120,14 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session := auth.Sign(auth.NewSession(u.ID), s.Secret)
-	http.SetCookie(w, &http.Cookie{Name: "veil_session", Value: session, HttpOnly: true, Secure: s.CookieSecure, SameSite: http.SameSiteLaxMode, Path: "/"})
+	setSessionCookie(w, session, s.CookieSecure, s.SessionMaxAge)
 	writeJSON(w, 200, map[string]any{"ok": true, "user": u})
 }
 
 func (s *Server) createInvite(w http.ResponseWriter, r *http.Request) {
+	if !checkRateLimit(w, r, "create_invite", 15, time.Minute) {
+		return
+	}
 	u, ok := s.requireUser(w, r)
 	if !ok {
 		return
@@ -137,10 +143,14 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": "could not create invite"})
 		return
 	}
+	log.Printf("invite_created by=%s invite_id=%s", u.ID, id)
 	writeJSON(w, 200, map[string]string{"invite_id": id, "invite_link": "/invite/" + token})
 }
 
 func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
+	if !checkRateLimit(w, r, "join_invite", 20, time.Minute) {
+		return
+	}
 	var req struct {
 		Token        string `json:"token"`
 		DisplayName  string `json:"display_name"`
@@ -160,12 +170,12 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := s.Store.ValidateInvite(invite.HashToken(req.Token)); err != nil {
-		writeJSON(w, 403, map[string]string{"error": "invalid invite"})
+		writeJSON(w, 403, map[string]string{"error": "access denied"})
 		return
 	}
 	u, err := s.Store.AddMember(req.DisplayName, req.PublicKey, req.CredentialID)
 	if err != nil {
-		writeJSON(w, 500, map[string]string{"error": "could not create user"})
+		writeJSON(w, 403, map[string]string{"error": "access denied"})
 		return
 	}
 	roomKeyEnc, err := s.Store.GetRoomKeyEnc()
@@ -174,11 +184,15 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session := auth.Sign(auth.NewSession(u.ID), s.Secret)
-	http.SetCookie(w, &http.Cookie{Name: "veil_session", Value: session, HttpOnly: true, Secure: s.CookieSecure, SameSite: http.SameSiteLaxMode, Path: "/"})
+	setSessionCookie(w, session, s.CookieSecure, s.SessionMaxAge)
+	log.Printf("invite_join_success user_id=%s display_name=%q", u.ID, u.DisplayName)
 	writeJSON(w, 200, map[string]any{"ok": true, "user": u, "room_key_enc": roomKeyEnc})
 }
 
 func (s *Server) tuiSession(w http.ResponseWriter, r *http.Request) {
+	if !checkRateLimit(w, r, "tui_session", 30, time.Minute) {
+		return
+	}
 	var req struct {
 		CredentialID string `json:"credential_id"`
 	}
@@ -189,14 +203,18 @@ func (s *Server) tuiSession(w http.ResponseWriter, r *http.Request) {
 	req.CredentialID = cleanInput(req.CredentialID, 128)
 	u, err := s.Store.FindUserByCredential(req.CredentialID)
 	if err != nil || u == nil {
-		writeJSON(w, 401, map[string]string{"error": "unknown credential"})
+		writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 		return
 	}
 	tok := auth.Sign(auth.NewSession(u.ID), s.Secret)
+	log.Printf("tui_session_issued user_id=%s", u.ID)
 	writeJSON(w, 200, map[string]string{"session": tok})
 }
 
 func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {
+	if !checkRateLimit(w, r, "session_credential", 30, time.Minute) {
+		return
+	}
 	var req struct {
 		CredentialID string `json:"credential_id"`
 	}
@@ -207,11 +225,12 @@ func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {
 	req.CredentialID = cleanInput(req.CredentialID, 128)
 	u, err := s.Store.FindUserByCredential(req.CredentialID)
 	if err != nil || u == nil {
-		writeJSON(w, 401, map[string]string{"error": "unknown credential"})
+		writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 		return
 	}
 	session := auth.Sign(auth.NewSession(u.ID), s.Secret)
-	http.SetCookie(w, &http.Cookie{Name: "veil_session", Value: session, HttpOnly: true, Secure: s.CookieSecure, SameSite: http.SameSiteLaxMode, Path: "/"})
+	setSessionCookie(w, session, s.CookieSecure, s.SessionMaxAge)
+	log.Printf("web_session_issued user_id=%s", u.ID)
 	writeJSON(w, 200, map[string]any{"ok": true, "display_name": u.DisplayName})
 }
 
@@ -395,4 +414,81 @@ func randomToken() string {
 	b := make([]byte, 18)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+func (s *Server) listInvites(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	items, err := s.Store.ListInvites(100)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to list invites"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"invites": items})
+}
+
+func (s *Server) revokeInvite(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	var req struct {
+		InviteID string `json:"invite_id"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	req.InviteID = cleanInput(req.InviteID, 128)
+	if req.InviteID == "" {
+		writeJSON(w, 400, map[string]string{"error": "invite_id required"})
+		return
+	}
+	if err := s.Store.RevokeInvite(req.InviteID); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to revoke invite"})
+		return
+	}
+	log.Printf("invite_revoked by=%s invite_id=%s", u.ID, req.InviteID)
+	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+func (s *Server) revokeUnusedInvites(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	n, err := s.Store.RevokeUnusedInvites()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to revoke unused invites"})
+		return
+	}
+	log.Printf("invite_revoke_unused by=%s revoked=%d", u.ID, n)
+	writeJSON(w, 200, map[string]any{"ok": true, "revoked": n})
+}
+
+func setSessionCookie(w http.ResponseWriter, session string, secure bool, maxAge time.Duration) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "veil_session",
+		Value:    session,
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+		MaxAge:   int(maxAge.Seconds()),
+		Expires:  time.Now().Add(maxAge),
+	})
 }

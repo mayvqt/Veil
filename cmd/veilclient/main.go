@@ -80,11 +80,13 @@ func runClient() error {
 		session:    sessionToken,
 		credential: cfg.CredentialID,
 		selfName:   displayName,
-		lines: append([]line{
+		seenIDs:    map[string]struct{}{},
+		lines: []line{
 			{user: "system", text: "connected"},
 			{user: "system", text: "local vault ready"},
-		}, history...),
+		},
 	}
+	m.mergeHistory(history)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

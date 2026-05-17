@@ -215,6 +215,14 @@ func terminalImageProtocol() string {
 	case "kitty", "iterm":
 		return override
 	}
+
+	// Auto-detect commonly supported terminals when no override is set.
+	if os.Getenv("KITTY_WINDOW_ID") != "" || strings.Contains(strings.ToLower(os.Getenv("TERM")), "kitty") {
+		return "kitty"
+	}
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("TERM_PROGRAM")), "iTerm.app") {
+		return "iterm"
+	}
 	return ""
 }
 

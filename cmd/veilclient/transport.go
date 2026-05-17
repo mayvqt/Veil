@@ -61,9 +61,11 @@ func fetchHistory(base, sessionToken string, roomKey []byte) []line {
 
 	var payload struct {
 		Messages []struct {
+			ID          string `json:"id"`
 			DisplayName string `json:"display_name"`
 			Ciphertext  string `json:"ciphertext"`
 			Nonce       string `json:"nonce"`
+			CreatedAt   string `json:"created_at"`
 		} `json:"messages"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
@@ -76,7 +78,7 @@ func fetchHistory(base, sessionToken string, roomKey []byte) []line {
 	out := make([]line, 0, len(payload.Messages))
 	for i := len(payload.Messages) - 1; i >= 0; i-- {
 		m := payload.Messages[i]
-		out = append(out, line{user: m.DisplayName, text: decryptMessage(roomKey, m.Nonce, m.Ciphertext)})
+		out = append(out, line{id: m.ID, user: m.DisplayName, text: decryptMessage(roomKey, m.Nonce, m.Ciphertext), createdAt: m.CreatedAt})
 	}
 	return out
 }

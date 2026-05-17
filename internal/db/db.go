@@ -17,6 +17,9 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
+	if _, err := db.Exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA busy_timeout=5000;"); err != nil {
+		return nil, err
+	}
 	if err := migrate(db); err != nil {
 		return nil, err
 	}
@@ -70,6 +73,11 @@ CREATE TABLE IF NOT EXISTS invites (
   revoked INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_credential_id ON devices(credential_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);
+CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_at);
 `)
 	if err != nil {
 		return err

@@ -25,7 +25,7 @@ func readWS(c *websocket.Conn, roomKey []byte) tea.Cmd {
 			return incomingMsg{ws: c}
 		}
 		plain := decryptMessage(roomKey, x.Data["nonce"], x.Data["ciphertext"])
-		return incomingMsg{ws: c, user: x.Data["display_name"], text: plain}
+		return incomingMsg{ws: c, id: x.Data["id"], user: x.Data["display_name"], text: plain, createdAt: x.Data["created_at"]}
 	}
 }
 
@@ -113,7 +113,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.pending = nextPending
 		}
-		m.lines = append(m.lines, line{user: x.user, text: x.text})
+		m.addLine(line{id: x.id, user: x.user, text: x.text, createdAt: x.createdAt})
 		return m, readWS(m.ws, m.roomKey)
 	case wsDisconnectedMsg:
 		if x.ws != nil && m.ws != nil && x.ws != m.ws {
@@ -141,11 +141,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.session = x.session
 		m.reconnect = false
 		m.lines = append(m.lines, line{user: "system", text: "reconnected"})
+		m.mergeHistory(fetchHistory(m.serverBase, m.session, m.roomKey))
 		return m, readWS(m.ws, m.roomKey)
 	case wsReconnectTickMsg:
 		return m, reconnectWS(m.serverBase, m.credential)
 	}
 	return m, nil
+}
+
+func (m *model) addLine(ln line) {
+	id := strings.TrimSpace(ln.id)
+	if id != "" {
+		if m.seenIDs == nil {
+			m.seenIDs = map[string]struct{}{}
+		}
+		if _, ok := m.seenIDs[id]; ok {
+			return
+		}
+		m.seenIDs[id] = struct{}{}
+	}
+	m.lines = append(m.lines, ln)
+}
+
+func (m *model) mergeHistory(items []line) {
+	for _, ln := range items {
+		m.addLine(ln)
+	}
 }
 
 func pastelFor(name string) lipgloss.Color {

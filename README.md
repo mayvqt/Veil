@@ -148,6 +148,19 @@ VEIL_BASE=https://veil.example.com go run ./cmd/veilclient
 
 The client automatically upgrades websocket to `wss://` when `VEIL_BASE` is `https://`.
 
+### TUI inline images (Kitty / iTerm2)
+
+The TUI can render inline previews for image messages in compatible terminals.
+
+- Auto-detected:
+1. Kitty (`KITTY_WINDOW_ID` or kitty `TERM`)
+2. iTerm2 (`TERM_PROGRAM=iTerm.app`)
+
+- Manual override:
+1. `VEIL_TUI_IMAGE_PROTOCOL=kitty`
+2. `VEIL_TUI_IMAGE_PROTOCOL=iterm`
+3. `VEIL_TUI_IMAGE_PROTOCOL=off` (disable previews, keep file link labels)
+
 ### 5) Quick verification
 
 1. Open `https://veil.example.com/health` and confirm `{"ok":true,...}`

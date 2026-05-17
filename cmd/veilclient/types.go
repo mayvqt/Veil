@@ -46,14 +46,18 @@ type localVault struct {
 }
 
 type line struct {
-	user string
-	text string
+	id        string
+	user      string
+	text      string
+	createdAt string
 }
 
 type incomingMsg struct {
-	ws   *websocket.Conn
-	user string
-	text string
+	ws        *websocket.Conn
+	id        string
+	user      string
+	text      string
+	createdAt string
 }
 
 type wsDisconnectedMsg struct {
@@ -85,4 +89,5 @@ type model struct {
 	height     int
 	ready      bool
 	reconnect  bool
+	seenIDs    map[string]struct{}
 }

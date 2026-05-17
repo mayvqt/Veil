@@ -96,10 +96,11 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(in.Ciphertext) == "" || strings.TrimSpace(in.Nonce) == "" {
 			continue
 		}
-		if err := s.Store.SaveMessage(u.ID, in.Ciphertext, in.Nonce); err != nil {
+		msg, err := s.Store.SaveMessage(u.ID, u.DisplayName, in.Ciphertext, in.Nonce)
+		if err != nil {
 			continue
 		}
-		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: map[string]string{"display_name": u.DisplayName, "ciphertext": in.Ciphertext, "nonce": in.Nonce}})
+		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: map[string]string{"id": msg.ID, "created_at": msg.CreatedAt, "display_name": msg.DisplayName, "ciphertext": msg.Ciphertext, "nonce": msg.Nonce}})
 	}
 }
 

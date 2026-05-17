@@ -14,6 +14,23 @@ type User struct {
 	Role        string `json:"role"`
 }
 
+type Message struct {
+	ID          string `json:"id"`
+	DisplayName string `json:"display_name"`
+	Ciphertext  string `json:"ciphertext"`
+	Nonce       string `json:"nonce"`
+	CreatedAt   string `json:"created_at"`
+}
+
+type InviteInfo struct {
+	ID        string `json:"id"`
+	ExpiresAt string `json:"expires_at"`
+	MaxUses   int    `json:"max_uses"`
+	Uses      int    `json:"uses"`
+	Revoked   bool   `json:"revoked"`
+	CreatedAt string `json:"created_at"`
+}
+
 func (s *Store) IsInitialized() (bool, error) {
 	var initialized int
 	err := s.DB.QueryRow("SELECT initialized FROM room_state WHERE id=1").Scan(&initialized)
@@ -123,12 +140,22 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 	return u, nil
 }
 
-func (s *Store) SaveMessage(senderID, ciphertext, nonce string) error {
+func (s *Store) SaveMessage(senderID, displayName, ciphertext, nonce string) (*Message, error) {
 	if len(ciphertext) > 4*1024*1024 || len(nonce) > 128 {
-		return errors.New("message too large")
+		return nil, errors.New("message too large")
 	}
-	_, err := s.DB.Exec("INSERT INTO messages (id, sender_id, ciphertext, nonce, created_at) VALUES (?, ?, ?, ?, ?)", uuid.NewString(), senderID, ciphertext, nonce, now())
-	return err
+	msg := &Message{
+		ID:          uuid.NewString(),
+		DisplayName: displayName,
+		Ciphertext:  ciphertext,
+		Nonce:       nonce,
+		CreatedAt:   now(),
+	}
+	_, err := s.DB.Exec("INSERT INTO messages (id, sender_id, ciphertext, nonce, created_at) VALUES (?, ?, ?, ?, ?)", msg.ID, senderID, ciphertext, nonce, msg.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return msg, nil
 }
 
 func (s *Store) ListRecentMessages(limit int) ([]map[string]string, error) {
@@ -149,6 +176,43 @@ ORDER BY m.created_at DESC LIMIT ?`, limit)
 		out = append(out, map[string]string{"id": id, "display_name": name, "ciphertext": ct, "nonce": nonce, "created_at": created})
 	}
 	return out, rows.Err()
+}
+
+func (s *Store) ListInvites(limit int) ([]InviteInfo, error) {
+	rows, err := s.DB.Query(`
+SELECT id, expires_at, max_uses, uses, revoked, created_at
+FROM invites
+ORDER BY created_at DESC
+LIMIT ?`, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]InviteInfo, 0, limit)
+	for rows.Next() {
+		var item InviteInfo
+		var revoked int
+		if err := rows.Scan(&item.ID, &item.ExpiresAt, &item.MaxUses, &item.Uses, &revoked, &item.CreatedAt); err != nil {
+			return nil, err
+		}
+		item.Revoked = revoked == 1
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) RevokeInvite(inviteID string) error {
+	_, err := s.DB.Exec("UPDATE invites SET revoked=1 WHERE id=?", inviteID)
+	return err
+}
+
+func (s *Store) RevokeUnusedInvites() (int64, error) {
+	res, err := s.DB.Exec("UPDATE invites SET revoked=1 WHERE revoked=0 AND uses=0")
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
 }
 
 func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
