@@ -20,6 +20,8 @@ let currentView = VIEW_CHAT;
 let myRole = 'member';
 let myUserID = '';
 const knownDisplayNames = new Set();
+const SIDEBAR_COLLAPSED_KEY = 'veil.sidebarCollapsed';
+let sidebarCollapsed = loadSidebarCollapsed();
 
 const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
 const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
@@ -79,6 +81,19 @@ const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
 function normalizeHexColor(value){
   const v=String(value||'').trim();
   return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+}
+function loadSidebarCollapsed(){
+  try{
+    const raw=localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if(raw===null) return true;
+    return raw === '1';
+  }catch{
+    return true;
+  }
+}
+function setSidebarCollapsed(next){
+  sidebarCollapsed=!!next;
+  try{ localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0'); }catch{}
 }
 function loadUserColors(){
   try{
@@ -528,10 +543,9 @@ function navHTML(){
 
 function chatPanelHTML(){
   const title = roomName || 'Room Chat';
-  const activeColor=userColor(currentDisplayName||'');
   return `
     <section class="main">
-      <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span><label class="chat-color-control" for="chatColor">Chat color <input id="chatColor" type="color" value="${esc(activeColor)}" title="Choose your chat name color"/></label></div></header>
+      <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
       <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
         <div id="attachmentPreview" class="attachment-preview"></div>
@@ -554,7 +568,7 @@ function chatPanelHTML(){
 function keysPanelHTML(){
   return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
+      <header class="topbar"><div><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">local only</span></div></header>
       <div class="panel utility-panel">
         <section class="card">
           <h3>Backup + Restore</h3>
@@ -601,7 +615,7 @@ function themePanelHTML(){
   ];
   return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Theme Studio</strong><small>Custom colors stay in this browser</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
+      <header class="topbar"><div><strong>Theme Studio</strong><small>Custom colors stay in this browser</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">local only</span></div></header>
       <div class="panel utility-panel">
         <section class="card">
           <h3>Presets</h3>
@@ -616,6 +630,12 @@ function themePanelHTML(){
           <h3>Custom Theme</h3>
           <div class="theme-grid">
             ${fields.map(([key,label,hint])=>`<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(t[key])}"/></div>`).join('')}
+          </div>
+          <div class="divider"></div>
+          <h3>Chat Identity</h3>
+          <div class="theme-row">
+            <label for="theme-chat-color">Name Color<span>Used for your display name in chat on this browser</span></label>
+            <input id="theme-chat-color" type="color" value="${esc(userColor(currentDisplayName||''))}"/>
           </div>
           <div class="theme-actions">
             <button id="saveTheme">Save Theme</button>
@@ -633,7 +653,7 @@ function controlPanelHTML(){
   const canManageUsers = myRole === 'root_admin';
   return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Control Center</strong><small>Invites, members, and message retention</small></div><div class="top-actions"><span class="muted">${esc(myRole)}</span></div></header>
+      <header class="topbar"><div><strong>Control Center</strong><small>Invites, members, and message retention</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">${esc(myRole)}</span></div></header>
       <div class="panel utility-panel">
         <div class="admin-grid">
           <section class="card">
@@ -912,7 +932,6 @@ function bindChatActions(){
   const emojiPicker=$('emojiPicker');
   const attachToggle=$('attachToggle');
   const attachFileInput=$('attachFileInput');
-  const chatColorInput=$('chatColor');
   let mentionOpen=false;
   let mentionQuery='';
   let mentionStart=-1;
@@ -1043,13 +1062,6 @@ function bindChatActions(){
     showAttachment();
   };
 
-  if(chatColorInput){
-    chatColorInput.value=userColor(currentDisplayName || '');
-    chatColorInput.addEventListener('input',()=>{
-      setUserColor(currentDisplayName || '', chatColorInput.value);
-      refreshRenderedUserColor(currentDisplayName || '');
-    });
-  }
   if(attachToggle && attachFileInput){
     attachToggle.onclick=()=>attachFileInput.click();
     attachFileInput.addEventListener('change',()=>{
@@ -1322,6 +1334,7 @@ function bindKeyActions(){
 function bindThemeActions(){
   const status=$('themeStatus');
   const inputs=[...document.querySelectorAll('input[data-theme-key]')];
+  const chatColorInput=$('theme-chat-color');
   const readThemeFromInputs=()=>{
     const theme={};
     for(const input of inputs) theme[input.dataset.themeKey]=input.value;
@@ -1361,8 +1374,16 @@ function bindThemeActions(){
     resetBtn.onclick=()=>{
       resetTheme();
       fillInputs(DEFAULT_THEME);
+      if(chatColorInput) chatColorInput.value=userColor(currentDisplayName || '');
       setStatus(status, 'Theme reset.', 'ok');
     };
+  }
+  if(chatColorInput){
+    chatColorInput.addEventListener('input',()=>{
+      setUserColor(currentDisplayName || '', chatColorInput.value);
+      refreshRenderedUserColor(currentDisplayName || '');
+      setStatus(status, 'Previewing chat name color.');
+    });
   }
 }
 
@@ -1522,14 +1543,21 @@ async function renderMain(){
   if(currentView === VIEW_CONTROL && !isAdminRole(myRole)){
     currentView = VIEW_CHAT;
   }
-  app.innerHTML = `<section class="chat-shell">${navHTML()}${renderPanelHTML()}</section>`;
+  app.innerHTML = `<section class="chat-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}">${navHTML()}${renderPanelHTML()}</section>`;
 
-  $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; renderMain(); };
-  $('tabKeys').onclick=()=>{ currentView=VIEW_KEYS; renderMain(); };
-  $('tabTheme').onclick=()=>{ currentView=VIEW_THEME; renderMain(); };
+  const sidebarToggle=$('sidebarToggle');
+  if(sidebarToggle){
+    sidebarToggle.onclick=()=>{
+      setSidebarCollapsed(!sidebarCollapsed);
+      renderMain();
+    };
+  }
+  $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; setSidebarCollapsed(true); renderMain(); };
+  $('tabKeys').onclick=()=>{ currentView=VIEW_KEYS; setSidebarCollapsed(true); renderMain(); };
+  $('tabTheme').onclick=()=>{ currentView=VIEW_THEME; setSidebarCollapsed(true); renderMain(); };
   const tabControl = $('tabControl');
   if(tabControl){
-    tabControl.onclick=()=>{ currentView=VIEW_CONTROL; renderMain(); };
+    tabControl.onclick=()=>{ currentView=VIEW_CONTROL; setSidebarCollapsed(true); renderMain(); };
   }
 
   if(currentView===VIEW_CHAT){
