@@ -1,0 +1,38 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build/test artifacts
+*.test
+*.out
+coverage.out
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Local app data
+*.db
+*.db-shm
+*.db-wal
+.room.keys
+
+# Logs
+*.log
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Temporary files
+*.tmp
+*.bak

@@ -1,0 +1,37 @@
+# VCS & local agent metadata
+.git
+.agents
+.codex
+
+# Build outputs / local artifacts
+bin/
+dist/
+tmp/
+coverage.out
+*.test
+*.out
+
+# Runtime/local data
+*.db
+*.db-shm
+*.db-wal
+.room.keys
+
+# Env and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Dependency/vendor trees not used by this Go build context
+node_modules/

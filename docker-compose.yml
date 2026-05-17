@@ -1,0 +1,26 @@
+services:
+  veil:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: veil
+    ports:
+      - "3847:3847"
+    environment:
+      PUID: "99"
+      PGID: "100"
+      TZ: "UTC"
+      UMASK: "022"
+      APP_BIND_ADDR: ":3847"
+      VEIL_DATA_DIR: "/config"
+      DATABASE_PATH: "/config/veil.db"
+      SESSION_SECRET: "change-this-in-real-env"
+      COOKIE_SECURE: "false"
+      SESSION_MAX_AGE_HOURS: "720"
+      PUBLIC_ORIGIN: ""
+    volumes:
+      - veil_config:/config
+    restart: unless-stopped
+
+volumes:
+  veil_config:
