@@ -10,6 +10,12 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const (
+	wsWriteWait = 10 * time.Second
+	wsPongWait  = 60 * time.Second
+	wsPingEvery = (wsPongWait * 9) / 10
+)
+
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	u, err := s.userFromCookie(r)
 	if err != nil {
@@ -35,14 +41,42 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	}
 	defer c.Close()
 	c.SetReadLimit(64 * 1024)
+	_ = c.SetReadDeadline(time.Now().Add(wsPongWait))
+	c.SetPongHandler(func(string) error {
+		return c.SetReadDeadline(time.Now().Add(wsPongWait))
+	})
 
 	out := make(chan chat.Outbound, 16)
+	closeReason := make(chan []byte, 1)
 	s.Hub.Add(out)
 	defer s.Hub.Remove(out)
 
 	go func() {
-		for msg := range out {
-			_ = c.WriteJSON(msg)
+		ticker := time.NewTicker(wsPingEvery)
+		defer ticker.Stop()
+		defer c.Close()
+
+		for {
+			select {
+			case msg, ok := <-out:
+				_ = c.SetWriteDeadline(time.Now().Add(wsWriteWait))
+				if !ok {
+					_ = c.WriteMessage(websocket.CloseMessage, []byte{})
+					return
+				}
+				if err := c.WriteJSON(msg); err != nil {
+					return
+				}
+			case reason := <-closeReason:
+				_ = c.SetWriteDeadline(time.Now().Add(wsWriteWait))
+				_ = c.WriteMessage(websocket.CloseMessage, reason)
+				return
+			case <-ticker.C:
+				_ = c.SetWriteDeadline(time.Now().Add(wsWriteWait))
+				if err := c.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			}
 		}
 	}()
 
@@ -53,7 +87,10 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		}
 		active, err := s.Store.IsUserActive(u.ID)
 		if err != nil || !active {
-			_ = c.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "user access revoked"), nowPlusSeconds(2))
+			select {
+			case closeReason <- websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "user access revoked"):
+			default:
+			}
 			return
 		}
 		if strings.TrimSpace(in.Ciphertext) == "" || strings.TrimSpace(in.Nonce) == "" {
@@ -91,8 +128,4 @@ func requestOrigin(r *http.Request) string {
 		host = r.Host
 	}
 	return proto + "://" + host
-}
-
-func nowPlusSeconds(seconds int) time.Time {
-	return time.Now().Add(time.Duration(seconds) * time.Second)
 }
