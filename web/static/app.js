@@ -19,6 +19,7 @@ const VIEW_THEME = 'theme';
 let currentView = VIEW_CHAT;
 let myRole = 'member';
 let myUserID = '';
+const knownDisplayNames = new Set();
 
 const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
 const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
@@ -215,6 +216,24 @@ function formatBytes(bytes){
 function normalizeMime(mime){
   return String(mime || '').toLowerCase().split(';')[0].trim();
 }
+function registerDisplayName(name){
+  const clean=String(name || '').trim();
+  if(clean) knownDisplayNames.add(clean);
+}
+function getMentionCandidates(query=''){
+  const q=String(query || '').trim().toLowerCase();
+  const list=[...knownDisplayNames].sort((a,b)=>a.localeCompare(b));
+  if(!q) return list.slice(0,8);
+  return list.filter((name)=>name.toLowerCase().includes(q)).slice(0,8);
+}
+function findMentionMatch(rawName){
+  const target=String(rawName || '').toLowerCase();
+  if(!target) return '';
+  for(const name of knownDisplayNames){
+    if(name.toLowerCase()===target) return name;
+  }
+  return '';
+}
 function linkifyText(text){
   const input=String(text ?? '');
   const urlRe=/https?:\/\/[^\s<>"']+|www\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+[^\s<>"']*/gi;
@@ -240,6 +259,16 @@ function linkifyText(text){
   }
   out += esc(input.slice(last));
   return out;
+}
+function renderMentions(text){
+  return String(text ?? '').replace(/(^|[\s(])@([a-z0-9._-]{1,48})\b/gi,(all,prefix,raw)=>{
+    const match=findMentionMatch(raw);
+    if(!match) return `${prefix}@${raw}`;
+    return `${prefix}<span class="mention">@${esc(match)}</span>`;
+  });
+}
+function renderRichText(text){
+  return renderMentions(linkifyText(text));
 }
 function bytesToHex(bytes){ let out=''; for(const b of bytes) out += b.toString(16).padStart(2,'0'); return out; }
 function hexToBytes(hex){ if(typeof hex!=='string' || hex.length%2!==0) throw new Error('invalid hex'); const out=new Uint8Array(hex.length/2); for(let i=0;i<hex.length;i+=2) out[i/2]=parseInt(hex.slice(i,i+2),16); return out; }
@@ -324,7 +353,7 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   if(roomBytes.length!==32) throw new Error('Invalid room key in file');
   return bytesToHex(roomBytes);
 }
-function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${linkifyText(text)}</span></div>`; }
+function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span></div>`; }
 function parseMessagePayload(text){
   try{
     const payload=JSON.parse(text);
@@ -358,12 +387,12 @@ function drawMessage(name,text,ts=''){
   const payload=parseMessagePayload(text);
   if(payload.type==='file'){
     const src=`data:${payload.mime};base64,${payload.data}`;
-    const caption=payload.caption ? `<span class="line-text">${linkifyText(payload.caption)}</span>` : '';
+    const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
     return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media"><a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
   }
   if(payload.type!=='image') return drawLine(name,text,ts);
   const src=`data:${payload.mime};base64,${payload.data}`;
-  const caption=payload.caption ? `<span class="line-text">${linkifyText(payload.caption)}</span>` : '';
+  const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
   return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media"><img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
 }
 function scrollChatToBottom(){
@@ -507,6 +536,7 @@ function chatPanelHTML(){
       <div id="composer" class="composer">
         <div id="attachmentPreview" class="attachment-preview"></div>
         <input id="m" placeholder="Type message" enterkeyhint="send" autocomplete="off"/>
+        <div id="mentionPicker" class="mention-picker" aria-label="Mention picker"></div>
         <button id="attachToggle" class="secondary emoji-btn" type="button" title="Attach image or file" aria-label="Attach image or file">+</button>
         <input id="attachFileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,*/*" hidden />
         <div class="emoji-wrap">
@@ -730,6 +760,7 @@ async function appendMessageRecord(messagesEl, record){
     if(seenMessageIDs.has(messageID)) return false;
     seenMessageIDs.add(messageID);
   }
+  registerDisplayName(record.display_name || '');
   let plain='[decrypt failed]';
   try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,record.nonce,record.ciphertext); }catch{}
   const row = drawMessage(record.display_name, plain, record.created_at || new Date().toISOString());
@@ -874,6 +905,7 @@ function bindChatActions(){
   const input=$('m');
   if(!sendBtn || !input) return;
   const preview=$('attachmentPreview');
+  const mentionPicker=$('mentionPicker');
   const composer=$('composer');
   const messages=$('messages');
   const emojiToggle=$('emojiToggle');
@@ -881,6 +913,12 @@ function bindChatActions(){
   const attachToggle=$('attachToggle');
   const attachFileInput=$('attachFileInput');
   const chatColorInput=$('chatColor');
+  let mentionOpen=false;
+  let mentionQuery='';
+  let mentionStart=-1;
+  let mentionCandidates=[];
+  let mentionIndex=0;
+  registerDisplayName(currentDisplayName);
   activeEmojiPicker=emojiPicker;
   activeEmojiToggle=emojiToggle;
   const emojiButtons=emojiPicker ? [...emojiPicker.querySelectorAll('button[data-emoji]')] : [];
@@ -920,6 +958,56 @@ function bindChatActions(){
       preview.classList.remove('ready');
       preview.innerHTML='';
     }
+  };
+  const closeMentionPicker=()=>{
+    mentionOpen=false;
+    mentionQuery='';
+    mentionStart=-1;
+    mentionCandidates=[];
+    mentionIndex=0;
+    if(mentionPicker){
+      mentionPicker.classList.remove('open');
+      mentionPicker.innerHTML='';
+    }
+  };
+  const applyMention=(name)=>{
+    if(mentionStart<0) return;
+    const start=mentionStart;
+    const end=input.selectionStart ?? input.value.length;
+    input.value=input.value.slice(0,start)+`@${name} `+input.value.slice(end);
+    const cursor=start+name.length+2;
+    input.setSelectionRange(cursor,cursor);
+    input.focus();
+    closeMentionPicker();
+  };
+  const renderMentionPicker=()=>{
+    if(!mentionPicker) return;
+    mentionCandidates=getMentionCandidates(mentionQuery);
+    if(mentionCandidates.length===0){
+      closeMentionPicker();
+      return;
+    }
+    mentionOpen=true;
+    mentionIndex=Math.max(0, Math.min(mentionIndex, mentionCandidates.length-1));
+    mentionPicker.classList.add('open');
+    mentionPicker.innerHTML=mentionCandidates.map((name,idx)=>`<button type="button" class="mention-choice${idx===mentionIndex?' active':''}" data-mention-name="${esc(name)}">@${esc(name)}</button>`).join('');
+    mentionPicker.querySelectorAll('button[data-mention-name]').forEach((btn)=>{
+      btn.addEventListener('click',()=>{
+        applyMention(btn.getAttribute('data-mention-name') || '');
+      });
+    });
+  };
+  const refreshMentionPicker=()=>{
+    const cursor=input.selectionStart ?? input.value.length;
+    const before=input.value.slice(0,cursor);
+    const at=before.lastIndexOf('@');
+    if(at<0){ closeMentionPicker(); return; }
+    const prefix=before.slice(at+1);
+    if(/\s/.test(prefix) || prefix.length>48 || /[^a-z0-9._-]/i.test(prefix)){ closeMentionPicker(); return; }
+    mentionStart=at;
+    mentionQuery=prefix;
+    mentionIndex=0;
+    renderMentionPicker();
   };
   const showAttachment=()=>{
     if(!preview || !pendingAttachment) return;
@@ -1023,6 +1111,7 @@ function bindChatActions(){
     }
   }
   if(preview && pendingAttachment) showAttachment();
+  if(input) input.addEventListener('input',refreshMentionPicker);
 
   input.addEventListener('paste',(e)=>{
     const item=[...(e.clipboardData?.items || [])].find((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type));
@@ -1098,10 +1187,35 @@ function bindChatActions(){
       conn.send(JSON.stringify({ciphertext:enc.ciphertext,nonce:enc.nonce}));
       input.value='';
       clearAttachment();
+      closeMentionPicker();
       input.focus();
     }catch{ alert('Message could not be sent.'); }
   };
   input.addEventListener('keydown',(e)=>{
+    if(mentionOpen){
+      if(e.key==='ArrowDown'){
+        e.preventDefault();
+        mentionIndex=(mentionIndex+1)%mentionCandidates.length;
+        renderMentionPicker();
+        return;
+      }
+      if(e.key==='ArrowUp'){
+        e.preventDefault();
+        mentionIndex=(mentionIndex-1+mentionCandidates.length)%mentionCandidates.length;
+        renderMentionPicker();
+        return;
+      }
+      if(e.key==='Enter' || e.key==='Tab'){
+        e.preventDefault();
+        applyMention(mentionCandidates[mentionIndex] || '');
+        return;
+      }
+      if(e.key==='Escape'){
+        e.preventDefault();
+        closeMentionPicker();
+        return;
+      }
+    }
     if((e.ctrlKey || e.metaKey) && e.key.toLowerCase()==='e'){
       e.preventDefault();
       toggleEmojiPicker();
@@ -1112,7 +1226,10 @@ function bindChatActions(){
       emojiButtons[0].focus();
       return;
     }
-    if(e.key==='Escape') closeEmojiPicker();
+    if(e.key==='Escape'){
+      closeEmojiPicker();
+      closeMentionPicker();
+    }
     if(e.key===' '){
       setTimeout(convertInputEmoticons,0);
       return;
@@ -1122,6 +1239,11 @@ function bindChatActions(){
       sendBtn.click();
     }
   });
+  document.addEventListener('click',(e)=>{
+    if(!mentionPicker || !input) return;
+    if(e.target===input || mentionPicker.contains(e.target)) return;
+    closeMentionPicker();
+  },{capture:true});
 }
 
 function bindKeyActions(){
@@ -1312,7 +1434,12 @@ function bindControlActions(){
       if(inviteOut){
         if(r.ok){
           const url = `${location.origin}${r.data.invite_link}`;
-          inviteOut.innerHTML = `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`;
+          let copied=false;
+          try{
+            await navigator.clipboard.writeText(url);
+            copied=true;
+          }catch{}
+          inviteOut.innerHTML = `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>${copied ? '<div class="muted">Copied to clipboard.</div>' : '<div class="muted">Copy to clipboard blocked by browser; link is ready above.</div>'}`;
         }else{
           inviteOut.textContent = r.data.error || 'failed';
         }

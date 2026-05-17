@@ -226,6 +226,14 @@
     .line-time { color: var(--quiet); font-size: .78rem; }
     .line-user { font-weight: 600; }
     .line-text { color: var(--ink); }
+    .mention {
+      display: inline-block;
+      padding: 0 6px;
+      border-radius: 6px;
+      background: var(--accent-soft);
+      color: var(--accent-2);
+      font-weight: 700;
+    }
     .line-text a, .invite-out a {
       color: var(--accent);
       text-decoration: underline;
@@ -366,6 +374,39 @@
       font-weight: 700;
     }
     .drop-ready { outline: 2px solid var(--accent); outline-offset: -4px; }
+    .mention-picker {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: calc(100% + 10px);
+      display: none;
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
+      box-shadow: var(--shadow);
+      z-index: 5;
+      max-height: 240px;
+      overflow: auto;
+    }
+    .mention-picker.open { display: grid; }
+    .mention-choice {
+      text-align: left;
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      padding: 8px 10px;
+      font-size: .88rem;
+      font-weight: 600;
+    }
+    .mention-choice:hover,
+    .mention-choice.active {
+      border-color: var(--accent);
+      background: var(--surface-2);
+    }
 
     .admin-grid {
       display: grid;
@@ -562,6 +603,7 @@
       .split-grid { grid-template-columns: 1fr; }
       .composer { grid-template-columns: minmax(0, 1fr) 44px 44px; }
       .composer #send { grid-column: 1 / -1; }
+      .mention-picker { left: 12px; right: 12px; }
       .attachment-preview { grid-template-columns: 76px minmax(0, 1fr); }
       .attachment-preview button { grid-column: 1 / -1; }
       .attachment-file-icon { width: 76px; }
