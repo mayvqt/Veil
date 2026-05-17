@@ -1546,13 +1546,22 @@ async function renderMain(){
   if(currentView === VIEW_CONTROL && !isAdminRole(myRole)){
     currentView = VIEW_CHAT;
   }
-  app.innerHTML = `<section class="chat-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}">${navHTML()}${renderPanelHTML()}</section>`;
+  app.innerHTML = `<section class="chat-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}"><div id="sidebarBackdrop" class="sidebar-backdrop ${sidebarCollapsed ? '' : 'open'}"></div>${navHTML()}${renderPanelHTML()}</section>`;
 
   const sidebarToggle=$('sidebarToggle');
   if(sidebarToggle){
     sidebarToggle.onclick=()=>{
       setSidebarCollapsed(!sidebarCollapsed);
       renderMain();
+    };
+  }
+  const sidebarBackdrop=$('sidebarBackdrop');
+  if(sidebarBackdrop){
+    sidebarBackdrop.onclick=()=>{
+      if(shouldAutoCollapseSidebarOnNav()){
+        setSidebarCollapsed(true);
+        renderMain();
+      }
     };
   }
   $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
