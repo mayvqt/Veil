@@ -8,14 +8,12 @@ RUN go mod download
 
 COPY . .
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /out/veil-server ./cmd/server
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /out/veil-tui ./cmd/veilclient
 
 FROM debian:bookworm-slim AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates sqlite3 gosu tzdata && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 COPY --from=build /out/veil-server /usr/local/bin/veil-server
-COPY --from=build /out/veil-tui /usr/local/bin/veil-tui
 COPY web ./web
 COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 

@@ -14,6 +14,7 @@ const (
 	wsWriteWait = 10 * time.Second
 	wsPongWait  = 60 * time.Second
 	wsPingEvery = (wsPongWait * 9) / 10
+	wsReadLimit = 26 * 1024 * 1024
 )
 
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +32,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer c.Close()
-	c.SetReadLimit(5 * 1024 * 1024)
+	c.SetReadLimit(wsReadLimit)
 	_ = c.SetReadDeadline(time.Now().Add(wsPongWait))
 	c.SetPongHandler(func(string) error {
 		return c.SetReadDeadline(time.Now().Add(wsPongWait))

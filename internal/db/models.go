@@ -141,7 +141,7 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 }
 
 func (s *Store) SaveMessage(senderID, displayName, ciphertext, nonce string) (*Message, error) {
-	if len(ciphertext) > 4*1024*1024 || len(nonce) > 128 {
+	if len(ciphertext) > 24*1024*1024 || len(nonce) > 128 {
 		return nil, errors.New("message too large")
 	}
 	msg := &Message{

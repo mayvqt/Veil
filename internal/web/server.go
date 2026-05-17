@@ -70,7 +70,6 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/bootstrap", s.bootstrap)
 	r.Post("/api/invite", s.createInvite)
 	r.Post("/api/join", s.joinInvite)
-	r.Post("/api/tui/session", s.tuiSession)
 	r.Post("/api/session/from-credential", s.sessionFromCredential)
 	r.Get("/api/messages", s.listMessages)
 	r.Get("/api/room", s.roomInfo)
@@ -195,28 +194,6 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 	setSessionCookie(w, session, s.CookieSecure, s.SessionMaxAge)
 	log.Printf("invite_join_success user_id=%s display_name=%q", u.ID, u.DisplayName)
 	writeJSON(w, 200, map[string]any{"ok": true, "user": u, "room_key_enc": roomKeyEnc})
-}
-
-func (s *Server) tuiSession(w http.ResponseWriter, r *http.Request) {
-	if !checkRateLimit(w, r, "tui_session", 30, time.Minute) {
-		return
-	}
-	var req struct {
-		CredentialID string `json:"credential_id"`
-	}
-	if err := decodeJSON(w, r, &req); err != nil {
-		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
-		return
-	}
-	req.CredentialID = cleanInput(req.CredentialID, 128)
-	u, err := s.Store.FindUserByCredential(req.CredentialID)
-	if err != nil || u == nil {
-		writeJSON(w, 401, map[string]string{"error": "unauthorized"})
-		return
-	}
-	tok := auth.Sign(auth.NewSession(u.ID), s.Secret)
-	log.Printf("tui_session_issued user_id=%s", u.ID)
-	writeJSON(w, 200, map[string]string{"session": tok})
 }
 
 func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {

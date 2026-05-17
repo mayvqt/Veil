@@ -23,8 +23,9 @@ let myUserID = '';
 const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
 const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
 const EMOJI_CHOICES = ['😀','😄','😂','😊','😍','😎','🥳','😭','😅','😐','🙃','😉','👍','👎','👏','🙌','🙏','💪','🔥','✨','💯','❤️','💙','💚','👀','🤔','✅','❌','⚠️','🔒','🫡','🎉'];
-const IMAGE_MAX_BYTES = 1024 * 1024;
+const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/png','image/jpeg','image/webp','image/gif']);
+const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
 const EMOTICON_MAP = {
   ':)':'😊', ':-)':'😊',
   ':D':'😄', ':-D':'😄',
@@ -38,6 +39,7 @@ const EMOTICON_MAP = {
 };
 const PBKDF2_ITERS = 600000;
 const THEME_STORAGE_KEY = 'veil.theme';
+const USER_COLOR_STORAGE_KEY = 'veil.userColors';
 const VEIL_THEME = {
   bg:'#0b0f17',
   bg2:'#121827',
@@ -69,8 +71,45 @@ const THEME_PRESETS = {
 
 const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const hashName = (n) => { let h=0; for(let i=0;i<n.length;i++) h=((h<<5)-h)+n.charCodeAt(i); return Math.abs(h); };
-const userColor = (n) => PASTELS[hashName(n) % PASTELS.length];
+let customUserColors = loadUserColors();
+const userColor = (n) => customUserColors[n] || PASTELS[hashName(n) % PASTELS.length];
 const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
+
+function normalizeHexColor(value){
+  const v=String(value||'').trim();
+  return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+}
+function loadUserColors(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(USER_COLOR_STORAGE_KEY)||'{}');
+    const out={};
+    for(const [name,color] of Object.entries(raw||{})){
+      const safeName=String(name||'').trim();
+      const safeColor=normalizeHexColor(color);
+      if(safeName && safeColor) out[safeName]=safeColor;
+    }
+    return out;
+  }catch{
+    return {};
+  }
+}
+function saveUserColors(){
+  localStorage.setItem(USER_COLOR_STORAGE_KEY, JSON.stringify(customUserColors));
+}
+function setUserColor(name,color){
+  const safeName=String(name||'').trim();
+  const safeColor=normalizeHexColor(color);
+  if(!safeName || !safeColor) return;
+  customUserColors[safeName]=safeColor;
+  saveUserColors();
+}
+function refreshRenderedUserColor(name){
+  const safeName=String(name||'').trim();
+  if(!safeName) return;
+  const c=userColor(safeName);
+  const escaped=(window.CSS && typeof window.CSS.escape==='function') ? window.CSS.escape(safeName) : safeName.replace(/["\\]/g,'\\$&');
+  document.querySelectorAll(`.line-user[data-user-name="${escaped}"]`).forEach((el)=>{ el.style.color=c; });
+}
 
 function fmtTime(ts){ if(!ts) return ''; const d=new Date(ts); if(Number.isNaN(d.getTime())) return ts; return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
 async function api(path, opts={}){
@@ -172,6 +211,9 @@ function formatBytes(bytes){
   if(bytes < 1024) return `${bytes} B`;
   if(bytes < 1024*1024) return `${Math.round(bytes/1024)} KB`;
   return `${(bytes/(1024*1024)).toFixed(1)} MB`;
+}
+function normalizeMime(mime){
+  return String(mime || '').toLowerCase().split(';')[0].trim();
 }
 function linkifyText(text){
   const input=String(text ?? '');
@@ -282,17 +324,28 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   if(roomBytes.length!==32) throw new Error('Invalid room key in file');
   return bytesToHex(roomBytes);
 }
-function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-text">${linkifyText(text)}</span></div>`; }
+function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${linkifyText(text)}</span></div>`; }
 function parseMessagePayload(text){
   try{
     const payload=JSON.parse(text);
     if(!payload || payload.v!==1) return {type:'text', text};
-    if(payload.type==='image' && IMAGE_TYPES.has(payload.mime) && typeof payload.data==='string'){
+    const mime=normalizeMime(payload.mime);
+    if(payload.type==='image' && IMAGE_TYPES.has(mime) && typeof payload.data==='string'){
       return {
         type:'image',
-        mime:payload.mime,
+        mime,
         data:payload.data,
         name:typeof payload.name==='string' ? payload.name.slice(0,120) : 'image',
+        size:Number.isFinite(payload.size) ? payload.size : 0,
+        caption:typeof payload.caption==='string' ? payload.caption : ''
+      };
+    }
+    if(payload.type==='file' && typeof payload.data==='string'){
+      return {
+        type:'file',
+        mime:mime || 'application/octet-stream',
+        data:payload.data,
+        name:typeof payload.name==='string' ? payload.name.slice(0,120) : 'attachment.bin',
         size:Number.isFinite(payload.size) ? payload.size : 0,
         caption:typeof payload.caption==='string' ? payload.caption : ''
       };
@@ -303,10 +356,15 @@ function parseMessagePayload(text){
 function drawMessage(name,text,ts=''){
   const c=userColor(name);
   const payload=parseMessagePayload(text);
+  if(payload.type==='file'){
+    const src=`data:${payload.mime};base64,${payload.data}`;
+    const caption=payload.caption ? `<span class="line-text">${linkifyText(payload.caption)}</span>` : '';
+    return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media"><a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
+  }
   if(payload.type!=='image') return drawLine(name,text,ts);
   const src=`data:${payload.mime};base64,${payload.data}`;
   const caption=payload.caption ? `<span class="line-text">${linkifyText(payload.caption)}</span>` : '';
-  return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-media"><img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" loading="lazy" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
+  return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media"><img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
 }
 function scrollChatToBottom(){
   const messages=$('messages');
@@ -441,13 +499,16 @@ function navHTML(){
 
 function chatPanelHTML(){
   const title = roomName || 'Room Chat';
+  const activeColor=userColor(currentDisplayName||'');
   return `
     <section class="main">
-      <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span><label class="chat-color-control" for="chatColor">Chat color <input id="chatColor" type="color" value="${esc(activeColor)}" title="Choose your chat name color"/></label></div></header>
       <div class="panel"><div id="messages" class="chat-log"></div></div>
-      <div class="composer">
+      <div id="composer" class="composer">
         <div id="attachmentPreview" class="attachment-preview"></div>
         <input id="m" placeholder="Type message" enterkeyhint="send" autocomplete="off"/>
+        <button id="attachToggle" class="secondary emoji-btn" type="button" title="Attach image or file" aria-label="Attach image or file">+</button>
+        <input id="attachFileInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif,*/*" hidden />
         <div class="emoji-wrap">
           <button id="emojiToggle" class="secondary emoji-btn" type="button" title="Emoji (Ctrl+E)" aria-label="Emoji" aria-expanded="false">☺</button>
           <div id="emojiPicker" class="emoji-picker" aria-label="Emoji picker" role="listbox">
@@ -813,8 +874,13 @@ function bindChatActions(){
   const input=$('m');
   if(!sendBtn || !input) return;
   const preview=$('attachmentPreview');
+  const composer=$('composer');
+  const messages=$('messages');
   const emojiToggle=$('emojiToggle');
   const emojiPicker=$('emojiPicker');
+  const attachToggle=$('attachToggle');
+  const attachFileInput=$('attachFileInput');
+  const chatColorInput=$('chatColor');
   activeEmojiPicker=emojiPicker;
   activeEmojiToggle=emojiToggle;
   const emojiButtons=emojiPicker ? [...emojiPicker.querySelectorAll('button[data-emoji]')] : [];
@@ -858,18 +924,20 @@ function bindChatActions(){
   const showAttachment=()=>{
     if(!preview || !pendingAttachment) return;
     preview.classList.add('ready');
-    preview.innerHTML=`<img src="${esc(pendingAttachment.url)}" alt="${esc(pendingAttachment.name)}"/><div><strong>${esc(pendingAttachment.name)}</strong><small>${esc(pendingAttachment.mime)} · ${esc(formatBytes(pendingAttachment.size))}</small></div><button id="clearAttachment" class="secondary" type="button">Remove</button>`;
+    const previewMedia=pendingAttachment.kind==='image' ? `<img src="${esc(pendingAttachment.url)}" alt="${esc(pendingAttachment.name)}"/>` : `<div class="attachment-file-icon" aria-hidden="true">FILE</div>`;
+    preview.innerHTML=`${previewMedia}<div><strong>${esc(pendingAttachment.name)}</strong><small>${esc(pendingAttachment.mime)} · ${esc(formatBytes(pendingAttachment.size))}</small></div><button id="clearAttachment" class="secondary" type="button">Remove</button>`;
     const clearBtn=$('clearAttachment');
     if(clearBtn) clearBtn.onclick=clearAttachment;
   };
-  const attachImage=async(file)=>{
+  const attachFile=async(file)=>{
     if(!file) return;
-    if(!IMAGE_TYPES.has(file.type)){
-      alert('Only PNG, JPEG, WebP, and GIF images are supported.');
+    const mime=normalizeMime(file.type) || 'application/octet-stream';
+    if(IMAGE_TYPES.has(mime) && file.size > IMAGE_MAX_BYTES){
+      alert(`Image is too large. Limit is ${formatBytes(IMAGE_MAX_BYTES)} (GIF supported).`);
       return;
     }
-    if(file.size > IMAGE_MAX_BYTES){
-      alert(`Image is too large. Limit is ${formatBytes(IMAGE_MAX_BYTES)}.`);
+    if(file.size > ATTACHMENT_MAX_BYTES){
+      alert(`Attachment is too large. Limit is ${formatBytes(ATTACHMENT_MAX_BYTES)}.`);
       return;
     }
     const dataURL=await new Promise((resolve,reject)=>{
@@ -878,14 +946,32 @@ function bindChatActions(){
       reader.onerror=()=>reject(reader.error||new Error('read failed'));
       reader.readAsDataURL(file);
     });
-    const marker=`data:${file.type};base64,`;
+    const marker=`data:${mime};base64,`;
     if(!dataURL.startsWith(marker)){
-      alert('Image could not be prepared safely.');
+      alert('Attachment could not be prepared safely.');
       return;
     }
-    pendingAttachment={name:file.name||'pasted-image', mime:file.type, size:file.size, data:dataURL.slice(marker.length), url:dataURL};
+    pendingAttachment={kind:IMAGE_TYPES.has(mime) ? 'image' : 'file', name:file.name||'attachment.bin', mime, size:file.size, data:dataURL.slice(marker.length), url:dataURL};
     showAttachment();
   };
+
+  if(chatColorInput){
+    chatColorInput.value=userColor(currentDisplayName || '');
+    chatColorInput.addEventListener('input',()=>{
+      setUserColor(currentDisplayName || '', chatColorInput.value);
+      refreshRenderedUserColor(currentDisplayName || '');
+    });
+  }
+  if(attachToggle && attachFileInput){
+    attachToggle.onclick=()=>attachFileInput.click();
+    attachFileInput.addEventListener('change',()=>{
+      const file=attachFileInput.files && attachFileInput.files[0];
+      if(!file) return;
+      attachFile(file).catch(()=>alert('Attachment failed.'));
+      attachFileInput.value='';
+      input.focus();
+    });
+  }
 
   if(emojiToggle && emojiPicker){
     emojiToggle.onclick=()=>{
@@ -944,7 +1030,7 @@ function bindChatActions(){
     const file=item.getAsFile();
     if(!file) return;
     e.preventDefault();
-    attachImage(file).catch(()=>alert('Image paste failed.'));
+    attachFile(file).catch(()=>alert('Image paste failed.'));
   });
 
   input.addEventListener('dragover',(e)=>{
@@ -959,8 +1045,41 @@ function bindChatActions(){
     const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
     if(!file) return;
     e.preventDefault();
-    attachImage(file).catch(()=>alert('Image drop failed.'));
+    attachFile(file).catch(()=>alert('Image drop failed.'));
   });
+  if(composer){
+    composer.addEventListener('dragover',(e)=>{
+      if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
+        e.preventDefault();
+        input.classList.add('drop-ready');
+      }
+    });
+    composer.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
+    composer.addEventListener('drop',(e)=>{
+      input.classList.remove('drop-ready');
+      const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
+      if(!file) return;
+      e.preventDefault();
+      attachFile(file).catch(()=>alert('Image drop failed.'));
+    });
+  }
+  if(messages){
+    messages.addEventListener('dragover',(e)=>{
+      if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
+        e.preventDefault();
+        input.classList.add('drop-ready');
+      }
+    });
+    messages.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
+    messages.addEventListener('drop',(e)=>{
+      input.classList.remove('drop-ready');
+      const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
+      if(!file) return;
+      e.preventDefault();
+      attachFile(file).catch(()=>alert('Image drop failed.'));
+      input.focus();
+    });
+  }
 
   sendBtn.onclick=async()=>{
     convertInputEmoticons();
@@ -968,7 +1087,7 @@ function bindChatActions(){
     if(!text && !pendingAttachment) return;
     if(!roomKeyHex){ alert('No room key loaded. Import room.keys first.'); return; }
     try{
-      const payload=pendingAttachment ? JSON.stringify({v:1,type:'image',mime:pendingAttachment.mime,name:pendingAttachment.name,size:pendingAttachment.size,data:pendingAttachment.data,caption:text}) : text;
+      const payload=pendingAttachment ? JSON.stringify({v:1,type:pendingAttachment.kind,mime:pendingAttachment.mime,name:pendingAttachment.name,size:pendingAttachment.size,data:pendingAttachment.data,caption:text}) : text;
       const enc=await encryptText(roomKeyHex,payload);
       const conn=await ensureSocket();
       if(!conn || conn.readyState!==WebSocket.OPEN){
