@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -64,4 +65,16 @@ func sessionMaxAgeFromEnv() time.Duration {
 		return 30 * 24 * time.Hour
 	}
 	return hours
+}
+
+func positiveIntFromEnv(key string) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(raw)
+	if err != nil || v <= 0 {
+		return 0
+	}
+	return v
 }

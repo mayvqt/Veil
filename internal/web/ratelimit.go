@@ -60,4 +60,3 @@ func clientIP(r *http.Request) string {
 	}
 	return strings.TrimSpace(r.RemoteAddr)
 }
-

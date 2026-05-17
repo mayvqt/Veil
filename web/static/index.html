@@ -114,6 +114,9 @@
       display: grid;
       grid-template-rows: auto minmax(0, 1fr) auto;
     }
+    .main.utility {
+      grid-template-rows: auto minmax(0, 1fr);
+    }
     .topbar {
       border-bottom: 1px solid var(--line);
       padding: 16px 22px;
@@ -138,6 +141,16 @@
       min-height: 0;
       overflow: auto;
       padding: 22px;
+    }
+    .panel.utility-panel {
+      display: grid;
+      justify-content: center;
+      align-content: start;
+      gap: 16px;
+    }
+    .panel.utility-panel > .card {
+      width: min(920px, 100%);
+      margin: 0;
     }
 
     .chat-log {
@@ -859,20 +872,24 @@ function chatPanelHTML(){
 
 function keysPanelHTML(){
   return `
-    <section class="main">
-      <header class="topbar"><div><strong>Key Vault</strong><small>Personal backup and restore</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
-      <div class="panel">
-        <section class="card" style="max-width:680px;">
-          <h3>Room Key Backup</h3>
+    <section class="main utility">
+      <header class="topbar"><div><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
+      <div class="panel utility-panel">
+        <section class="card" style="max-width:760px; justify-self:center;">
+          <h3>Backup + Restore</h3>
+          <div class="muted">Use one strong passphrase for export and import. Key material never leaves this browser unencrypted.</div>
           <input id="passphrase" placeholder="Restore passphrase"/>
-          <button id="genPass" class="secondary">Generate Passphrase</button>
-          <button id="export">Export room.keys (encrypted)</button>
+          <div class="theme-actions">
+            <button id="genPass" class="secondary">Generate Passphrase</button>
+            <button id="export">Export room.keys (encrypted)</button>
+          </div>
+          <div class="divider"></div>
           <input id="importFile" type="file" accept=".keys,application/json"/>
-          <button id="importBtn" class="secondary">Import room.keys</button>
+          <button id="importBtn" class="secondary">Import + Restore Session</button>
           <div id="importOut" class="status">Store your passphrase securely. Anyone with both files can decrypt room history.</div>
+          <div class="status-note">Tip: after admin-level removals, rotate room keys if you need strict forward secrecy.</div>
         </section>
       </div>
-      <div class="composer" style="grid-template-columns:1fr;"><div class="muted">Key rotation is optional and can be coordinated by admins when needed.</div></div>
     </section>
   `;
 }
@@ -891,19 +908,19 @@ function themePanelHTML(){
     ['danger','Danger','Warnings']
   ];
   return `
-    <section class="main">
+    <section class="main utility">
       <header class="topbar"><div><strong>Theme Studio</strong><small>Custom colors stay in this browser</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
-      <div class="panel">
-        <section class="card">
+      <div class="panel utility-panel">
+        <section class="card" style="max-width:860px; justify-self:center;">
           <h3>Presets</h3>
+          <div class="muted">Start with a preset, then tune individual color tokens below.</div>
           <div class="theme-actions">
             <button class="secondary" data-theme-preset="veil">Veil</button>
             <button class="secondary" data-theme-preset="ember">Ember</button>
             <button class="secondary" data-theme-preset="midnight">Midnight</button>
             <button class="secondary" data-theme-preset="graphite">Graphite</button>
           </div>
-        </section>
-        <section class="card" style="margin-top:16px;">
+          <div class="divider"></div>
           <h3>Custom Theme</h3>
           <div class="theme-grid">
             ${fields.map(([key,label,hint])=>`<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(t[key])}"/></div>`).join('')}
@@ -913,9 +930,9 @@ function themePanelHTML(){
             <button id="resetTheme" class="secondary">Reset</button>
           </div>
           <div id="themeStatus" class="status">Unsaved changes preview immediately.</div>
+          <div class="status-note">Theme changes are stored per-browser on this device only.</div>
         </section>
       </div>
-      <div class="composer" style="grid-template-columns:1fr;"><div class="muted">Theme settings affect only this device.</div></div>
     </section>
   `;
 }
@@ -923,9 +940,9 @@ function themePanelHTML(){
 function controlPanelHTML(){
   const canManageUsers = myRole === 'root_admin';
   return `
-    <section class="main">
-      <header class="topbar"><div><strong>Control Center</strong><small>Invites and member governance</small></div><div class="top-actions"><span class="muted">${esc(myRole)}</span></div></header>
-      <div class="panel">
+    <section class="main utility">
+      <header class="topbar"><div><strong>Control Center</strong><small>Invites, members, and message retention</small></div><div class="top-actions"><span class="muted">${esc(myRole)}</span></div></header>
+      <div class="panel utility-panel">
         <div class="admin-grid">
           <section class="card">
             <h3>Invites</h3>
@@ -936,16 +953,28 @@ function controlPanelHTML(){
             <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
             <div id="inviteList" class="admin-users"></div>
           </section>
+          <section class="card">
+            <h3>Message Retention</h3>
+            <div id="messageAdminStatus" class="status">Loading message stats...</div>
+            <div class="muted">Destructive actions require root admin. Clearing messages affects all clients immediately.</div>
+            <div class="theme-actions">
+              <input id="retainCountInput" type="number" min="1" step="1" placeholder="Keep latest count"/>
+              <button id="retainMessages" class="secondary">Keep Latest</button>
+            </div>
+            <div class="theme-actions">
+              <button id="clearMessages" class="btn-danger">Delete All Messages</button>
+            </div>
+          </section>
 
           <section class="card" style="grid-column:1 / -1;">
             <h3>User Roles</h3>
             <div id="roleStatus" class="status">${canManageUsers ? 'Load members to update roles.' : 'Only root admins can change roles.'}</div>
             <div class="muted">Removing a user revokes access immediately. Room key rotation is optional and can be done later if needed.</div>
             <div id="adminUsers" class="admin-users"></div>
+            <div class="status-note">Admin changes apply immediately to active sessions.</div>
           </section>
         </div>
       </div>
-      <div class="composer" style="grid-template-columns:1fr;"><div class="muted">Admin changes apply immediately.</div></div>
     </section>
   `;
 }
@@ -1428,6 +1457,10 @@ function bindControlActions(){
   const inviteOut=$('inviteOut');
   const inviteList=$('inviteList');
   const revokeUnusedBtn=$('revokeUnusedInvites');
+  const messageStatus=$('messageAdminStatus');
+  const retainCountInput=$('retainCountInput');
+  const retainMessagesBtn=$('retainMessages');
+  const clearMessagesBtn=$('clearMessages');
 
   const refreshInvites=async()=>{
     if(!inviteList) return;
@@ -1459,6 +1492,18 @@ function bindControlActions(){
     });
   };
 
+  const refreshMessageStats=async()=>{
+    if(!messageStatus) return;
+    const r = await api('/api/admin/messages/stats');
+    if(!r.ok){
+      messageStatus.textContent = r.data.error || 'failed to load message stats';
+      messageStatus.className = 'status err';
+      return;
+    }
+    messageStatus.textContent = `Stored messages: ${r.data.count} · policy days: ${r.data.retain_days || 'off'} · policy count: ${r.data.retain_count || 'off'}`;
+    messageStatus.className = 'status';
+  };
+
   if(inviteBtn){
     inviteBtn.onclick=async()=>{
       const r=await api('/api/invite',{method:'POST'});
@@ -1473,9 +1518,54 @@ function bindControlActions(){
       refreshInvites();
     };
   }
+  if(retainMessagesBtn){
+    retainMessagesBtn.onclick=async()=>{
+      const keepLatest = Number((retainCountInput && retainCountInput.value) || 0);
+      if(!Number.isFinite(keepLatest) || keepLatest <= 0){
+        if(messageStatus){
+          messageStatus.textContent='Enter a valid keep-latest count.';
+          messageStatus.className='status err';
+        }
+        return;
+      }
+      if(!confirm(`Keep only the latest ${keepLatest} messages? This cannot be undone.`)) return;
+      const r = await api('/api/admin/messages/retain',{method:'POST',body:JSON.stringify({keep_latest:keepLatest})});
+      if(!r.ok){
+        if(messageStatus){
+          messageStatus.textContent = r.data.error || 'failed';
+          messageStatus.className = 'status err';
+        }
+        return;
+      }
+      if(messageStatus){
+        messageStatus.textContent = `Pruned successfully. Remaining messages: ${r.data.remaining}`;
+        messageStatus.className = 'status ok';
+      }
+      refreshMessageStats();
+    };
+  }
+  if(clearMessagesBtn){
+    clearMessagesBtn.onclick=async()=>{
+      if(!confirm('Delete all messages for all users? This is permanent.')) return;
+      const r = await api('/api/admin/messages/clear',{method:'POST',body:JSON.stringify({})});
+      if(!r.ok){
+        if(messageStatus){
+          messageStatus.textContent = r.data.error || 'failed';
+          messageStatus.className = 'status err';
+        }
+        return;
+      }
+      if(messageStatus){
+        messageStatus.textContent = `Deleted ${r.data.deleted} messages.`;
+        messageStatus.className = 'status ok';
+      }
+      refreshMessageStats();
+    };
+  }
 
   renderAdminUsers();
   refreshInvites();
+  refreshMessageStats();
 }
 
 function renderPanelHTML(){

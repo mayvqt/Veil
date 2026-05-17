@@ -100,6 +100,12 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
+		if s.RetainDays > 0 {
+			_ = s.Store.PruneMessagesOlderThan(s.RetainDays)
+		}
+		if s.RetainCount > 0 {
+			_ = s.Store.PruneMessagesToLimit(s.RetainCount)
+		}
 		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: map[string]string{"id": msg.ID, "created_at": msg.CreatedAt, "display_name": msg.DisplayName, "ciphertext": msg.Ciphertext, "nonce": msg.Nonce}})
 	}
 }

@@ -25,6 +25,8 @@ type Server struct {
 	CookieSecure   bool
 	SessionMaxAge  time.Duration
 	AllowedOrigins map[string]struct{}
+	RetainDays     int
+	RetainCount    int
 }
 
 func isAdminRole(role string) bool {
@@ -47,6 +49,8 @@ func New(store *db.Store) *Server {
 		CookieSecure:   cookieSecure,
 		SessionMaxAge:  sessionMaxAgeFromEnv(),
 		AllowedOrigins: allowedOriginsFromEnv(),
+		RetainDays:     positiveIntFromEnv("MESSAGE_RETENTION_DAYS"),
+		RetainCount:    positiveIntFromEnv("MESSAGE_RETENTION_COUNT"),
 	}
 }
 
@@ -76,6 +80,9 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/api/admin/invites", s.listInvites)
 	r.Post("/api/admin/revoke-invite", s.revokeInvite)
 	r.Post("/api/admin/revoke-unused-invites", s.revokeUnusedInvites)
+	r.Get("/api/admin/messages/stats", s.messageStats)
+	r.Post("/api/admin/messages/clear", s.clearMessages)
+	r.Post("/api/admin/messages/retain", s.retainMessages)
 	r.Get("/ws", s.ws)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	return r
@@ -478,6 +485,70 @@ func (s *Server) revokeUnusedInvites(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("invite_revoke_unused by=%s revoked=%d", u.ID, n)
 	writeJSON(w, 200, map[string]any{"ok": true, "revoked": n})
+}
+
+func (s *Server) messageStats(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	count, err := s.Store.MessageCount()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to load message stats"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"count": count, "retain_days": s.RetainDays, "retain_count": s.RetainCount})
+}
+
+func (s *Server) clearMessages(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if u.Role != "root_admin" {
+		writeJSON(w, 403, map[string]string{"error": "only root admins can clear messages"})
+		return
+	}
+	n, err := s.Store.DeleteAllMessages()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to clear messages"})
+		return
+	}
+	log.Printf("messages_cleared by=%s deleted=%d", u.ID, n)
+	writeJSON(w, 200, map[string]any{"ok": true, "deleted": n})
+}
+
+func (s *Server) retainMessages(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if u.Role != "root_admin" {
+		writeJSON(w, 403, map[string]string{"error": "only root admins can retain messages"})
+		return
+	}
+	var req struct {
+		KeepLatest int `json:"keep_latest"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	if req.KeepLatest <= 0 {
+		writeJSON(w, 400, map[string]string{"error": "keep_latest must be > 0"})
+		return
+	}
+	if err := s.Store.PruneMessagesToLimit(req.KeepLatest); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to prune messages"})
+		return
+	}
+	count, _ := s.Store.MessageCount()
+	log.Printf("messages_pruned by=%s keep_latest=%d remaining=%d", u.ID, req.KeepLatest, count)
+	writeJSON(w, 200, map[string]any{"ok": true, "remaining": count})
 }
 
 func setSessionCookie(w http.ResponseWriter, session string, secure bool, maxAge time.Duration) {
