@@ -1,15 +1,36 @@
 # Veil
 
-Veil is a private, browser-based room chat app with end-to-end encrypted messages.
+Veil is a private, browser-based realtime room chat app with end-to-end encrypted messages.
 
 ## Features
 
-- Browser chat UI with realtime updates over WebSocket
-- End-to-end AES-GCM encryption in the client
-- Image and file attachments
+- End-to-end AES-GCM encryption in the browser (room-key model)
+- Realtime chat over WebSocket with automatic reconnect and history re-sync
+- Image sharing support:
+  - PNG, JPEG, WebP, GIF
+  - Paste image from clipboard
+  - Drag-and-drop image upload (input, composer, and chat area)
+  - Inline image rendering with click-to-expand lightbox
+- File attachment support with inline download links
+- GIF support for users in chat (including animated GIF rendering)
+- Emoji support:
+  - Emoji picker
+  - Emoticon-to-emoji conversion while typing
+- Mentions (`@name`) with autocomplete:
+  - Type `@` to open suggestions
+  - Keyboard navigation (`↑/↓`, `Enter`/`Tab`, `Esc`)
+  - Mention highlighting in message rendering
+- User display-name color selection (local browser preference)
 - Invite-based onboarding
-- Admin controls for users, invites, and message retention
-- SQLite-backed server storage
+- Admin and root-admin control center
+- Local key export/import and device sync code flow
+- Theme studio with presets and custom color tokens (local browser preference)
+
+## What Is Stored Where
+
+- Server stores encrypted message ciphertext + nonce only
+- Decryption keys remain client-side
+- Theme choices and chat color preferences are stored in browser local storage
 
 ## Quick Start (Local)
 
@@ -42,9 +63,9 @@ Data persists in the `veil_config` volume.
 - `SESSION_SECRET` (default `dev-secret-change-me`)
 - `COOKIE_SECURE` (default `false`)
 - `SESSION_MAX_AGE_HOURS` (default `720`)
-- `PUBLIC_ORIGIN` (optional, comma-separated allowed origins for WebSocket checks)
+- `PUBLIC_ORIGIN` (optional, comma-separated allowed origins for WebSocket origin checks)
 
-### Security behavior
+### Security Behavior
 
 - `APP_ENV`:
   - `dev` / `development` / `local` allow default dev secret
@@ -53,12 +74,12 @@ Data persists in the `veil_config` volume.
 
 In non-dev deployments, Veil refuses startup if `SESSION_SECRET` is still default unless override is set.
 
-### Message retention policy
+### Message Retention Policy
 
 - `MESSAGE_RETENTION_DAYS`: optional auto-prune by age
 - `MESSAGE_RETENTION_COUNT`: optional auto-prune to newest N messages
 
-### Container-focused
+### Container-Focused
 
 - `PUID` default `99`
 - `PGID` default `100`
@@ -74,32 +95,32 @@ For TLS-terminated deployments (Nginx/Caddy/Traefik):
 3. Set `PUBLIC_ORIGIN` to your public origin (for example `https://veil.example.com`)
 4. Keep Veil private behind your proxy/auth boundaries where possible
 
-## Admin Capabilities
+## Roles and Admin Capabilities
 
-Admin and root-admin features include:
+### Admin + Root Admin
 
-- Invite creation
-- Invite listing and revoke
+- Create invites
+- List invites
+- Revoke individual invites
 - Revoke all unused invites
-- Role management (`member` / `admin`)
-- User access revocation
+- Purge used/revoked invites
+- Manage user roles (`member` / `admin`)
+- Revoke user access
 
-Root-admin-only message controls:
+### Root Admin Only
 
 - Delete all messages
 - Keep only latest N messages
 
-## Reliability Notes
+### Invite UX Note
 
-- Web client reconnects automatically and re-syncs history
-- Message IDs are used for de-duplication after reconnect
+- Creating an invite auto-copies the invite URL to clipboard when browser permissions allow it.
 
 ## Security Notes
 
-- Message content is encrypted client-side before send
-- Server stores ciphertext + nonce only
-- Anyone with room key material and ciphertext history can decrypt that history
-- Rotate room keys when trust boundaries change
+- Message encryption happens client-side before send
+- Anyone with room-key material and ciphertext history can decrypt that history
+- Rotate room keys when trust boundaries change (for example after account/device removals)
 
 ## Health Check
 
