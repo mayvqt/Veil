@@ -1,0 +1,757 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Veil</title>
+  <style>
+    :root {
+      --bg: #111716;
+      --bg-2: #18211f;
+      --ink: #f5f1e8;
+      --muted: #a7b3ab;
+      --quiet: #75847d;
+      --panel: #1d2724;
+      --panel-2: #24312d;
+      --surface: #141d1b;
+      --surface-2: #202b28;
+      --line: #33443f;
+      --line-2: #49645c;
+      --accent: #8bd8bd;
+      --accent-2: #ffd166;
+      --danger: #ff8f70;
+      --ok: #8bd8bd;
+      --shadow: 0 18px 60px rgba(0, 0, 0, .32);
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        linear-gradient(135deg, rgba(139,216,189,.12) 0 1px, transparent 1px 16px),
+        linear-gradient(180deg, var(--bg-2), var(--bg));
+      color: var(--ink);
+      font-family: "Aptos", "IBM Plex Sans", "Segoe UI", sans-serif;
+    }
+    body { min-height: 100vh; }
+    .app { width: 100vw; min-height: 100vh; display: grid; }
+
+    .chat-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 264px minmax(0, 1fr);
+      background: rgba(17, 23, 22, .94);
+      animation: fadein .2s ease;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(36,49,45,.98), rgba(18,27,25,.98));
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: 18px;
+      padding: 18px;
+    }
+    .brand h1 { margin: 0; font-size: 1.34rem; letter-spacing: 0; }
+    .brand .muted { margin-top: 4px; display: block; font-size: .84rem; }
+    .muted { color: var(--muted); }
+    .eyebrow { color: var(--accent); font-size: .76rem; text-transform: uppercase; letter-spacing: .08em; }
+
+    .nav {
+      display: grid;
+      gap: 10px;
+    }
+    .nav-btn {
+      text-align: left;
+      border: 1px solid var(--line);
+      background: rgba(20,29,27,.74);
+      color: var(--ink);
+      border-radius: 6px;
+      padding: 11px 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .nav-btn:hover { border-color: var(--line-2); }
+    .nav-btn.active { border-color: var(--accent); background: rgba(139,216,189,.12); color: #eafff8; }
+    .whoami {
+      margin-top: auto;
+      border: 1px solid var(--line);
+      background: rgba(20,29,27,.82);
+      border-radius: 6px;
+      padding: 12px;
+      font-size: .85rem;
+    }
+
+    .main {
+      min-width: 0;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .topbar {
+      border-bottom: 1px solid var(--line);
+      padding: 16px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(20,29,27,.78);
+      backdrop-filter: blur(10px);
+    }
+    .topbar strong { font-size: 1.05rem; }
+    .topbar small { display: block; margin-top: 3px; color: var(--quiet); }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .panel {
+      min-height: 0;
+      overflow: auto;
+      padding: 22px;
+    }
+
+    .chat-log {
+      min-height: 100%;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(29,39,36,.92), rgba(20,29,27,.98));
+      padding: 16px;
+      font-family: "Cascadia Mono", "IBM Plex Mono", "SF Mono", monospace;
+      font-size: .9rem;
+      line-height: 1.45;
+      display: grid;
+      align-content: start;
+      gap: 5px;
+      border-radius: 8px;
+      overflow: auto;
+      box-shadow: var(--shadow);
+    }
+    .line { display: grid; grid-template-columns: auto auto minmax(0,1fr); gap: 8px; word-break: break-word; }
+    .line-time { color: var(--quiet); font-size: .78rem; }
+    .line-user { font-weight: 600; }
+    .line-text { color: var(--ink); }
+
+    .composer {
+      border-top: 1px solid var(--line);
+      padding: 14px 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 120px;
+      gap: 10px;
+      background: rgba(20,29,27,.86);
+    }
+
+    .admin-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      align-content: start;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(36,49,45,.92), rgba(25,35,32,.94));
+      border-radius: 8px;
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      box-shadow: 0 12px 34px rgba(0,0,0,.18);
+    }
+    .card h3 { margin: 0; font-size: 1rem; }
+    .invite-out {
+      min-height: 56px;
+      max-height: 132px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      padding: 10px;
+      border-radius: 6px;
+      color: #d6ebe2;
+      font-family: "Cascadia Mono", "IBM Plex Mono", "SF Mono", monospace;
+      font-size: .82rem;
+      word-break: break-all;
+    }
+    .admin-users {
+      display: grid;
+      gap: 8px;
+      max-height: 340px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      padding: 10px;
+      border-radius: 6px;
+    }
+    .admin-user {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid var(--line);
+      padding: 10px;
+      border-radius: 6px;
+      background: var(--panel);
+    }
+    .admin-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-danger {
+      background: linear-gradient(180deg, #6d342a, #54251e);
+      border-color: #8c4b3d;
+    }
+    .admin-user strong { display: block; }
+    .admin-role { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
+    .status { font-size: .86rem; color: var(--muted); min-height: 20px; }
+    .status.ok { color: var(--ok); }
+    .status.err { color: var(--danger); }
+
+    button, input, select {
+      border: 1px solid var(--line-2);
+      border-radius: 6px;
+      background: var(--surface);
+      color: var(--ink);
+      font: inherit;
+      padding: 10px 12px;
+    }
+    button {
+      background: linear-gradient(180deg, #2c5b4e, #23483e);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: linear-gradient(180deg, #357061, #28574b); }
+    button.secondary { background: var(--surface-2); }
+    button:disabled { opacity: .55; cursor: default; }
+    input::placeholder { color: #7f9189; }
+    input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+    .boot-wrap { min-height: 100vh; display: grid; place-items: center; padding: 18px; }
+    .boot-card {
+      width: min(760px, 100%);
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(36,49,45,.98), rgba(25,35,32,.98));
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      padding: 26px;
+      display: grid;
+      gap: 16px;
+    }
+    .boot-grid { display: grid; gap: 10px; }
+    .boot-title { font-size: 1.45rem; font-weight: 750; }
+    .split-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .access-pane { display: grid; gap: 12px; align-content: start; }
+    .access-pane h3 { margin: 0; font-size: 1rem; }
+    .divider { height: 1px; background: var(--line); margin: 2px 0; }
+
+    @media (max-width: 980px) {
+      .chat-shell { grid-template-columns: 1fr; }
+      .sidebar { grid-template-columns: 1fr; grid-template-rows: auto auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; }
+      .nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .whoami { display: none; }
+      .admin-grid { grid-template-columns: 1fr; }
+      .split-grid { grid-template-columns: 1fr; }
+      .composer { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    @keyframes fadein {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" id="app"></main>
+<script>
+const app = document.getElementById('app');
+let roomKeyHex = localStorage.getItem('veil.roomKeyHex') || '';
+let currentCredentialId = localStorage.getItem('veil.credentialId') || '';
+let currentDisplayName = localStorage.getItem('veil.displayName') || '';
+let ws;
+let roomName = '';
+const VIEW_CHAT = 'chat';
+const VIEW_KEYS = 'keys';
+const VIEW_CONTROL = 'control';
+let currentView = VIEW_CHAT;
+let myRole = 'member';
+let myUserID = '';
+
+const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
+const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
+const PBKDF2_ITERS = 600000;
+
+const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
+const hashName = (n) => { let h=0; for(let i=0;i<n.length;i++) h=((h<<5)-h)+n.charCodeAt(i); return Math.abs(h); };
+const userColor = (n) => PASTELS[hashName(n) % PASTELS.length];
+const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
+
+function fmtTime(ts){ if(!ts) return ''; const d=new Date(ts); if(Number.isNaN(d.getTime())) return ts; return d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }
+async function api(path, opts={}){ const r=await fetch(path,{headers:{'content-type':'application/json'},...opts}); return {ok:r.ok,data:await r.json()}; }
+const $ = (id) => document.getElementById(id);
+function bytesToHex(bytes){ let out=''; for(const b of bytes) out += b.toString(16).padStart(2,'0'); return out; }
+function hexToBytes(hex){ if(typeof hex!=='string' || hex.length%2!==0) throw new Error('invalid hex'); const out=new Uint8Array(hex.length/2); for(let i=0;i<hex.length;i+=2) out[i/2]=parseInt(hex.slice(i,i+2),16); return out; }
+function randomBytes(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return a; }
+function randomRoomKeyHex(){ return bytesToHex(randomBytes(32)); }
+function generatePassphrase(){ return [0,0,0,0,0].map(()=>PASSPHRASE_WORDS[Math.floor(Math.random()*PASSPHRASE_WORDS.length)]).join(' '); }
+
+async function importRoomKey(roomKeyHex){
+  const raw = hexToBytes(roomKeyHex);
+  if(raw.length!==32) throw new Error('Invalid room key length');
+  return crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['encrypt','decrypt']);
+}
+async function encryptText(roomKeyHex,text){
+  const key=await importRoomKey(roomKeyHex);
+  const nonce=randomBytes(12);
+  const plain=new TextEncoder().encode(text);
+  const ct=await crypto.subtle.encrypt({name:'AES-GCM',iv:nonce},key,plain);
+  return {ciphertext:bytesToHex(new Uint8Array(ct)),nonce:bytesToHex(nonce)};
+}
+async function decryptText(roomKeyHex,nonceHex,ctHex){
+  const key=await importRoomKey(roomKeyHex);
+  const nonce=hexToBytes(nonceHex);
+  const ct=hexToBytes(ctHex);
+  const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:nonce},key,ct);
+  return new TextDecoder().decode(plain);
+}
+async function deriveWrapKey(passphrase,salt,iterations){
+  const base=await crypto.subtle.importKey('raw', new TextEncoder().encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['encrypt','decrypt']);
+}
+async function wrapRoomKeyWithPassphrase(roomKeyHex,passphrase){
+  const salt=randomBytes(16); const nonce=randomBytes(12);
+  const wrapKey=await deriveWrapKey(passphrase,salt,PBKDF2_ITERS);
+  const roomRaw=hexToBytes(roomKeyHex);
+  const wrapped=await crypto.subtle.encrypt({name:'AES-GCM',iv:nonce},wrapKey,roomRaw);
+  return {kdf:{name:'PBKDF2-HMAC-SHA256',iterations:PBKDF2_ITERS,salt_hex:bytesToHex(salt)},wrap:{alg:'AES-256-GCM',nonce_hex:bytesToHex(nonce),ciphertext_hex:bytesToHex(new Uint8Array(wrapped))}};
+}
+async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
+  const salt=hexToBytes(cfg.kdf.salt_hex);
+  const nonce=hexToBytes(cfg.wrap.nonce_hex);
+  const ciphertext=hexToBytes(cfg.wrap.ciphertext_hex);
+  const wrapKey=await deriveWrapKey(passphrase,salt,cfg.kdf.iterations||PBKDF2_ITERS);
+  const roomRaw=await crypto.subtle.decrypt({name:'AES-GCM',iv:nonce},wrapKey,ciphertext);
+  const roomBytes=new Uint8Array(roomRaw);
+  if(roomBytes.length!==32) throw new Error('Invalid room key in file');
+  return bytesToHex(roomBytes);
+}
+function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-text">${esc(text)}</span></div>`; }
+
+function persistIdentity(){
+  localStorage.setItem('veil.credentialId', currentCredentialId);
+  localStorage.setItem('veil.displayName', currentDisplayName);
+  localStorage.setItem('veil.roomKeyHex', roomKeyHex);
+}
+
+function setStatus(el, text, tone=''){
+  if(!el) return;
+  el.textContent = text;
+  el.className = tone ? `status ${tone}` : 'status';
+}
+
+async function joinWithToken(token, name){
+  const credentialId = crypto.randomUUID();
+  const res = await api('/api/join',{method:'POST',body:JSON.stringify({token,display_name:name,public_key:'mvp',credential_id:credentialId})});
+  if(!res.ok) return res;
+  currentCredentialId = credentialId;
+  currentDisplayName = name;
+  if (res.data && typeof res.data.room_key_enc === 'string' && res.data.room_key_enc.length > 0) {
+    roomKeyHex = res.data.room_key_enc;
+  }
+  persistIdentity();
+  return res;
+}
+
+async function bootstrapRoom(room, name){
+  const credentialId = crypto.randomUUID();
+  roomKeyHex = randomRoomKeyHex();
+  const res=await api('/api/bootstrap',{method:'POST',body:JSON.stringify({room_name:room,display_name:name,public_key:'mvp',credential_id:credentialId,room_key_enc:roomKeyHex})});
+  if(!res.ok) return res;
+  currentCredentialId = credentialId;
+  currentDisplayName = name;
+  persistIdentity();
+  return res;
+}
+
+async function refreshAdminIdentity(){
+  const me = await api('/api/admin/users');
+  if(!me.ok) return;
+  myRole = me.data.my_role || myRole;
+  myUserID = me.data.me || myUserID;
+}
+
+async function refreshRoomName(){
+  const info = await api('/api/room');
+  if(!info.ok) return;
+  roomName = (info.data && info.data.room_name) ? String(info.data.room_name).trim() : roomName;
+}
+
+async function exportKeys(passphrase){
+  if(!roomKeyHex) throw new Error('No room key to export');
+  const wrapped=await wrapRoomKeyWithPassphrase(roomKeyHex, passphrase);
+  const payload={format:'veil.keys.v3',created_at:new Date().toISOString(),server_base:location.origin,credential_id:currentCredentialId||'',display_name:currentDisplayName||'',...wrapped};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download='room.keys'; a.style.display='none';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
+function navHTML(){
+  const canOpenControl = isAdminRole(myRole);
+  return `
+    <aside class="sidebar">
+      <div class="brand"><div class="eyebrow">encrypted room</div><h1>Veil</h1><span class="muted">private realtime chat</span></div>
+      <nav class="nav">
+        <button class="nav-btn ${currentView===VIEW_CHAT?'active':''}" id="tabChat">Chat</button>
+        <button class="nav-btn ${currentView===VIEW_KEYS?'active':''}" id="tabKeys">Keys</button>
+        ${canOpenControl ? `<button class="nav-btn ${currentView===VIEW_CONTROL?'active':''}" id="tabControl">Control</button>` : ''}
+      </nav>
+      <div></div>
+      <div class="whoami"><strong>${esc(currentDisplayName||'Unknown')}</strong><div class="muted">${esc(myRole)}</div></div>
+    </aside>
+  `;
+}
+
+function chatPanelHTML(){
+  const title = roomName || 'Room Chat';
+  return `
+    <section class="main">
+      <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <div class="panel"><div id="messages" class="chat-log"></div></div>
+      <div class="composer"><input id="m" placeholder="Type message"/><button id="send">Send</button></div>
+    </section>
+  `;
+}
+
+function keysPanelHTML(){
+  return `
+    <section class="main">
+      <header class="topbar"><div><strong>Key Vault</strong><small>Personal backup and restore</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
+      <div class="panel">
+        <section class="card" style="max-width:680px;">
+          <h3>Room Key Backup</h3>
+          <input id="passphrase" placeholder="Restore passphrase"/>
+          <button id="genPass" class="secondary">Generate Passphrase</button>
+          <button id="export">Export room.keys (encrypted)</button>
+          <input id="importFile" type="file" accept=".keys,application/json"/>
+          <button id="importBtn" class="secondary">Import room.keys</button>
+          <div id="importOut" class="status">Store your passphrase securely. Anyone with both files can decrypt room history.</div>
+        </section>
+      </div>
+      <div class="composer" style="grid-template-columns:1fr;"><div class="muted">Key rotation is optional and can be coordinated by admins when needed.</div></div>
+    </section>
+  `;
+}
+
+function controlPanelHTML(){
+  const canManageUsers = myRole === 'root_admin';
+  return `
+    <section class="main">
+      <header class="topbar"><div><strong>Control Center</strong><small>Invites and member governance</small></div><div class="top-actions"><span class="muted">${esc(myRole)}</span></div></header>
+      <div class="panel">
+        <div class="admin-grid">
+          <section class="card">
+            <h3>Invites</h3>
+            <button id="invite">Create Invite</button>
+            <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
+          </section>
+
+          <section class="card" style="grid-column:1 / -1;">
+            <h3>User Roles</h3>
+            <div id="roleStatus" class="status">${canManageUsers ? 'Load members to update roles.' : 'Only root admins can change roles.'}</div>
+            <div class="muted">Removing a user revokes access immediately. Room key rotation is optional and can be done later if needed.</div>
+            <div id="adminUsers" class="admin-users"></div>
+          </section>
+        </div>
+      </div>
+      <div class="composer" style="grid-template-columns:1fr;"><div class="muted">Admin changes apply immediately.</div></div>
+    </section>
+  `;
+}
+
+async function bootView(){
+  app.innerHTML = `<section class="boot-wrap"><div class="boot-card"><div class="eyebrow">first launch</div><div class="boot-title">Create your Veil room</div><div class="muted">This becomes the private room and your first root admin identity.</div><div class="boot-grid"><input id="room" placeholder="Room name"/><input id="name" placeholder="Display name"/><button id="go">Create Room</button><div id="bootOut" class="status"></div></div></div></section>`;
+  $('go').onclick=async()=>{
+    const room=$('room').value.trim();
+    const name=$('name').value.trim();
+    const res=await bootstrapRoom(room, name);
+    if(!res.ok){ setStatus($('bootOut'), res.data.error||'failed', 'err'); return; }
+    chatView();
+  };
+}
+
+async function accessView(){
+  app.innerHTML = `<section class="boot-wrap"><div class="boot-card"><div class="eyebrow">room found</div><div class="boot-title">Access Veil</div><div class="muted">Restore an existing identity or join with an invite token.</div><div class="split-grid"><section class="access-pane"><h3>Returning user</h3><input id="accessPassphrase" placeholder="Restore passphrase"/><input id="accessImportFile" type="file" accept=".keys,application/json"/><button id="accessImportBtn">Import room.keys</button><div id="importOut" class="status"></div></section><section class="access-pane"><h3>New invite</h3><input id="inviteToken" placeholder="Invite token"/><input id="name" placeholder="Display name"/><button id="joinByToken">Join Room</button><div id="joinOut" class="status"></div></section></div></div></section>`;
+
+  $('accessImportBtn').onclick=async()=>{
+    const fileEl=$('accessImportFile'); const out=$('importOut');
+    const file=fileEl.files&&fileEl.files[0]; if(!file){ out.textContent='Select a room.keys file first.'; return; }
+    const pass=$('accessPassphrase').value.trim(); if(!pass){ out.textContent='Enter restore passphrase first.'; return; }
+    try{
+      const raw=await file.text(); const cfg=JSON.parse(raw);
+      if(!cfg||cfg.format!=='veil.keys.v3'||!cfg.credential_id||!cfg.wrap){ out.textContent='Invalid or legacy key file format.'; return; }
+      const rk=await unwrapRoomKeyWithPassphrase(cfg,pass);
+      roomKeyHex=rk; currentCredentialId=cfg.credential_id||''; currentDisplayName=cfg.display_name||'';
+      persistIdentity();
+      const r=await api('/api/session/from-credential',{method:'POST',body:JSON.stringify({credential_id:currentCredentialId})});
+      if(!r.ok){ out.textContent=r.data.error||'Import worked, but login failed.'; return; }
+      out.textContent='Keys imported and session restored.';
+      window.location.reload();
+    }catch{
+      out.textContent='Could not import keys (wrong passphrase or invalid file).';
+    }
+  };
+
+  $('joinByToken').onclick=async()=>{
+    const token=$('inviteToken').value.trim();
+    const name=$('name').value.trim();
+    const out=$('joinOut');
+    if(!token){ out.textContent='Invite token is required.'; return; }
+    if(!name){ out.textContent='Display name is required.'; return; }
+    const res = await joinWithToken(token, name);
+    if(!res.ok){ out.textContent=res.data.error||'Join failed'; return; }
+    out.textContent='Joined successfully.';
+    chatView();
+  };
+}
+
+async function inviteView(token){
+  app.innerHTML = `<section class="boot-wrap"><div class="boot-card"><div class="eyebrow">invite</div><div class="boot-title">Join Veil Room</div><div class="muted">Choose the display name other members will see.</div><div class="boot-grid"><input id="name" placeholder="Display name"/><button id="join">Join Room</button><div id="joinOut" class="status">Invite token detected and ready.</div></div></div></section>`;
+  $('join').onclick=async()=>{
+    const name=$('name').value.trim();
+    const out=$('joinOut');
+    if(!name){ out.textContent='Display name is required.'; return; }
+    const res = await joinWithToken(token, name);
+    if(!res.ok){ out.textContent=res.data.error||'Join failed'; return; }
+    out.textContent='Joined successfully. Import room.keys to decrypt history.';
+    chatView();
+  };
+}
+
+async function loadHistory(){
+  const messages = $('messages');
+  if(!messages) return;
+  const history = await api('/api/messages');
+  if(!history.ok) return;
+  messages.innerHTML='';
+  for(const m of history.data.messages.reverse()){
+    let plain='[decrypt failed]';
+    try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,m.nonce,m.ciphertext); }catch{}
+    messages.insertAdjacentHTML('beforeend',drawLine(m.display_name,plain,m.created_at));
+  }
+  messages.scrollTop=messages.scrollHeight;
+}
+
+function ensureSocket(){
+  if(ws && (ws.readyState===WebSocket.OPEN || ws.readyState===WebSocket.CONNECTING)) return;
+  ws = new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host+'/ws');
+  ws.onmessage = async(ev)=>{
+    const x=JSON.parse(ev.data);
+    if(x.type!=='message') return;
+    const messages=document.getElementById('messages');
+    if(!messages) return;
+    let plain='[decrypt failed]';
+    try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,x.data.nonce,x.data.ciphertext);}catch{}
+    messages.insertAdjacentHTML('beforeend',drawLine(x.data.display_name,plain,new Date().toISOString()));
+    messages.scrollTop=messages.scrollHeight;
+  };
+}
+
+async function renderAdminUsers(){
+  const box=document.getElementById('adminUsers');
+  const status=document.getElementById('roleStatus');
+  if(!box || !status) return;
+
+  const r = await api('/api/admin/users');
+  if(!r.ok){
+    status.textContent = r.data.error || 'Failed to load users';
+    status.className = 'status err';
+    box.innerHTML = '';
+    return;
+  }
+
+  myRole = r.data.my_role || myRole;
+  myUserID = r.data.me || myUserID;
+  status.className = 'status';
+  box.innerHTML='';
+
+  for(const u of r.data.users){
+    const canChange = myRole === 'root_admin' && u.role !== 'root_admin';
+    const roleOptions = ['member','admin'].map(role => `<option value="${role}" ${u.role===role?'selected':''}>${role}</option>`).join('');
+    const row = document.createElement('div');
+    row.className = 'admin-user';
+    row.innerHTML = `<div><strong>${esc(u.display_name)}</strong><div class="admin-role">${esc(u.role)}</div></div>${canChange?`<div class="admin-actions"><select data-user="${esc(u.id)}">${roleOptions}</select><button class="btn-danger" data-remove-user="${esc(u.id)}">Remove</button></div>`:'<div class="muted">locked</div>'}`;
+    box.appendChild(row);
+  }
+
+  if(myRole !== 'root_admin'){
+    status.textContent = 'Members loaded. Root admin permission required to update roles.';
+    return;
+  }
+
+  box.querySelectorAll('select[data-user]').forEach((sel)=>{
+    sel.addEventListener('change', async()=>{
+      const userId = sel.getAttribute('data-user');
+      const role = sel.value;
+      const res = await api('/api/admin/role',{method:'POST',body:JSON.stringify({user_id:userId,role})});
+      if(!res.ok){
+        status.textContent = res.data.error || 'Failed to update role';
+        status.className = 'status err';
+        await renderAdminUsers();
+        return;
+      }
+      status.textContent = 'Role updated.';
+      status.className = 'status ok';
+      await renderAdminUsers();
+    });
+  });
+
+  box.querySelectorAll('button[data-remove-user]').forEach((btn)=>{
+    btn.addEventListener('click', async()=>{
+      const userId = btn.getAttribute('data-remove-user');
+      if(!confirm('Remove this user and revoke access?')) return;
+      const res = await api('/api/admin/remove-user',{method:'POST',body:JSON.stringify({user_id:userId})});
+      if(!res.ok){
+        status.textContent = res.data.error || 'Failed to remove user';
+        status.className = 'status err';
+        return;
+      }
+      status.textContent = 'User removed. Access revoked.';
+      status.className = 'status ok';
+      await renderAdminUsers();
+    });
+  });
+}
+
+function bindChatActions(){
+  const sendBtn=$('send');
+  const input=$('m');
+  if(!sendBtn || !input) return;
+
+  sendBtn.onclick=async()=>{
+    const text=input.value.trim();
+    if(!text) return;
+    if(!roomKeyHex){ alert('No room key loaded. Import room.keys first.'); return; }
+    try{
+      const enc=await encryptText(roomKeyHex,text);
+      ws.send(JSON.stringify({ciphertext:enc.ciphertext,nonce:enc.nonce}));
+      input.value='';
+      input.focus();
+    }catch{ alert('Encryption failed'); }
+  };
+  input.addEventListener('keydown',(e)=>{ if(e.key==='Enter') sendBtn.click(); });
+}
+
+function bindKeyActions(){
+  const genPass=$('genPass');
+  if(genPass) genPass.onclick=()=>{ $('passphrase').value=generatePassphrase(); };
+
+  const exportBtn=$('export');
+  if(exportBtn){
+    exportBtn.onclick=async()=>{
+      const out=$('importOut');
+      let pass=$('passphrase').value.trim();
+      if(!pass){ pass=generatePassphrase(); $('passphrase').value=pass; }
+      setStatus(out, 'Preparing encrypted key export...');
+      exportBtn.disabled=true;
+      try{ await exportKeys(pass); setStatus(out, `Exported encrypted keys. Save this passphrase: ${pass}`, 'ok'); }
+      catch(e){ setStatus(out, e.message||'Export failed', 'err'); }
+      finally{ exportBtn.disabled=false; }
+    };
+  }
+
+  const importBtn=$('importBtn');
+  if(importBtn){
+    importBtn.onclick=async()=>{
+      const fileEl=$('importFile'); const out=$('importOut');
+      const file=fileEl.files&&fileEl.files[0]; if(!file){ setStatus(out, 'Select a room.keys file first.', 'err'); return; }
+      const pass=$('passphrase').value.trim(); if(!pass){ setStatus(out, 'Enter restore passphrase first.', 'err'); return; }
+      try{
+        const raw=await file.text(); const cfg=JSON.parse(raw);
+        if(!cfg||cfg.format!=='veil.keys.v3'||!cfg.credential_id||!cfg.wrap){ setStatus(out, 'Invalid or legacy key file format.', 'err'); return; }
+        const rk=await unwrapRoomKeyWithPassphrase(cfg,pass);
+        roomKeyHex=rk; currentCredentialId=cfg.credential_id||''; currentDisplayName=cfg.display_name||'';
+        persistIdentity();
+        const r=await api('/api/session/from-credential',{method:'POST',body:JSON.stringify({credential_id:currentCredentialId})});
+        if(!r.ok){ setStatus(out, r.data.error||'Import worked, but login failed.', 'err'); return; }
+        setStatus(out, 'Keys imported and session restored.', 'ok');
+        window.location.reload();
+      }catch{ setStatus(out, 'Could not import keys (wrong passphrase or invalid file).', 'err'); }
+    };
+  }
+}
+
+function bindControlActions(){
+  const inviteBtn=$('invite');
+  if(inviteBtn){
+    inviteBtn.onclick=async()=>{
+      const out=$('inviteOut');
+      const r=await api('/api/invite',{method:'POST'});
+      out.textContent = r.ok ? `${location.origin}${r.data.invite_link}` : (r.data.error || 'failed');
+    };
+  }
+
+  renderAdminUsers();
+}
+
+function renderPanelHTML(){
+  if(currentView === VIEW_KEYS) return keysPanelHTML();
+  if(currentView === VIEW_CONTROL) return controlPanelHTML();
+  return chatPanelHTML();
+}
+
+async function renderMain(){
+  if(currentView === VIEW_CONTROL && !isAdminRole(myRole)){
+    currentView = VIEW_CHAT;
+  }
+  app.innerHTML = `<section class="chat-shell">${navHTML()}${renderPanelHTML()}</section>`;
+
+  $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; renderMain(); };
+  $('tabKeys').onclick=()=>{ currentView=VIEW_KEYS; renderMain(); };
+  const tabControl = $('tabControl');
+  if(tabControl){
+    tabControl.onclick=()=>{ currentView=VIEW_CONTROL; renderMain(); };
+  }
+
+  if(currentView===VIEW_CHAT){
+    bindChatActions();
+    await loadHistory();
+    ensureSocket();
+    return;
+  }
+  if(currentView===VIEW_KEYS){
+    bindKeyActions();
+    return;
+  }
+  if(currentView===VIEW_CONTROL){
+    if(!isAdminRole(myRole)){
+      currentView = VIEW_CHAT;
+      return renderMain();
+    }
+    bindControlActions();
+  }
+}
+
+async function chatView(){
+  await refreshAdminIdentity();
+  await refreshRoomName();
+  ensureSocket();
+  await renderMain();
+}
+
+(async()=>{
+  const path=window.location.pathname;
+  const inviteMatch=path.match(/^\/invite\/([^/]+)$/);
+  if(inviteMatch){ await inviteView(inviteMatch[1]); return; }
+
+  const h=await api('/health');
+  if(!h.ok){ await bootView(); return; }
+  const m=await api('/api/messages');
+  if(m.ok){ await chatView(); return; }
+  if(h.data && h.data.initialized){ await accessView(); return; }
+  await bootView();
+})();
+</script>
+</body>
+</html>
