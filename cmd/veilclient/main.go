@@ -75,6 +75,8 @@ func runClient() error {
 		roomKey:    roomKey,
 		roomName:   roomName,
 		serverBase: base,
+		session:    sessionToken,
+		credential: cfg.CredentialID,
 		selfName:   displayName,
 		lines: append([]line{
 			{user: "system", text: "connected"},

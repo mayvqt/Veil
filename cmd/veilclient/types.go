@@ -51,9 +51,24 @@ type line struct {
 }
 
 type incomingMsg struct {
+	ws   *websocket.Conn
 	user string
 	text string
 }
+
+type wsDisconnectedMsg struct {
+	ws  *websocket.Conn
+	err error
+}
+
+type wsReconnectMsg struct {
+	ws      *websocket.Conn
+	base    string
+	session string
+	err     error
+}
+
+type wsReconnectTickMsg struct{}
 
 type model struct {
 	lines      []line
@@ -63,8 +78,11 @@ type model struct {
 	roomKey    []byte
 	roomName   string
 	serverBase string
+	session    string
+	credential string
 	selfName   string
 	width      int
 	height     int
 	ready      bool
+	reconnect  bool
 }
