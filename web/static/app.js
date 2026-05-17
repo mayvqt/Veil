@@ -173,6 +173,32 @@ function formatBytes(bytes){
   if(bytes < 1024*1024) return `${Math.round(bytes/1024)} KB`;
   return `${(bytes/(1024*1024)).toFixed(1)} MB`;
 }
+function linkifyText(text){
+  const input=String(text ?? '');
+  const urlRe=/https?:\/\/[^\s<>"']+|www\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+[^\s<>"']*/gi;
+  const trailingPunct=/[),.;:!?]+$/;
+  let out='';
+  let last=0;
+  for(const m of input.matchAll(urlRe)){
+    const idx=m.index ?? 0;
+    let raw=m[0];
+    let suffix='';
+    const trim=raw.match(trailingPunct);
+    if(trim){
+      suffix=trim[0];
+      raw=raw.slice(0, raw.length-suffix.length);
+    }
+    if(!raw) continue;
+    const isHTTP=/^https?:\/\//i.test(raw);
+    const href=isHTTP ? raw : `https://${raw}`;
+    const label=raw;
+    out += esc(input.slice(last, idx));
+    out += `<a href="${esc(href)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>${esc(suffix)}`;
+    last = idx + m[0].length;
+  }
+  out += esc(input.slice(last));
+  return out;
+}
 function bytesToHex(bytes){ let out=''; for(const b of bytes) out += b.toString(16).padStart(2,'0'); return out; }
 function hexToBytes(hex){ if(typeof hex!=='string' || hex.length%2!==0) throw new Error('invalid hex'); const out=new Uint8Array(hex.length/2); for(let i=0;i<hex.length;i+=2) out[i/2]=parseInt(hex.slice(i,i+2),16); return out; }
 function randomBytes(n){ const a=new Uint8Array(n); crypto.getRandomValues(a); return a; }
@@ -256,7 +282,7 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   if(roomBytes.length!==32) throw new Error('Invalid room key in file');
   return bytesToHex(roomBytes);
 }
-function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-text">${esc(text)}</span></div>`; }
+function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-text">${linkifyText(text)}</span></div>`; }
 function parseMessagePayload(text){
   try{
     const payload=JSON.parse(text);
@@ -279,7 +305,7 @@ function drawMessage(name,text,ts=''){
   const payload=parseMessagePayload(text);
   if(payload.type!=='image') return drawLine(name,text,ts);
   const src=`data:${payload.mime};base64,${payload.data}`;
-  const caption=payload.caption ? `<span class="line-text">${esc(payload.caption)}</span>` : '';
+  const caption=payload.caption ? `<span class="line-text">${linkifyText(payload.caption)}</span>` : '';
   return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" style="color:${c}">${esc(name)}:</span><span class="line-media"><img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" loading="lazy" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
 }
 function scrollChatToBottom(){
@@ -524,6 +550,7 @@ function controlPanelHTML(){
             <div class="theme-actions">
               <button id="invite">Create Invite</button>
               <button id="revokeUnusedInvites" class="secondary">Revoke Unused</button>
+              <button id="purgeUsedRevokedInvites" class="secondary">Purge Used/Revoked</button>
             </div>
             <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
             <div id="inviteList" class="admin-users"></div>
@@ -1103,6 +1130,7 @@ function bindControlActions(){
   const inviteOut=$('inviteOut');
   const inviteList=$('inviteList');
   const revokeUnusedBtn=$('revokeUnusedInvites');
+  const purgeUsedRevokedBtn=$('purgeUsedRevokedInvites');
   const messageStatus=$('messageAdminStatus');
   const retainCountInput=$('retainCountInput');
   const retainMessagesBtn=$('retainMessages');
@@ -1116,7 +1144,16 @@ function bindControlActions(){
       return;
     }
     inviteList.innerHTML='';
-    for(const inv of (r.data.invites || [])){
+    const invites = [...(r.data.invites || [])];
+    invites.sort((a,b)=>{
+      const aRemaining=Math.max(0, Number(a.max_uses||0)-Number(a.uses||0));
+      const bRemaining=Math.max(0, Number(b.max_uses||0)-Number(b.uses||0));
+      const aInactive=!!a.revoked || aRemaining===0;
+      const bInactive=!!b.revoked || bRemaining===0;
+      if(aInactive===bInactive) return 0;
+      return aInactive ? 1 : -1;
+    });
+    for(const inv of invites){
       const row=document.createElement('div');
       row.className='admin-user';
       const remaining=Math.max(0, Number(inv.max_uses||0)-Number(inv.uses||0));
@@ -1153,7 +1190,14 @@ function bindControlActions(){
   if(inviteBtn){
     inviteBtn.onclick=async()=>{
       const r=await api('/api/invite',{method:'POST'});
-      if(inviteOut) inviteOut.textContent = r.ok ? `${location.origin}${r.data.invite_link}` : (r.data.error || 'failed');
+      if(inviteOut){
+        if(r.ok){
+          const url = `${location.origin}${r.data.invite_link}`;
+          inviteOut.innerHTML = `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`;
+        }else{
+          inviteOut.textContent = r.data.error || 'failed';
+        }
+      }
       refreshInvites();
     };
   }
@@ -1161,6 +1205,13 @@ function bindControlActions(){
     revokeUnusedBtn.onclick=async()=>{
       const r=await api('/api/admin/revoke-unused-invites',{method:'POST',body:JSON.stringify({})});
       if(inviteOut) inviteOut.textContent = r.ok ? `Revoked ${r.data.revoked} unused invites` : (r.data.error || 'failed');
+      refreshInvites();
+    };
+  }
+  if(purgeUsedRevokedBtn){
+    purgeUsedRevokedBtn.onclick=async()=>{
+      const r=await api('/api/admin/purge-used-revoked-invites',{method:'POST',body:JSON.stringify({})});
+      if(inviteOut) inviteOut.textContent = r.ok ? `Purged ${r.data.purged} used/revoked invites` : (r.data.error || 'failed');
       refreshInvites();
     };
   }

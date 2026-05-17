@@ -215,6 +215,14 @@ func (s *Store) RevokeUnusedInvites() (int64, error) {
 	return res.RowsAffected()
 }
 
+func (s *Store) PurgeUsedOrRevokedInvites() (int64, error) {
+	res, err := s.DB.Exec("DELETE FROM invites WHERE revoked=1 OR uses >= max_uses")
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 	row := s.DB.QueryRow(`
 SELECT u.id, u.display_name, u.role

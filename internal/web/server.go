@@ -80,6 +80,7 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/api/admin/invites", s.listInvites)
 	r.Post("/api/admin/revoke-invite", s.revokeInvite)
 	r.Post("/api/admin/revoke-unused-invites", s.revokeUnusedInvites)
+	r.Post("/api/admin/purge-used-revoked-invites", s.purgeUsedRevokedInvites)
 	r.Get("/api/admin/messages/stats", s.messageStats)
 	r.Post("/api/admin/messages/clear", s.clearMessages)
 	r.Post("/api/admin/messages/retain", s.retainMessages)
@@ -467,6 +468,24 @@ func (s *Server) revokeUnusedInvites(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Printf("invite_revoke_unused by=%s revoked=%d", u.ID, n)
 	writeJSON(w, 200, map[string]any{"ok": true, "revoked": n})
+}
+
+func (s *Server) purgeUsedRevokedInvites(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	n, err := s.Store.PurgeUsedOrRevokedInvites()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to purge invites"})
+		return
+	}
+	log.Printf("invite_purge_used_revoked by=%s purged=%d", u.ID, n)
+	writeJSON(w, 200, map[string]any{"ok": true, "purged": n})
 }
 
 func (s *Server) messageStats(w http.ResponseWriter, r *http.Request) {

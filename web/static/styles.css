@@ -48,26 +48,32 @@
         linear-gradient(135deg, var(--accent-grid) 0 1px, transparent 1px 16px),
         linear-gradient(180deg, var(--bg-2), var(--bg));
       color: var(--ink);
-      font-family: "Aptos", "IBM Plex Sans", "Segoe UI", sans-serif;
+      font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
     }
     body {
       min-height: 100vh;
       min-height: 100svh;
       min-height: 100dvh;
+      min-height: -webkit-fill-available;
       overflow-x: hidden;
       overflow-y: hidden;
       overscroll-behavior: none;
     }
     .app {
+      position: fixed;
+      inset: 0;
       width: 100%;
       height: 100vh;
       height: 100svh;
       height: 100dvh;
+      height: -webkit-fill-available;
       min-height: 100vh;
       min-height: 100svh;
       min-height: 100dvh;
+      min-height: -webkit-fill-available;
       display: grid;
       background: var(--app-shell);
+      overflow: hidden;
     }
 
     .chat-shell {
@@ -174,7 +180,7 @@
       border: 1px solid var(--line);
       background: linear-gradient(180deg, var(--chat-grad-a), var(--chat-grad-b));
       padding: 16px;
-      font-family: "Cascadia Mono", "IBM Plex Mono", "SF Mono", monospace;
+      font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
       font-size: .9rem;
       line-height: 1.45;
       display: grid;
@@ -188,6 +194,15 @@
     .line-time { color: var(--quiet); font-size: .78rem; }
     .line-user { font-weight: 600; }
     .line-text { color: var(--ink); }
+    .line-text a, .invite-out a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      word-break: break-all;
+    }
+    .line-text a:hover, .invite-out a:hover {
+      color: var(--accent-2);
+    }
     .line-media {
       display: grid;
       gap: 6px;
@@ -326,7 +341,7 @@
       padding: 10px;
       border-radius: var(--radius-sm);
       color: var(--ink);
-      font-family: "Cascadia Mono", "IBM Plex Mono", "SF Mono", monospace;
+      font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
       font-size: .82rem;
       word-break: break-all;
     }
@@ -396,13 +411,17 @@
       max-width: 760px;
     }
 
-    button, input, select {
+    button, input, select, textarea {
       border: 1px solid var(--line-2);
       border-radius: var(--radius-sm);
       background: var(--surface);
       color: var(--ink);
       font: inherit;
       padding: 10px 12px;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 112px;
     }
     button {
       background: linear-gradient(180deg, var(--button-a), var(--button-b));
@@ -414,8 +433,8 @@
     button:active { transform: translateY(0); }
     button.secondary { background: var(--surface-2); }
     button:disabled { opacity: .55; cursor: default; }
-    input::placeholder { color: var(--placeholder); }
-    input:focus, select:focus, button:focus-visible {
+    input::placeholder, textarea::placeholder { color: var(--placeholder); }
+    input:focus, select:focus, textarea:focus, button:focus-visible {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--focus-ring);
@@ -480,7 +499,8 @@
       .chat-shell {
         grid-template-columns: 1fr;
         overflow: auto;
-        min-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+        min-height: 100%;
+        padding-bottom: env(safe-area-inset-bottom);
       }
       .sidebar { position: static; height: auto; grid-template-columns: 1fr; grid-template-rows: auto auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 14px; }
       .nav { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
@@ -494,10 +514,7 @@
       .attachment-preview button { grid-column: 1 / -1; }
     }
     @media (max-width: 680px) {
-      body {
-        padding-top: env(safe-area-inset-top);
-        padding-bottom: env(safe-area-inset-bottom);
-      }
+      .app { padding-top: env(safe-area-inset-top); }
       .topbar { padding: 12px 14px; }
       .top-actions { gap: 6px; }
       .panel { padding: 12px; }
@@ -515,3 +532,4 @@
       from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: translateY(0); }
     }
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
