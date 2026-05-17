@@ -19,6 +19,24 @@ func (s *Server) requireUser(w http.ResponseWriter, r *http.Request) (*db.User, 
 	return u, true
 }
 
+func (s *Server) requireAPIUser(w http.ResponseWriter, r *http.Request) (*db.User, bool) {
+	u, err := s.userFromCookie(r)
+	if err == nil {
+		return u, true
+	}
+	t := sessionTokenFromRequest(r)
+	if t == "" {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return nil, false
+	}
+	u, err = s.userFromSignedToken(t)
+	if err != nil {
+		writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		return nil, false
+	}
+	return u, true
+}
+
 func (s *Server) userFromCookie(r *http.Request) (*db.User, error) {
 	c, err := r.Cookie("veil_session")
 	if err != nil {

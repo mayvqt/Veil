@@ -17,18 +17,9 @@ const (
 )
 
 func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
-	u, err := s.userFromCookie(r)
-	if err != nil {
-		t := sessionTokenFromRequest(r)
-		if t == "" {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		u, err = s.userFromSignedToken(t)
-		if err != nil {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
 	}
 	upgrader := websocket.Upgrader{
 		CheckOrigin:     s.checkWebSocketOrigin,

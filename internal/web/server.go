@@ -242,17 +242,8 @@ func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
-	_, err := s.userFromCookie(r)
-	if err != nil {
-		t := sessionTokenFromRequest(r)
-		if t == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
-			return
-		}
-		if _, err := s.userFromSignedToken(t); err != nil {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
-			return
-		}
+	if _, ok := s.requireAPIUser(w, r); !ok {
+		return
 	}
 	msgs, err := s.Store.ListRecentMessages(100)
 	if err != nil {
@@ -263,17 +254,8 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) roomInfo(w http.ResponseWriter, r *http.Request) {
-	_, err := s.userFromCookie(r)
-	if err != nil {
-		t := sessionTokenFromRequest(r)
-		if t == "" {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
-			return
-		}
-		if _, err := s.userFromSignedToken(t); err != nil {
-			writeJSON(w, 401, map[string]string{"error": "unauthorized"})
-			return
-		}
+	if _, ok := s.requireAPIUser(w, r); !ok {
+		return
 	}
 	roomName, err := s.Store.GetRoomName()
 	if err != nil {
@@ -284,7 +266,7 @@ func (s *Server) roomInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listUsers(w http.ResponseWriter, r *http.Request) {
-	u, ok := s.requireUser(w, r)
+	u, ok := s.requireAPIUser(w, r)
 	if !ok {
 		return
 	}

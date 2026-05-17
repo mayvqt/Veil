@@ -3,7 +3,6 @@ package db
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/google/uuid"
@@ -278,9 +277,7 @@ func (s *Store) IsUserActive(userID string) (bool, error) {
 	return active == 1, nil
 }
 
-func itoa(v int) string {
-	return fmt.Sprintf("%d", v)
-}
+func itoa(v int) string { return strconv.Itoa(v) }
 
 func (s *Store) PruneMessagesOlderThan(days int) error {
 	if days <= 0 {

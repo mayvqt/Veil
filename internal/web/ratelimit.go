@@ -11,6 +11,7 @@ import (
 type rateLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*rateBucket
+	ticks   int
 }
 
 type rateBucket struct {
@@ -24,6 +25,14 @@ func (l *rateLimiter) allow(key string, limit int, window time.Duration) bool {
 	now := time.Now()
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.ticks++
+	if l.ticks%256 == 0 {
+		for k, v := range l.buckets {
+			if now.After(v.expires) {
+				delete(l.buckets, k)
+			}
+		}
+	}
 
 	b := l.buckets[key]
 	if b == nil || now.After(b.expires) {
