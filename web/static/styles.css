@@ -85,6 +85,7 @@
       animation: fadein .2s ease;
       overflow: hidden;
       transition: grid-template-columns .2s ease;
+      position: relative;
     }
     .chat-shell.sidebar-collapsed {
       grid-template-columns: 0 minmax(0, 1fr);
@@ -162,6 +163,13 @@
     }
     .topbar strong { font-size: 1.05rem; }
     .topbar small { display: block; margin-top: 3px; color: var(--quiet); }
+    .topbar > div:first-child {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
     .top-actions {
       display: flex;
       align-items: center;
@@ -593,6 +601,9 @@
         overflow: auto;
         min-height: 100%;
         padding-bottom: env(safe-area-inset-bottom);
+      }
+      .chat-shell.sidebar-collapsed {
+        grid-template-columns: minmax(0, 1fr);
       }
       .sidebar {
         position: absolute;

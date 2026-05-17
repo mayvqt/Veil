@@ -95,6 +95,9 @@ function setSidebarCollapsed(next){
   sidebarCollapsed=!!next;
   try{ localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0'); }catch{}
 }
+function shouldAutoCollapseSidebarOnNav(){
+  return window.matchMedia('(max-width: 980px)').matches;
+}
 function loadUserColors(){
   try{
     const raw=JSON.parse(localStorage.getItem(USER_COLOR_STORAGE_KEY)||'{}');
@@ -545,7 +548,7 @@ function chatPanelHTML(){
   const title = roomName || 'Room Chat';
   return `
     <section class="main">
-      <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
       <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
         <div id="attachmentPreview" class="attachment-preview"></div>
@@ -568,7 +571,7 @@ function chatPanelHTML(){
 function keysPanelHTML(){
   return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">local only</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
       <div class="panel utility-panel">
         <section class="card">
           <h3>Backup + Restore</h3>
@@ -615,7 +618,7 @@ function themePanelHTML(){
   ];
   return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Theme Studio</strong><small>Custom colors stay in this browser</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">local only</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>Theme Studio</strong><small>Custom colors stay in this browser</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
       <div class="panel utility-panel">
         <section class="card">
           <h3>Presets</h3>
@@ -653,7 +656,7 @@ function controlPanelHTML(){
   const canManageUsers = myRole === 'root_admin';
   return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Control Center</strong><small>Invites, members, and message retention</small></div><div class="top-actions"><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><span class="muted">${esc(myRole)}</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>Control Center</strong><small>Invites, members, and message retention</small></div><div class="top-actions"><span class="muted">${esc(myRole)}</span></div></header>
       <div class="panel utility-panel">
         <div class="admin-grid">
           <section class="card">
@@ -1552,12 +1555,12 @@ async function renderMain(){
       renderMain();
     };
   }
-  $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; setSidebarCollapsed(true); renderMain(); };
-  $('tabKeys').onclick=()=>{ currentView=VIEW_KEYS; setSidebarCollapsed(true); renderMain(); };
-  $('tabTheme').onclick=()=>{ currentView=VIEW_THEME; setSidebarCollapsed(true); renderMain(); };
+  $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
+  $('tabKeys').onclick=()=>{ currentView=VIEW_KEYS; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
+  $('tabTheme').onclick=()=>{ currentView=VIEW_THEME; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
   const tabControl = $('tabControl');
   if(tabControl){
-    tabControl.onclick=()=>{ currentView=VIEW_CONTROL; setSidebarCollapsed(true); renderMain(); };
+    tabControl.onclick=()=>{ currentView=VIEW_CONTROL; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
   }
 
   if(currentView===VIEW_CHAT){
