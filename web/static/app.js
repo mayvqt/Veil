@@ -503,7 +503,7 @@ function chatPanelHTML(){
   return `
     <section class="main">
       <header class="topbar"><div><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span><label class="chat-color-control" for="chatColor">Chat color <input id="chatColor" type="color" value="${esc(activeColor)}" title="Choose your chat name color"/></label></div></header>
-      <div class="panel"><div id="messages" class="chat-log"></div></div>
+      <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
         <div id="attachmentPreview" class="attachment-preview"></div>
         <input id="m" placeholder="Type message" enterkeyhint="send" autocomplete="off"/>

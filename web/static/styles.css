@@ -184,6 +184,10 @@
       overflow: auto;
       padding: 22px;
     }
+    .chat-panel {
+      padding: 0;
+      overflow: hidden;
+    }
     .panel.utility-panel {
       display: grid;
       align-content: start;
@@ -208,6 +212,15 @@
       border-radius: var(--radius-md);
       overflow: auto;
       box-shadow: var(--shadow);
+    }
+    .chat-panel .chat-log {
+      border-left: 0;
+      border-right: 0;
+      border-radius: 0;
+      min-height: 0;
+      height: 100%;
+      padding: 14px 18px;
+      box-shadow: none;
     }
     .line { display: grid; grid-template-columns: auto auto minmax(0,1fr); gap: 8px; word-break: break-word; }
     .line-time { color: var(--quiet); font-size: .78rem; }
