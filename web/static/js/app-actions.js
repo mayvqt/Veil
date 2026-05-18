@@ -11,6 +11,8 @@ function bindChatActions(){
   const memberToggle=$('memberToggle');
   const memberPopover=$('memberPopover');
   const searchInput=$('chatSearchInput');
+  const searchWrap=$('chatSearchWrap');
+  const searchToggle=$('chatSearchToggle');
   const jumpLatestBtn=$('jumpLatest');
   const pinnedBar=$('pinnedBar');
   const emojiToggle=$('emojiToggle');
@@ -53,6 +55,11 @@ function bindChatActions(){
   };
   const applyChatSearch=()=>chatApplySearch(messages, searchInput && searchInput.value);
   const renderPinnedBar=()=>chatRenderPinnedBar(pinnedBar, messages);
+  const updateJumpLatestVisibility=()=>{
+    if(!messages || !jumpLatestBtn) return;
+    const distanceFromBottom = messages.scrollHeight - messages.clientHeight - messages.scrollTop;
+    jumpLatestBtn.classList.toggle('show', distanceFromBottom > 110);
+  };
 
   const closeEmojiPicker=()=>{
     if(!emojiPicker || !emojiToggle) return;
@@ -60,7 +67,11 @@ function bindChatActions(){
     emojiToggle.setAttribute('aria-expanded','false');
   };
   if(searchInput) searchInput.addEventListener('input', applyChatSearch);
-  if(jumpLatestBtn) jumpLatestBtn.onclick=()=>scrollChatToBottom();
+  bindSearchPopover(searchWrap, searchInput, searchToggle);
+  if(jumpLatestBtn) jumpLatestBtn.onclick=()=>{
+    scrollChatToBottom();
+    updateJumpLatestVisibility();
+  };
   const toggleEmojiPicker=()=>{
     if(!emojiPicker || !emojiToggle) return;
     const open=!emojiPicker.classList.contains('open');
@@ -314,6 +325,7 @@ function bindChatActions(){
       placeActionsNearPointer(media,e);
     });
     messages.addEventListener('scroll',()=>{
+      updateJumpLatestVisibility();
       if(messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
       historyLoadingMore=true;
       loadHistory({appendOlder:true});
@@ -455,6 +467,7 @@ function bindChatActions(){
   },{capture:true});
   updateReplyPreview();
   renderPinnedBar();
+  updateJumpLatestVisibility();
   refreshMembers();
 }
 

@@ -1,3 +1,106 @@
+let reactionPickerEl = null;
+let reactionPickerMessageID = "";
+let reactionPickerBound = false;
+
+function ensureReactionPicker() {
+  if (reactionPickerEl) return reactionPickerEl;
+  reactionPickerEl = document.createElement("div");
+  reactionPickerEl.className = "reaction-picker-pop";
+  reactionPickerEl.hidden = true;
+  reactionPickerEl.setAttribute("aria-label", "Reaction picker");
+  reactionPickerEl.innerHTML = EMOJI_CHOICES.map(
+    (emoji) =>
+      `<button class="reaction-choice" type="button" data-reaction-emoji="${esc(emoji)}" aria-label="React with ${esc(
+        emoji
+      )}">${esc(emoji)}</button>`
+  ).join("");
+  document.body.appendChild(reactionPickerEl);
+  return reactionPickerEl;
+}
+
+function closeReactionPicker() {
+  if (!reactionPickerEl) return;
+  reactionPickerEl.hidden = true;
+  reactionPickerMessageID = "";
+}
+
+function bindReactionPickerHandlers() {
+  if (reactionPickerBound) return;
+  reactionPickerBound = true;
+  if (reactionPickerEl) {
+    reactionPickerEl.addEventListener("click", async (e) => {
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      const pick = target.closest("button[data-reaction-emoji]");
+      if (!pick) return;
+      const emoji = pick.getAttribute("data-reaction-emoji") || "";
+      if (!reactionPickerMessageID || !emoji) return;
+      await api("/api/messages/react", {
+        method: "POST",
+        body: JSON.stringify({ message_id: reactionPickerMessageID, emoji }),
+      });
+      closeReactionPicker();
+    });
+  }
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!reactionPickerEl || reactionPickerEl.hidden) return;
+      const target = e.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (
+        target.closest(".reaction-picker-pop") ||
+        target.closest("button[data-react-msg]")
+      ) {
+        return;
+      }
+      closeReactionPicker();
+    },
+    { capture: true }
+  );
+}
+
+function openReactionPicker(anchorBtn, messageID) {
+  const picker = ensureReactionPicker();
+  bindReactionPickerHandlers();
+  reactionPickerMessageID = messageID;
+  const rect = anchorBtn.getBoundingClientRect();
+  picker.style.left = `${Math.max(12, Math.round(rect.left))}px`;
+  picker.style.top = `${Math.round(rect.bottom + 8)}px`;
+  picker.hidden = false;
+}
+
+function bindSearchPopover(searchWrapEl, searchInputEl, searchToggleEl) {
+  if (!searchWrapEl || !searchInputEl || !searchToggleEl) return;
+  const close = () => {
+    searchWrapEl.hidden = true;
+    searchWrapEl.classList.remove("open");
+    searchToggleEl.setAttribute("aria-expanded", "false");
+    searchToggleEl.setAttribute("aria-label", "Open message search");
+  };
+  const open = () => {
+    searchWrapEl.hidden = false;
+    requestAnimationFrame(() => searchWrapEl.classList.add("open"));
+    searchToggleEl.setAttribute("aria-expanded", "true");
+    searchToggleEl.setAttribute("aria-label", "Close message search");
+    searchInputEl.focus();
+    searchInputEl.select();
+  };
+  searchToggleEl.addEventListener("click", () => {
+    if (searchWrapEl.hidden) {
+      open();
+      return;
+    }
+    close();
+  });
+  searchInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      close();
+    }
+  });
+}
+
 function chatApplySearch(messagesEl, query) {
   if (!messagesEl) return;
   const q = String(query || "").trim().toLowerCase();
@@ -42,12 +145,8 @@ async function chatHandleExtendedMessageAction(target, { onPinsChanged } = {}) {
   const reactBtn = target.closest("button[data-react-msg]");
   if (reactBtn) {
     const id = reactBtn.getAttribute("data-react-msg") || "";
-    const emoji = prompt("React with emoji (example: 👍):", "👍");
-    if (!emoji || !emoji.trim()) return true;
-    await api("/api/messages/react", {
-      method: "POST",
-      body: JSON.stringify({ message_id: id, emoji: emoji.trim() }),
-    });
+    if (!id) return true;
+    openReactionPicker(reactBtn, id);
     return true;
   }
 
@@ -56,6 +155,10 @@ async function chatHandleExtendedMessageAction(target, { onPinsChanged } = {}) {
     const id = reactChip.getAttribute("data-react-toggle") || "";
     const emoji = reactChip.getAttribute("data-react-emoji") || "";
     if (!id || !emoji) return true;
+    const mine = myReactions.get(id) || {};
+    // Treat chip clicks as "join this reaction" so counts stack naturally.
+    // If already reacted, ignore instead of toggling off.
+    if (mine[emoji]) return true;
     await api("/api/messages/react", {
       method: "POST",
       body: JSON.stringify({ message_id: id, emoji }),

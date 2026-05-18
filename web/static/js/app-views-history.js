@@ -31,14 +31,16 @@ function chatPanelHTML(){
           </div>
         </div>
         <div class="top-actions">
-          <input id="chatSearchInput" class="chat-search" type="search" placeholder="Search loaded messages" aria-label="Search loaded messages"/>
-          <button id="jumpLatest" class="secondary member-toggle" type="button" aria-label="Jump to latest message">Latest</button>
+          <div id="chatSearchWrap" class="chat-search-wrap" hidden>
+            <input id="chatSearchInput" class="chat-search" type="search" placeholder="Search loaded messages" aria-label="Search loaded messages"/>
+          </div>
+          <button id="chatSearchToggle" class="secondary member-toggle icon-btn" type="button" aria-label="Open message search" title="Search loaded messages">🔎</button>
           <button id="memberToggle" class="secondary member-toggle" type="button" aria-label="Open online members list">Online Members <span id="memberCount">0</span></button>
           <div class="profile-chip">${profilePreview}<span>${esc(currentDisplayName||'member')}</span></div>
         </div>
       </header>
       <div id="memberPopover" class="member-popover"><div id="memberList" class="member-list"></div></div>
-      <div class="panel chat-panel"><div id="pinnedBar" class="status"></div><div id="messages" class="chat-log"></div></div>
+      <div class="panel chat-panel"><div id="pinnedBar" class="status"></div><div id="messages" class="chat-log"></div><button id="jumpLatest" class="jump-latest-fab" type="button" aria-label="Jump to newest loaded message" title="Scroll to newest loaded message">↓</button></div>
       <div id="composer" class="composer">
         <div id="replyPreview" class="status" style="display:none;"></div>
         <div id="typingStatus" class="muted"></div>

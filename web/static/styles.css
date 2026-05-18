@@ -206,12 +206,37 @@
       align-items: center;
       gap: 8px;
       white-space: nowrap;
+      position: relative;
+    }
+    .chat-search-wrap {
+      position: absolute;
+      right: calc(100% + 8px);
+      top: 50%;
+      transform: translateY(-50%) scale(.98);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .16s ease, transform .16s ease;
+      z-index: 3;
+    }
+    .chat-search-wrap.open {
+      opacity: 1;
+      transform: translateY(-50%) scale(1);
+      pointer-events: auto;
     }
     .chat-search {
       min-width: 210px;
       max-width: 260px;
       padding: 7px 10px;
       font-size: .82rem;
+      box-shadow: 0 8px 24px rgba(0,0,0,.28);
+    }
+    .icon-btn {
+      width: 34px;
+      min-width: 34px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: .92rem;
     }
     .chat-topbar {
       min-height: 68px;
@@ -429,6 +454,7 @@
     .chat-panel {
       padding: 0;
       overflow: hidden;
+      position: relative;
     }
     .panel.utility-panel {
       display: grid;
@@ -496,6 +522,36 @@
       border-color: var(--accent);
       background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
     }
+    .reaction-picker-pop {
+      position: fixed;
+      z-index: 28;
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      padding: 10px;
+      border: 1px solid var(--line-2);
+      border-radius: 12px;
+      background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
+      box-shadow: var(--shadow);
+      animation: fadein .14s ease;
+      max-width: min(360px, calc(100vw - 22px));
+    }
+    .reaction-choice {
+      width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: color-mix(in srgb, var(--surface) 82%, transparent);
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+    }
+    .reaction-choice:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: var(--surface-2);
+    }
     .has-local-bg .chat-log {
       background:
         linear-gradient(180deg, rgba(0,0,0,var(--local-bg-chat-a)), rgba(0,0,0,var(--local-bg-chat-b))),
@@ -524,7 +580,42 @@
       filter: brightness(1.02);
     }
     .line-enter {
-      animation: line-in .3s cubic-bezier(.2,.75,.25,1) both;
+      animation: line-in .62s cubic-bezier(.17,.78,.24,.99) both;
+    }
+    .jump-latest-fab {
+      position: absolute;
+      right: 16px;
+      bottom: 16px;
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 1px solid var(--line-2);
+      background: color-mix(in srgb, var(--panel) 90%, transparent);
+      color: var(--ink);
+      font-size: 1.2rem;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      box-shadow: 0 12px 26px rgba(0,0,0,.28);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(8px) scale(.96);
+      pointer-events: none;
+      transition: opacity .24s ease, transform .24s ease, border-color .18s ease, background .18s ease;
+      z-index: 5;
+    }
+    .jump-latest-fab.show {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+    .jump-latest-fab:hover {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 70%, var(--panel));
     }
     .line.no-avatar {
       grid-template-columns: auto auto minmax(0,1fr);
@@ -1417,7 +1508,15 @@
       .app { padding-top: env(safe-area-inset-top); }
       .topbar { padding: 12px 14px; }
       .top-actions { gap: 6px; }
-      .chat-search { min-width: 132px; max-width: 160px; }
+      .chat-search-wrap {
+        right: 0;
+        top: calc(100% + 8px);
+        transform: scale(.98);
+      }
+      .chat-search-wrap.open {
+        transform: scale(1);
+      }
+      .chat-search { min-width: min(70vw, 220px); max-width: min(70vw, 220px); }
       .profile-chip {
         max-width: 44px;
         padding-right: 5px;
@@ -1458,7 +1557,8 @@
       to { opacity: 1; transform: translateY(0); }
     }
     @keyframes line-in {
-      0% { opacity: 0; transform: translateX(16px) translateY(3px) scale(.992); filter: blur(1px); }
+      0% { opacity: 0; transform: translateX(24px) translateY(5px) scale(.985); filter: blur(1.8px); }
+      55% { opacity: .75; }
       100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); filter: blur(0); }
     }
     @media (prefers-reduced-motion: reduce) {
