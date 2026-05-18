@@ -163,14 +163,14 @@ function profilePanelHTML(){
   const member = roomMembers.find((m)=>String(m.id||'')===String(myUserID||'')) || {};
   const avatarURL = String(member.avatar_url || '');
   const ringEnabled = normalizeHexColorAlpha(currentAvatarRingColor || '') !== '';
-  const profilePreview = showAvatars ? avatarMarkup(currentDisplayName || 'member', avatarURL, member) : '';
+  const profilePreview = avatarMarkup(currentDisplayName || 'member', avatarURL, member);
   return `
     <section class="main utility">
       ${viewTopbarHTML('Profile', 'Identity, media, and alerts', `<span class="muted">${esc(currentDisplayName||'member')}</span>`)}
       <div class="panel utility-panel">
         <div class="settings-stack profile-settings">
           ${settingsSectionHTML('Identity', `
-          <div class="profile-summary">
+          <div class="profile-summary" id="profilePreview">
             ${profilePreview}
             <div><strong>${esc(currentDisplayName || 'member')}</strong><span>${esc(myRole || 'member')}</span></div>
           </div>

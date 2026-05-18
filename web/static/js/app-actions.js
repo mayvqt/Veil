@@ -629,6 +629,38 @@ function bindProfileActions(){
   };
   const readAvatarDataURL=(file)=>readProfileImageDataURL(file, 4*1024*1024);
   const readBackgroundDataURL=(file)=>readProfileImageDataURL(file, 2*1024*1024);
+  const readRingDraft=()=>{
+    if(!avatarRingColorInput || !avatarRingColor2Input || !avatarRingColor3Input || !avatarRingColor4Input || !avatarRingAlphaInput || !avatarRingAlpha2Input || !avatarRingAlpha3Input || !avatarRingAlpha4Input || !avatarRingModeInput) return null;
+    return {
+      color: hexWithAlpha(avatarRingColorInput.value, avatarRingAlphaInput.value),
+      color2: hexWithAlpha(avatarRingColor2Input.value, avatarRingAlpha2Input.value),
+      color3: hexWithAlpha(avatarRingColor3Input.value, avatarRingAlpha3Input.value),
+      color4: hexWithAlpha(avatarRingColor4Input.value, avatarRingAlpha4Input.value),
+      mode: normalizeAvatarRingMode(avatarRingModeInput.value),
+    };
+  };
+  const syncRangeLabel=(input)=>{
+    const label = input && document.querySelector(`label[for="${cssEscape(input.id)}"] span`);
+    if(label) label.textContent = `${input.value}%`;
+  };
+  const updateAvatarRingPreview=()=>{
+    const draft=readRingDraft();
+    const preview=$('profilePreview');
+    const ring=preview && preview.querySelector('.avatar-ring');
+    if(!draft || !ring) return;
+    [avatarRingAlphaInput, avatarRingAlpha2Input, avatarRingAlpha3Input, avatarRingAlpha4Input].forEach(syncRangeLabel);
+    const enabled = !avatarRingEnabled || avatarRingEnabled.checked;
+    const hasRing = enabled && !!draft.color;
+    ring.className = `avatar-ring${hasRing ? ' has-ring' : ''}${hasRing && draft.mode !== 'none' ? ` ring-${draft.mode}` : ''}`;
+    if(!hasRing){
+      ring.removeAttribute('style');
+      return;
+    }
+    ring.style.setProperty('--avatar-ring', draft.color);
+    ring.style.setProperty('--avatar-ring-2', draft.color2 || draft.color);
+    ring.style.setProperty('--avatar-ring-3', draft.color3 || '#57db84');
+    ring.style.setProperty('--avatar-ring-4', draft.color4 || '#9d7bff');
+  };
 
   const uploadAvatar=async()=>{
     try{
@@ -647,12 +679,14 @@ function bindProfileActions(){
     }
   };
   const saveAvatarRing=async()=>{
-    if(!avatarRingColorInput || !avatarRingColor2Input || !avatarRingColor3Input || !avatarRingColor4Input || !avatarRingAlphaInput || !avatarRingAlpha2Input || !avatarRingAlpha3Input || !avatarRingAlpha4Input || !avatarRingModeInput) return;
-    const ringColor=hexWithAlpha(avatarRingColorInput.value, avatarRingAlphaInput.value);
-    const ringColor2=hexWithAlpha(avatarRingColor2Input.value, avatarRingAlpha2Input.value);
-    const ringColor3=hexWithAlpha(avatarRingColor3Input.value, avatarRingAlpha3Input.value);
-    const ringColor4=hexWithAlpha(avatarRingColor4Input.value, avatarRingAlpha4Input.value);
-    const ringMode=normalizeAvatarRingMode(avatarRingModeInput.value);
+    const draft=readRingDraft();
+    if(!draft) return;
+    updateAvatarRingPreview();
+    const ringColor=draft.color;
+    const ringColor2=draft.color2;
+    const ringColor3=draft.color3;
+    const ringColor4=draft.color4;
+    const ringMode=draft.mode;
     if(!ringColor){
       setStatus(status, 'Pick a valid ring color first.', 'err');
       return;
@@ -668,6 +702,7 @@ function bindProfileActions(){
     currentAvatarRingColor4=ringColor4;
     currentAvatarRingMode=ringMode;
     if(avatarRingEnabled) avatarRingEnabled.checked = true;
+    updateAvatarRingPreview();
     setStatus(status, 'Profile picture ring saved for everyone.', 'ok');
     await refreshMembers();
     if(currentView===VIEW_CHAT) await loadHistory();
@@ -686,6 +721,7 @@ function bindProfileActions(){
     currentAvatarRingMode='none';
     if(avatarRingModeInput) avatarRingModeInput.value='none';
     if(avatarRingEnabled) avatarRingEnabled.checked = false;
+    updateAvatarRingPreview();
     setStatus(status, 'Profile picture ring cleared.', 'ok');
     await refreshMembers();
     if(currentView===VIEW_CHAT) await loadHistory();
@@ -706,11 +742,14 @@ function bindProfileActions(){
   }
   if(avatarRingColorInput && avatarRingColor2Input && avatarRingColor3Input && avatarRingColor4Input && avatarRingAlphaInput && avatarRingAlpha2Input && avatarRingAlpha3Input && avatarRingAlpha4Input && avatarRingModeInput){
     [avatarRingColorInput, avatarRingColor2Input, avatarRingColor3Input, avatarRingColor4Input, avatarRingAlphaInput, avatarRingAlpha2Input, avatarRingAlpha3Input, avatarRingAlpha4Input, avatarRingModeInput].forEach((input)=>{
+      input.addEventListener('input', updateAvatarRingPreview);
       input.addEventListener('change', saveAvatarRing);
     });
+    updateAvatarRingPreview();
   }
   if(avatarRingEnabled){
     avatarRingEnabled.onchange=async()=>{
+      updateAvatarRingPreview();
       if(avatarRingEnabled.checked){
         await saveAvatarRing();
         return;
