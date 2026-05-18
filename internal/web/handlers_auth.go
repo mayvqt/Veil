@@ -29,11 +29,11 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	req.RoomName = cleanInput(req.RoomName, 80)
-	req.DisplayName = cleanInput(req.DisplayName, 48)
-	req.CredentialID = cleanInput(req.CredentialID, 128)
-	req.PublicKey = cleanInput(req.PublicKey, 4096)
-	req.RoomKeyEnc = cleanInput(req.RoomKeyEnc, 256)
+	req.RoomName = cleanInput(req.RoomName, maxRoomNameLen)
+	req.DisplayName = cleanInput(req.DisplayName, maxDisplayNameLen)
+	req.CredentialID = cleanInput(req.CredentialID, maxCredentialIDLen)
+	req.PublicKey = cleanInput(req.PublicKey, maxPublicKeyLen)
+	req.RoomKeyEnc = cleanInput(req.RoomKeyEnc, maxRoomKeyEncLen)
 	if req.RoomName == "" || req.DisplayName == "" || req.CredentialID == "" || req.RoomKeyEnc == "" {
 		writeJSON(w, 400, map[string]string{"error": "room and display name required"})
 		return
@@ -85,10 +85,10 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	req.Token = cleanInput(req.Token, 128)
-	req.DisplayName = cleanInput(req.DisplayName, 48)
-	req.PublicKey = cleanInput(req.PublicKey, 4096)
-	req.CredentialID = cleanInput(req.CredentialID, 128)
+	req.Token = cleanInput(req.Token, maxInviteIDLen)
+	req.DisplayName = cleanInput(req.DisplayName, maxDisplayNameLen)
+	req.PublicKey = cleanInput(req.PublicKey, maxPublicKeyLen)
+	req.CredentialID = cleanInput(req.CredentialID, maxCredentialIDLen)
 	if req.Token == "" || req.DisplayName == "" || req.CredentialID == "" {
 		writeJSON(w, 400, map[string]string{"error": "invite token and display name required"})
 		return
@@ -124,7 +124,7 @@ func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	req.CredentialID = cleanInput(req.CredentialID, 128)
+	req.CredentialID = cleanInput(req.CredentialID, maxCredentialIDLen)
 	u, err := s.Store.FindUserByCredential(req.CredentialID)
 	if err != nil || u == nil {
 		writeJSON(w, 401, map[string]string{"error": "unauthorized"})

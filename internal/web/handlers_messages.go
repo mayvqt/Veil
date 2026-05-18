@@ -81,9 +81,9 @@ func (s *Server) editMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	req.MessageID = cleanInput(req.MessageID, 128)
-	req.Ciphertext = cleanInput(req.Ciphertext, 25*1024*1024)
-	req.Nonce = cleanInput(req.Nonce, 128)
+	req.MessageID = cleanInput(req.MessageID, maxMessageIDLen)
+	req.Ciphertext = cleanInput(req.Ciphertext, maxCiphertextLen)
+	req.Nonce = cleanInput(req.Nonce, maxNonceLen)
 	if req.MessageID == "" || req.Ciphertext == "" || req.Nonce == "" {
 		writeJSON(w, 400, map[string]string{"error": "message_id, ciphertext, nonce required"})
 		return
@@ -109,7 +109,7 @@ func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	req.MessageID = cleanInput(req.MessageID, 128)
+	req.MessageID = cleanInput(req.MessageID, maxMessageIDLen)
 	if req.MessageID == "" {
 		writeJSON(w, 400, map[string]string{"error": "message_id required"})
 		return

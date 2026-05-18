@@ -146,7 +146,7 @@ func (s *Server) revokeInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	req.InviteID = cleanInput(req.InviteID, 128)
+	req.InviteID = cleanInput(req.InviteID, maxInviteIDLen)
 	if req.InviteID == "" {
 		writeJSON(w, 400, map[string]string{"error": "invite_id required"})
 		return

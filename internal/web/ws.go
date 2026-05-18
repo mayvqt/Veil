@@ -110,7 +110,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(in.Ciphertext) == "" || strings.TrimSpace(in.Nonce) == "" {
 			continue
 		}
-		msg, err := s.Store.SaveMessage(u.ID, u.DisplayName, in.Ciphertext, in.Nonce, cleanInput(in.ReplyToID, 128))
+		msg, err := s.Store.SaveMessage(u.ID, u.DisplayName, in.Ciphertext, in.Nonce, cleanInput(in.ReplyToID, maxReplyToIDLen))
 		if err != nil {
 			continue
 		}
@@ -120,7 +120,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if s.RetainCount > 0 {
 			_ = s.Store.PruneMessagesToLimit(s.RetainCount)
 		}
-		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: outboundMessageData(msg, cleanInput(in.ClientMsgID, 128))})
+		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: outboundMessageData(msg, cleanInput(in.ClientMsgID, maxMessageIDLen))})
 	}
 }
 
