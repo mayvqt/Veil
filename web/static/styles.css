@@ -219,7 +219,7 @@
       line-height: 1.45;
       display: grid;
       align-content: start;
-      gap: 5px;
+      gap: 1px;
       border-radius: 0;
       overflow: auto;
       box-shadow: none;
@@ -231,13 +231,47 @@
       padding: 14px 18px;
       box-shadow: none;
     }
-    .line { display: grid; grid-template-columns: auto auto minmax(0,1fr); gap: 8px; word-break: break-word; align-items: start; }
+    .line {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto auto minmax(0,1fr);
+      gap: 6px;
+      word-break: break-word;
+      align-items: start;
+      padding: 1px 0;
+    }
     .line-time { color: var(--quiet); font-size: .78rem; }
     .line-user { font-weight: 600; }
     .line-text { color: var(--ink); }
-    .line-media { display: grid; gap: 4px; min-width: 0; }
+    .line-media {
+      position: relative;
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+      max-width: min(520px, 100%);
+      padding-top: 2px;
+    }
     .line-meta { color: var(--muted); font-size: .72rem; }
-    .line-actions { display: inline-flex; gap: 6px; margin-top: 2px; }
+    .line-actions {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      right: auto;
+      z-index: 3;
+      display: inline-flex;
+      gap: 5px;
+      padding: 3px 6px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: color-mix(in srgb, var(--panel) 86%, transparent);
+      backdrop-filter: blur(3px);
+      box-shadow: 0 6px 16px rgba(0,0,0,.24);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-1px);
+      transition: opacity .12s ease, transform .12s ease;
+    }
     .tiny-action {
       border: 1px solid var(--line);
       background: transparent;
@@ -249,6 +283,27 @@
     }
     .tiny-action:hover { color: var(--ink); border-color: var(--accent); }
     .tiny-action.danger:hover { color: var(--danger); border-color: var(--danger); }
+    .line-media:hover .line-actions,
+    .line-actions:focus-within {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    @media (hover: none) {
+      .line-actions {
+        position: static;
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: none;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+        padding: 0;
+        margin-top: 1px;
+      }
+    }
     .reply-snippet {
       display: block;
       font-size: .72rem;
@@ -284,11 +339,6 @@
     }
     .line-text a:hover, .invite-out a:hover {
       color: var(--accent-2);
-    }
-    .line-media {
-      display: grid;
-      gap: 6px;
-      max-width: min(520px, 100%);
     }
     .chat-image {
       display: block;
@@ -333,23 +383,54 @@
       border-top: 0;
       padding: 14px 22px;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 44px 44px 120px;
+      grid-template-columns: minmax(0, 1fr) 48px 48px 132px;
+      grid-template-areas:
+        "reply reply reply reply"
+        "typing typing typing typing"
+        "attachpreview attachpreview attachpreview attachpreview"
+        "input attach emoji send";
+      grid-auto-flow: row;
+      align-items: center;
       gap: 10px;
       background: var(--composer-bg);
       position: relative;
+    }
+    #replyPreview { grid-area: reply; }
+    #typingStatus { grid-area: typing; }
+    #attachmentPreview { grid-area: attachpreview; }
+    #m {
+      grid-area: input;
+      width: 100%;
+      min-width: 0;
+      min-height: 52px;
+      padding: 12px 14px;
+      font-size: 1rem;
+    }
+    #attachToggle {
+      grid-area: attach;
+    }
+    .emoji-wrap {
+      grid-area: emoji;
+    }
+    #send {
+      grid-area: send;
     }
     .emoji-wrap {
       position: relative;
       min-width: 0;
     }
     .emoji-btn {
-      width: 44px;
-      height: 44px;
+      width: 48px;
+      height: 52px;
       padding: 0;
       display: grid;
       place-items: center;
       font-size: 1.2rem;
       line-height: 1;
+    }
+    #send {
+      min-height: 52px;
+      width: 100%;
     }
     .emoji-picker {
       position: absolute;
@@ -684,8 +765,14 @@
       .admin-grid { grid-template-columns: 1fr; }
       .theme-grid { grid-template-columns: 1fr; }
       .split-grid { grid-template-columns: 1fr; }
-      .composer { grid-template-columns: minmax(0, 1fr) 44px 44px; }
-      .composer #send { grid-column: 1 / -1; }
+      .composer {
+        grid-template-columns: minmax(0, 1fr) 48px 48px 116px;
+        grid-template-areas:
+          "reply reply reply reply"
+          "typing typing typing typing"
+          "attachpreview attachpreview attachpreview attachpreview"
+          "input attach emoji send";
+      }
       .mention-picker { left: 12px; right: 12px; }
       .attachment-preview { grid-template-columns: 76px minmax(0, 1fr); }
       .attachment-preview button { grid-column: 1 / -1; }
@@ -697,8 +784,12 @@
       .top-actions { gap: 6px; }
       .panel { padding: 0; }
       .composer { padding: 10px 12px; gap: 8px; }
+      .composer { grid-template-columns: minmax(0, 1fr) 44px 44px 104px; }
+      #m { min-height: 48px; }
+      .emoji-btn { width: 44px; height: 48px; }
+      #send { min-height: 48px; }
       .chat-log { padding: 10px; font-size: .84rem; }
-      .line { gap: 6px; }
+      .line { gap: 5px; }
       .line-time { font-size: .72rem; }
       .chat-image { max-width: 100%; max-height: 280px; }
       .boot-wrap { padding: 10px; }

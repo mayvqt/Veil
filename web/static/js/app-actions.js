@@ -270,6 +270,27 @@ function bindChatActions(){
     });
   }
   if(messages){
+    messages.addEventListener('mousemove',(e)=>{
+      const target=e.target;
+      if(!(target instanceof HTMLElement)) return;
+      if(target.closest('.line-actions')) return;
+      const media=target.closest('.line-media');
+      if(!(media instanceof HTMLElement)) return;
+      const actions=media.querySelector('.line-actions');
+      if(!(actions instanceof HTMLElement)) return;
+      if(actions.matches(':hover')) return;
+      const rect=media.getBoundingClientRect();
+      const w=actions.offsetWidth || 0;
+      const h=actions.offsetHeight || 0;
+      const x=e.clientX-rect.left+12;
+      const y=e.clientY-rect.top-12;
+      const maxX=Math.max(2, rect.width-w-2);
+      const maxY=Math.max(2, rect.height-h-2);
+      const left=Math.max(2, Math.min(x, maxX));
+      const top=Math.max(2, Math.min(y, maxY));
+      actions.style.left=`${left}px`;
+      actions.style.top=`${top}px`;
+    });
     messages.addEventListener('scroll',()=>{
       if(messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
       historyLoadingMore=true;

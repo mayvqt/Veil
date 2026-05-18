@@ -511,9 +511,10 @@ function refreshAllMessageMeta(){
 async function sendReadReceiptForVisible(){
   const messages=$('messages');
   if(!messages) return;
-  const first=messages.querySelector('.line[data-row-id]');
-  if(!first) return;
-  const rowID=Number(first.getAttribute('data-row-id')||0);
+  const rows=[...messages.querySelectorAll('.line[data-row-id]')];
+  if(rows.length===0) return;
+  const last=rows[rows.length-1];
+  const rowID=Number(last.getAttribute('data-row-id')||0);
   if(!rowID) return;
   await api('/api/messages/read',{method:'POST',body:JSON.stringify({last_seen_rowid:rowID})});
 }

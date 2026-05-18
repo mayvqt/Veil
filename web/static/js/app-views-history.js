@@ -247,6 +247,7 @@ async function loadHistory({appendOlder=false}={}){
   if(seq !== historyLoadSeq) return;
   if(!history.ok) return;
   const list = Array.isArray(history.data.messages) ? history.data.messages : [];
+  const renderList = appendOlder ? list : [...list].reverse();
   if(history.data && typeof history.data.my_user_id==='string' && history.data.my_user_id) myUserID = history.data.my_user_id;
   if(history.data && typeof history.data.my_chat_color==='string'){
     const selfColor=normalizeHexColor(history.data.my_chat_color);
@@ -262,8 +263,9 @@ async function loadHistory({appendOlder=false}={}){
     messages.innerHTML='';
     oldestLoadedRowID = 0;
   }
-  for(const m of list){
-    await appendMessageRecord(messages, m, {appendOlder});
+  for(const m of renderList){
+    if(appendOlder) await appendMessageRecord(messages, m, {prepend:true});
+    else await appendMessageRecord(messages, m);
     const rowID=Number(m.row_id||0);
     if(rowID>0 && (oldestLoadedRowID===0 || rowID<oldestLoadedRowID)) oldestLoadedRowID=rowID;
   }
@@ -273,7 +275,7 @@ async function loadHistory({appendOlder=false}={}){
   if(appendOlder){
     historyLoadingMore=false;
   }else{
-    messages.scrollTop = 0;
+    scrollChatToBottom();
   }
   bindMessageImageScroll();
   updatePresenceCount();

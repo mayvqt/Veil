@@ -8,13 +8,14 @@ function scheduleSocketReconnect(){
 }
 
 async function handleIncomingMessage(data, messages){
-  await appendMessageRecord(messages, data, {prepend:true});
+  const nearBottom = (messages.scrollHeight - messages.clientHeight - messages.scrollTop) < 48;
+  await appendMessageRecord(messages, data);
   const clientMsgID=String(data.client_msg_id||'');
   if(clientMsgID && pendingOutgoing.has(clientMsgID)){
     pendingOutgoing.delete(clientMsgID);
   }
   bindMessageImageScroll();
-  if(messages.scrollTop < 12) messages.scrollTop = 0;
+  if(nearBottom) scrollChatToBottom();
   await sendReadReceiptForVisible();
   refreshAllMessageMeta();
 }
@@ -197,4 +198,3 @@ async function renderAdminUsers(){
     });
   });
 }
-
