@@ -31,6 +31,7 @@
       --placeholder: #9e8093;
       --active-ink: #fff4fb;
       --danger: #ff7f9b;
+      --mention-self: #4a1020;
       --ok: #ff78b2;
       --shadow: 0 20px 56px rgba(0, 0, 0, .38);
       --radius-sm: 8px;
@@ -246,7 +247,7 @@
       background: rgba(255, 127, 155, 0.2);
       color: #ff9ab0;
       background: color-mix(in srgb, var(--danger) 20%, transparent);
-      color: color-mix(in srgb, var(--danger) 78%, #fff 22%);
+      color: var(--mention-self);
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
     }
     .line-text a, .invite-out a {

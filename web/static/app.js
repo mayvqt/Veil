@@ -52,7 +52,8 @@ const VEIL_THEME = {
   muted:'#98a6c3',
   accent:'#6fb4ff',
   accent2:'#72e5c2',
-  danger:'#ff8c9c'
+  danger:'#ff8c9c',
+  mentionSelf:'#4a1020'
 };
 const DEFAULT_THEME = {
   bg:'#130f12',
@@ -63,13 +64,14 @@ const DEFAULT_THEME = {
   muted:'#c3a6b9',
   accent:'#ff9d66',
   accent2:'#ff78b2',
-  danger:'#ff7f9b'
+  danger:'#ff7f9b',
+  mentionSelf:'#4a1020'
 };
 const THEME_PRESETS = {
   veil: VEIL_THEME,
   ember: DEFAULT_THEME,
-  midnight: {bg:'#08101c',bg2:'#111d33',panel:'#162640',surface:'#0e1a2f',ink:'#e8f1ff',muted:'#98aecf',accent:'#67b6ff',accent2:'#60e3d0',danger:'#ff8ea8'},
-  graphite: {bg:'#101214',bg2:'#191d23',panel:'#21262f',surface:'#171b22',ink:'#eef0f4',muted:'#a2acbc',accent:'#8ab4ff',accent2:'#88e0c4',danger:'#ff9aa4'}
+  midnight: {bg:'#08101c',bg2:'#111d33',panel:'#162640',surface:'#0e1a2f',ink:'#e8f1ff',muted:'#98aecf',accent:'#67b6ff',accent2:'#60e3d0',danger:'#ff8ea8',mentionSelf:'#4f1223'},
+  graphite: {bg:'#101214',bg2:'#191d23',panel:'#21262f',surface:'#171b22',ink:'#eef0f4',muted:'#a2acbc',accent:'#8ab4ff',accent2:'#88e0c4',danger:'#ff9aa4',mentionSelf:'#4a1020'}
 };
 
 const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -196,6 +198,7 @@ function applyTheme(theme){
   root.setProperty('--accent-grid',rgbaHex(t.accent,.12));
   root.setProperty('--active-ink',mixHex(t.ink,t.accent,.18));
   root.setProperty('--danger',t.danger);
+  root.setProperty('--mention-self',t.mentionSelf);
   root.setProperty('--ok',t.accent);
   root.setProperty('--app-shell',rgbaHex(t.bg,.94));
   root.setProperty('--sidebar-a',rgbaHex(mixHex(t.panel,t.ink,.04),.98));
@@ -616,7 +619,8 @@ function themePanelHTML(){
     ['muted','Muted','Secondary copy'],
     ['accent','Accent','Active states'],
     ['accent2','Secondary','Highlights'],
-    ['danger','Danger','Warnings']
+    ['danger','Danger','Warnings'],
+    ['mentionSelf','Mention (You)','Self @mention text']
   ];
   return `
     <section class="main utility">
