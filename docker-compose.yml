@@ -1,26 +1,29 @@
 services:
   veil:
+    image: ${IMAGE_REPO:-mayvqt/veil}:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: veil
+    container_name: ${CONTAINER_NAME:-veil}
     ports:
       - "3847:3847"
     environment:
-      PUID: "99"
-      PGID: "100"
-      TZ: "UTC"
-      UMASK: "022"
-      APP_BIND_ADDR: ":3847"
-      VEIL_DATA_DIR: "/config"
-      DATABASE_PATH: "/config/veil.db"
-      SESSION_SECRET: "change-this-in-real-env"
-      COOKIE_SECURE: "false"
-      SESSION_MAX_AGE_HOURS: "720"
-      PUBLIC_ORIGIN: ""
+      PUID: "${PUID:-99}"
+      PGID: "${PGID:-100}"
+      TZ: "${TZ:-UTC}"
+      UMASK: "${UMASK:-022}"
+      APP_BIND_ADDR: "${APP_BIND_ADDR:-:3847}"
+      VEIL_DATA_DIR: "${VEIL_DATA_DIR:-/config}"
+      DATABASE_PATH: "${DATABASE_PATH:-/config/veil.db}"
+      # Runtime-only: set in .env (compose) or Unraid "Add Container" env vars.
+      # Left blank here so `docker compose build` works without local secrets.
+      SESSION_SECRET: "${SESSION_SECRET:-}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      SESSION_MAX_AGE_HOURS: "${SESSION_MAX_AGE_HOURS:-720}"
+      PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-}"
+      APP_ENV: "${APP_ENV:-production}"
+      MESSAGE_RETENTION_DAYS: "${MESSAGE_RETENTION_DAYS:-}"
+      MESSAGE_RETENTION_COUNT: "${MESSAGE_RETENTION_COUNT:-}"
     volumes:
-      - veil_config:/config
+      - ${VEIL_CONFIG_PATH:-./data}:/config
     restart: unless-stopped
-
-volumes:
-  veil_config:

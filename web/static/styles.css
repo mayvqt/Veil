@@ -385,8 +385,8 @@
       display: grid;
       grid-template-columns: minmax(0, 1fr) 48px 48px 132px;
       grid-template-areas:
-        "reply reply reply reply"
         "typing typing typing typing"
+        "reply reply reply reply"
         "attachpreview attachpreview attachpreview attachpreview"
         "input attach emoji send";
       grid-auto-flow: row;
@@ -395,8 +395,20 @@
       background: var(--composer-bg);
       position: relative;
     }
-    #replyPreview { grid-area: reply; }
-    #typingStatus { grid-area: typing; }
+    #replyPreview,
+    #typingStatus {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity .14s ease, transform .14s ease;
+    }
+    #replyPreview { grid-area: reply; font-size: .78rem; line-height: 1.2; }
+    #typingStatus { grid-area: typing; font-size: .72rem; line-height: 1.15; }
+    #typingStatus:empty,
+    #replyPreview:empty {
+      display: none !important;
+      opacity: 0;
+      transform: translateY(2px);
+    }
     #attachmentPreview { grid-area: attachpreview; }
     #m {
       grid-area: input;
@@ -768,8 +780,8 @@
       .composer {
         grid-template-columns: minmax(0, 1fr) 48px 48px 116px;
         grid-template-areas:
-          "reply reply reply reply"
           "typing typing typing typing"
+          "reply reply reply reply"
           "attachpreview attachpreview attachpreview attachpreview"
           "input attach emoji send";
       }

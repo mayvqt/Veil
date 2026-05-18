@@ -21,6 +21,16 @@ coverage.out
 .env
 .env.*
 !.env.example
+*.pem
+*.key
+*.p12
+*.crt
+*.cer
+*.kubeconfig
+id_rsa
+id_ed25519
+secrets/
+secret/
 
 # Logs
 *.log
@@ -35,3 +45,7 @@ Thumbs.db
 
 # Dependency/vendor trees not used by this Go build context
 node_modules/
+
+# Local runtime mounts
+data/
+config/

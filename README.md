@@ -20,7 +20,7 @@ Veil is a private, browser-based realtime room chat app with end-to-end encrypte
   - Type `@` to open suggestions
   - Keyboard navigation (`↑/↓`, `Enter`/`Tab`, `Esc`)
   - Mention highlighting in message rendering
-- User display-name color selection (local browser preference)
+- User display-name color selection (global per profile)
 - Invite-based onboarding
 - Admin and root-admin control center
 - Local key export/import and device sync code flow
@@ -30,7 +30,8 @@ Veil is a private, browser-based realtime room chat app with end-to-end encrypte
 
 - Server stores encrypted message ciphertext + nonce only
 - Decryption keys remain client-side
-- Theme choices and chat color preferences are stored in browser local storage
+- Theme choices are stored in browser local storage
+- Chat display-name color is stored server-side per user profile
 
 ## Quick Start (Local)
 
@@ -52,7 +53,8 @@ docker compose up --build
 
 Then open `http://localhost:3847`.
 
-Data persists in the `veil_config` volume.
+By default, data persists in `./data` (mapped to `/config` in container).  
+For Unraid, set `VEIL_CONFIG_PATH` to an appdata path (for example `/mnt/user/appdata/veil`).
 
 ## Environment Variables
 
