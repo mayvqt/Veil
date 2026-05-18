@@ -19,7 +19,7 @@ function chatPanelHTML(){
   const title = roomName || 'Room Chat';
   return `
     <section class="main">
-      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span id="presenceStatus" class="muted"></span><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span id="presenceStatus" class="muted"></span><span class="muted" aria-hidden="true">|</span><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
       <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
         <div id="replyPreview" class="status" style="display:none;"></div>
