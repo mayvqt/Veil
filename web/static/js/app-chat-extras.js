@@ -8,12 +8,7 @@ function ensureReactionPicker() {
   reactionPickerEl.className = "reaction-picker-pop";
   reactionPickerEl.hidden = true;
   reactionPickerEl.setAttribute("aria-label", "Reaction picker");
-  reactionPickerEl.innerHTML = EMOJI_CHOICES.map(
-    (emoji) =>
-      `<button class="reaction-choice" type="button" data-reaction-emoji="${esc(emoji)}" aria-label="React with ${esc(
-        emoji
-      )}">${esc(emoji)}</button>`
-  ).join("");
+  reactionPickerEl.innerHTML = renderReactionChoicesHTML();
   document.body.appendChild(reactionPickerEl);
   return reactionPickerEl;
 }
@@ -68,6 +63,7 @@ function bindReactionPickerHandlers() {
 
 function openReactionPicker(anchorBtn, messageID) {
   const picker = ensureReactionPicker();
+  picker.innerHTML = renderReactionChoicesHTML();
   bindReactionPickerHandlers();
   if (!picker.hidden && reactionPickerMessageID === messageID) {
     closeReactionPicker();

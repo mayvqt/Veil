@@ -324,6 +324,45 @@ func TestProfileAvatarEndpointPersistsAvatar(t *testing.T) {
 	}
 }
 
+func TestCustomMediaUploadListDelete(t *testing.T) {
+	srv, h := testServer(t)
+	srv.MediaDir = t.TempDir()
+	addUser(t, srv.Store, "root", "root", "root_admin")
+	addUser(t, srv.Store, "u1", "alice", "member")
+	rootTok := sessionToken(srv.Secret, "root")
+	userTok := sessionToken(srv.Secret, "u1")
+	smallPNG := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2jvKsAAAAASUVORK5CYII="
+
+	deny := doReq(t, h, http.MethodPost, "/api/admin/custom-media", userTok, map[string]any{
+		"kind": "emoji", "name": "party_blob", "data_url": smallPNG,
+	})
+	if deny.Code != http.StatusForbidden {
+		t.Fatalf("member custom media upload should be forbidden, got %d body=%s", deny.Code, deny.Body.String())
+	}
+
+	up := doReq(t, h, http.MethodPost, "/api/admin/custom-media", rootTok, map[string]any{
+		"kind": "emoji", "name": "party_blob", "data_url": smallPNG,
+	})
+	if up.Code != http.StatusOK {
+		t.Fatalf("admin custom media upload status=%d body=%s", up.Code, up.Body.String())
+	}
+
+	list := doReq(t, h, http.MethodGet, "/api/custom-media", userTok, nil)
+	if list.Code != http.StatusOK {
+		t.Fatalf("custom media list status=%d body=%s", list.Code, list.Body.String())
+	}
+	body := decodeBody(t, list)
+	items, ok := body["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected at least one custom media item, got %#v", body["items"])
+	}
+
+	del := doReq(t, h, http.MethodDelete, "/api/admin/custom-media/party_blob?kind=emoji", rootTok, nil)
+	if del.Code != http.StatusOK {
+		t.Fatalf("custom media delete status=%d body=%s", del.Code, del.Body.String())
+	}
+}
+
 func TestAdminEndpoints_RoleAndRemovalGuards(t *testing.T) {
 	srv, h := testServer(t)
 	srv.AvatarDir = t.TempDir()

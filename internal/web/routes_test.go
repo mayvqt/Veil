@@ -35,6 +35,7 @@ func TestRoutesContainExpectedEndpoints(t *testing.T) {
 		http.MethodPost + " /api/messages/delete":                  false,
 		http.MethodPost + " /api/messages/react":                   false,
 		http.MethodGet + " /api/messages/pins":                     false,
+		http.MethodGet + " /api/custom-media":                      false,
 		http.MethodGet + " /api/admin/users":                       false,
 		http.MethodGet + " /api/admin/audit":                       false,
 		http.MethodPost + " /api/admin/pin-message":                false,
@@ -42,8 +43,11 @@ func TestRoutesContainExpectedEndpoints(t *testing.T) {
 		http.MethodPost + " /api/admin/messages/retain":            false,
 		http.MethodPost + " /api/admin/messages/clear":             false,
 		http.MethodPost + " /api/admin/purge-used-revoked-invites": false,
+		http.MethodPost + " /api/admin/custom-media":               false,
+		http.MethodDelete + " /api/admin/custom-media/{name}":      false,
 		http.MethodGet + " /ws":                                    false,
 		http.MethodGet + " /avatars/*":                             false,
+		http.MethodGet + " /media/*":                               false,
 	}
 
 	if err := chi.Walk(mux, func(method string, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {

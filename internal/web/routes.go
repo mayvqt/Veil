@@ -30,6 +30,7 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/api/messages/pins", s.pinnedMessages)
 	r.Get("/api/members", s.listMembers)
 	r.Get("/api/room", s.roomInfo)
+	r.Get("/api/custom-media", s.listCustomMedia)
 
 	r.Get("/api/admin/users", s.listUsers)
 	r.Post("/api/admin/role", s.changeRole)
@@ -44,9 +45,12 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/admin/room-name", s.updateRoomName)
 	r.Post("/api/admin/messages/clear", s.clearMessages)
 	r.Post("/api/admin/messages/retain", s.retainMessages)
+	r.Post("/api/admin/custom-media", s.uploadCustomMedia)
+	r.Delete("/api/admin/custom-media/{name}", s.deleteCustomMedia)
 
 	r.Get("/ws", s.ws)
 	r.Handle("/avatars/*", http.StripPrefix("/avatars/", http.FileServer(http.Dir(s.AvatarDir))))
+	r.Handle("/media/*", http.StripPrefix("/media/", http.FileServer(http.Dir(s.MediaDir))))
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	return r
 }

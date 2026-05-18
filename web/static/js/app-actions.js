@@ -17,6 +17,8 @@ function bindChatActions(){
   const pinnedBar=$('pinnedBar');
   const emojiToggle=$('emojiToggle');
   const emojiPicker=$('emojiPicker');
+  const stickerToggle=$('stickerToggle');
+  const stickerPicker=$('stickerPicker');
   const attachToggle=$('attachToggle');
   const attachFileInput=$('attachFileInput');
   let mentionOpen=false;
@@ -27,7 +29,10 @@ function bindChatActions(){
   registerDisplayName(currentDisplayName);
   activeEmojiPicker=emojiPicker;
   activeEmojiToggle=emojiToggle;
+  activeStickerPicker=stickerPicker;
+  activeStickerToggle=stickerToggle;
   const emojiButtons=emojiPicker ? [...emojiPicker.querySelectorAll('button[data-emoji]')] : [];
+  const stickerButtons=stickerPicker ? [...stickerPicker.querySelectorAll('button[data-sticker]')] : [];
   if(typingStatus) typingStatus.textContent='';
   if(memberToggle && memberPopover){
     memberToggle.addEventListener('click',()=>{
@@ -66,6 +71,11 @@ function bindChatActions(){
     emojiPicker.classList.remove('open');
     emojiToggle.setAttribute('aria-expanded','false');
   };
+  const closeStickerPicker=()=>{
+    if(!stickerPicker || !stickerToggle) return;
+    stickerPicker.classList.remove('open');
+    stickerToggle.setAttribute('aria-expanded','false');
+  };
   if(searchInput) searchInput.addEventListener('input', applyChatSearch);
   bindSearchPopover(searchWrap, searchInput, searchToggle);
   if(jumpLatestBtn) jumpLatestBtn.onclick=()=>{
@@ -74,9 +84,17 @@ function bindChatActions(){
   };
   const toggleEmojiPicker=()=>{
     if(!emojiPicker || !emojiToggle) return;
+    closeStickerPicker();
     const open=!emojiPicker.classList.contains('open');
     emojiPicker.classList.toggle('open',open);
     emojiToggle.setAttribute('aria-expanded',String(open));
+  };
+  const toggleStickerPicker=()=>{
+    if(!stickerPicker || !stickerToggle) return;
+    closeEmojiPicker();
+    const open=!stickerPicker.classList.contains('open');
+    stickerPicker.classList.toggle('open',open);
+    stickerToggle.setAttribute('aria-expanded',String(open));
   };
   const insertEmoji=(emoji)=>{
     const start=input.selectionStart ?? input.value.length;
@@ -240,16 +258,37 @@ function bindChatActions(){
         }
       });
     });
-    if(!emojiOutsideHandlerBound){
-      emojiOutsideHandlerBound=true;
-      document.addEventListener('click',(e)=>{
-        if(!activeEmojiPicker || !activeEmojiToggle) return;
-        if(!activeEmojiPicker.contains(e.target) && e.target!==activeEmojiToggle){
+  }
+  if(stickerToggle && stickerPicker){
+    stickerToggle.onclick=()=>{
+      toggleStickerPicker();
+      input.focus();
+    };
+    stickerButtons.forEach((btn)=>{
+      btn.addEventListener('click',()=>{
+        insertEmoji(btn.dataset.sticker || '');
+        closeStickerPicker();
+      });
+    });
+  }
+  if(!emojiOutsideHandlerBound){
+    emojiOutsideHandlerBound=true;
+    document.addEventListener('click',(e)=>{
+      if(activeEmojiPicker && activeEmojiToggle){
+        const emojiToggleClicked = e.target===activeEmojiToggle || (e.target instanceof Element && activeEmojiToggle.contains(e.target));
+        if(!activeEmojiPicker.contains(e.target) && !emojiToggleClicked){
           activeEmojiPicker.classList.remove('open');
           activeEmojiToggle.setAttribute('aria-expanded','false');
         }
-      },{capture:true});
-    }
+      }
+      if(activeStickerPicker && activeStickerToggle){
+        const stickerToggleClicked = e.target===activeStickerToggle || (e.target instanceof Element && activeStickerToggle.contains(e.target));
+        if(!activeStickerPicker.contains(e.target) && !stickerToggleClicked){
+          activeStickerPicker.classList.remove('open');
+          activeStickerToggle.setAttribute('aria-expanded','false');
+        }
+      }
+    },{capture:true});
   }
   if(preview && pendingAttachment) showAttachment();
   if(input) input.addEventListener('input',refreshMentionPicker);
@@ -443,8 +482,14 @@ function bindChatActions(){
       emojiButtons[0].focus();
       return;
     }
+    if(e.key==='ArrowDown' && stickerPicker && stickerPicker.classList.contains('open') && stickerButtons[0]){
+      e.preventDefault();
+      stickerButtons[0].focus();
+      return;
+    }
     if(e.key==='Escape'){
       closeEmojiPicker();
+      closeStickerPicker();
       closeMentionPicker();
       if(replyToMessageID){
         clearReplyTarget();
@@ -1057,6 +1102,23 @@ function bindProfileActions(){
   }
 }
 
+async function refreshCustomMediaAssets(){
+  const r=await api('/api/custom-media');
+  if(!r.ok) return false;
+  const items=Array.isArray(r.data.items) ? r.data.items : [];
+  customEmojiMap = new Map();
+  customStickerMap = new Map();
+  for(const item of items){
+    const kind=String(item.kind || '').toLowerCase();
+    const name=String(item.name || '').toLowerCase();
+    const url=String(item.url || '').trim();
+    if(!name || !url) continue;
+    if(kind === 'emoji') customEmojiMap.set(name, {name, url});
+    if(kind === 'sticker') customStickerMap.set(name, {name, url});
+  }
+  return true;
+}
+
 function bindControlActions(){
   const inviteBtn=$('invite');
   const inviteOut=$('inviteOut');
@@ -1072,6 +1134,50 @@ function bindControlActions(){
   const retainCountInput=$('retainCountInput');
   const retainMessagesBtn=$('retainMessages');
   const clearMessagesBtn=$('clearMessages');
+  const customMediaKind=$('customMediaKind');
+  const customMediaName=$('customMediaName');
+  const customMediaFile=$('customMediaFile');
+  const customMediaUpload=$('customMediaUpload');
+  const customMediaStatus=$('customMediaStatus');
+  const customMediaList=$('customMediaList');
+
+  const refreshCustomMediaAdminList=async()=>{
+    if(!customMediaList) return;
+    const r=await api('/api/custom-media');
+    if(!r.ok){
+      if(customMediaStatus){
+        customMediaStatus.textContent=r.data.error || 'Failed to load custom media.';
+        customMediaStatus.className='status err';
+      }
+      return;
+    }
+    const items=Array.isArray(r.data.items) ? r.data.items : [];
+    customMediaList.innerHTML=items.length===0
+      ? `<div class="muted">No custom emoji or stickers uploaded yet.</div>`
+      : items.map((item)=>`<div class="admin-user"><div><strong>${esc(item.kind || 'media')}: ${esc(item.name || '')}</strong><div class="admin-role">token ${esc(item.token || '')}</div></div><div class="admin-actions"><img class="custom-media-thumb" src="${esc(item.url || '')}" alt="${esc(item.name || '')}"/><button class="secondary" data-delete-custom-media="${esc(item.name || '')}" data-delete-custom-kind="${esc(item.kind || '')}">Delete</button></div></div>`).join('');
+    customMediaList.querySelectorAll('button[data-delete-custom-media]').forEach((btn)=>{
+      btn.addEventListener('click', async()=>{
+        const name=String(btn.getAttribute('data-delete-custom-media') || '');
+        const kind=String(btn.getAttribute('data-delete-custom-kind') || '');
+        if(!name || !kind) return;
+        if(!confirm(`Delete ${kind} "${name}"?`)) return;
+        const del=await api(`/api/admin/custom-media/${encodeURIComponent(name)}?kind=${encodeURIComponent(kind)}`,{method:'DELETE'});
+        if(!del.ok){
+          if(customMediaStatus){
+            customMediaStatus.textContent=del.data.error || 'Delete failed.';
+            customMediaStatus.className='status err';
+          }
+          return;
+        }
+        await refreshCustomMediaAssets();
+        await refreshCustomMediaAdminList();
+        if(customMediaStatus){
+          customMediaStatus.textContent=`Deleted ${kind}: ${name}`;
+          customMediaStatus.className='status ok';
+        }
+      });
+    });
+  };
 
   const refreshInvites=async()=>{
     if(!inviteList) return;
@@ -1248,11 +1354,61 @@ function bindControlActions(){
       refreshMessageStats();
     };
   }
+  if(customMediaUpload){
+    customMediaUpload.onclick=async()=>{
+      const kind=String((customMediaKind && customMediaKind.value) || 'emoji').toLowerCase();
+      const name=String((customMediaName && customMediaName.value) || '').trim().toLowerCase();
+      const file=customMediaFile && customMediaFile.files ? customMediaFile.files[0] : null;
+      if(!file){
+        if(customMediaStatus){
+          customMediaStatus.textContent='Pick a file first.';
+          customMediaStatus.className='status err';
+        }
+        return;
+      }
+      if(!/^[a-z0-9_-]{1,32}$/.test(name)){
+        if(customMediaStatus){
+          customMediaStatus.textContent='Name must be a-z, 0-9, _ or - (max 32 chars).';
+          customMediaStatus.className='status err';
+        }
+        return;
+      }
+      const dataURL=await new Promise((resolve,reject)=>{
+        const reader=new FileReader();
+        reader.onload=()=>resolve(String(reader.result || ''));
+        reader.onerror=()=>reject(reader.error || new Error('read failed'));
+        reader.readAsDataURL(file);
+      }).catch(()=> '');
+      if(!dataURL){
+        if(customMediaStatus){
+          customMediaStatus.textContent='Could not read file.';
+          customMediaStatus.className='status err';
+        }
+        return;
+      }
+      const up=await api('/api/admin/custom-media',{method:'POST',body:JSON.stringify({kind,name,data_url:dataURL})});
+      if(!up.ok){
+        if(customMediaStatus){
+          customMediaStatus.textContent=up.data.error || 'Upload failed.';
+          customMediaStatus.className='status err';
+        }
+        return;
+      }
+      if(customMediaFile) customMediaFile.value='';
+      await refreshCustomMediaAssets();
+      await refreshCustomMediaAdminList();
+      if(customMediaStatus){
+        customMediaStatus.textContent=`Uploaded ${kind}: ${name} (token ${up.data.token || ':'+name+':'})`;
+        customMediaStatus.className='status ok';
+      }
+    };
+  }
 
   renderAdminUsers();
   refreshInvites();
   refreshMessageStats();
   refreshAuditLog();
+  refreshCustomMediaAdminList();
 }
 
 function renderPanelHTML(){
@@ -1267,6 +1423,7 @@ async function renderMain(){
   if(currentView === VIEW_CONTROL && !isAdminRole(myRole)){
     currentView = VIEW_CHAT;
   }
+  await refreshCustomMediaAssets();
   app.innerHTML = `<section class="chat-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}"><div id="sidebarBackdrop" class="sidebar-backdrop ${sidebarCollapsed ? '' : 'open'}"></div>${navHTML()}${renderPanelHTML()}</section>`;
 
   const sidebarToggle=$('sidebarToggle');
@@ -1325,5 +1482,6 @@ async function renderMain(){
 async function chatView(){
   await refreshAdminIdentity();
   await refreshRoomName();
+  await refreshCustomMediaAssets();
   await renderMain();
 }

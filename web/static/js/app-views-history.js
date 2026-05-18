@@ -57,7 +57,13 @@ function chatPanelHTML(){
         <div class="emoji-wrap">
           <button id="emojiToggle" class="secondary emoji-btn" type="button" title="Emoji (Ctrl+E)" aria-label="Emoji" aria-expanded="false">☺</button>
           <div id="emojiPicker" class="emoji-picker" aria-label="Emoji picker" role="listbox">
-            ${EMOJI_CHOICES.map((emoji)=>`<button class="emoji-choice" type="button" data-emoji="${esc(emoji)}" title="${esc(emoji)}" aria-label="Insert ${esc(emoji)}" role="option">${esc(emoji)}</button>`).join('')}
+            ${renderEmojiChoicesHTML()}
+          </div>
+        </div>
+        <div class="emoji-wrap sticker-wrap">
+          <button id="stickerToggle" class="secondary emoji-btn sticker-btn" type="button" title="Stickers" aria-label="Stickers" aria-expanded="false">▣</button>
+          <div id="stickerPicker" class="emoji-picker sticker-picker" aria-label="Sticker picker" role="listbox">
+            ${renderStickerChoicesHTML()}
           </div>
         </div>
         <button id="send" aria-label="Send message">Send</button>
@@ -348,6 +354,21 @@ function controlPanelHTML(){
               <p class="admin-lead">Recent admin actions for accountability.</p>
               <div id="auditStatus" class="status">Loading audit log...</div>
               <div id="auditList" class="admin-users"></div>
+            </section>
+            <section class="settings-section admin-section admin-card">
+              <h3>Custom Emoji + Stickers</h3>
+              <p class="admin-lead">Upload room-specific emoji and stickers without changing source code.</p>
+              <div class="theme-actions admin-actions-row">
+                <select id="customMediaKind">
+                  <option value="emoji">Emoji</option>
+                  <option value="sticker">Sticker</option>
+                </select>
+                <input id="customMediaName" type="text" maxlength="32" placeholder="name_like_this"/>
+                <input id="customMediaFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+                <button id="customMediaUpload" class="secondary">Upload</button>
+              </div>
+              <div id="customMediaStatus" class="status">Emoji insert token format: <code>:name:</code></div>
+              <div id="customMediaList" class="admin-users"></div>
             </section>
           </div>
         </div>

@@ -19,6 +19,8 @@ type Server struct {
 	SessionMaxAge  time.Duration
 	AvatarDir      string
 	AvatarURLBase  string
+	MediaDir       string
+	MediaURLBase   string
 	AllowedOrigins map[string]struct{}
 	RetainDays     int
 	RetainCount    int
@@ -43,6 +45,8 @@ func New(store *db.Store) *Server {
 		SessionMaxAge:  sessionMaxAgeFromEnv(),
 		AvatarDir:      "web/static/avatars",
 		AvatarURLBase:  "/avatars",
+		MediaDir:       "web/static/media",
+		MediaURLBase:   "/media",
 		AllowedOrigins: allowedOriginsFromEnv(),
 		RetainDays:     positiveIntFromEnv("MESSAGE_RETENTION_DAYS"),
 		RetainCount:    positiveIntFromEnv("MESSAGE_RETENTION_COUNT"),

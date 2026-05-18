@@ -46,6 +46,19 @@ func main() {
 	if avatarBase != "" {
 		srv.AvatarURLBase = avatarBase
 	}
+	mediaDir := strings.TrimSpace(os.Getenv("MEDIA_DIR"))
+	if mediaDir == "" {
+		dataDir := strings.TrimSpace(os.Getenv("VEIL_DATA_DIR"))
+		if dataDir == "" {
+			dataDir = "."
+		}
+		mediaDir = strings.TrimRight(dataDir, "/") + "/media"
+	}
+	srv.MediaDir = mediaDir
+	mediaBase := strings.TrimSpace(os.Getenv("MEDIA_URL_BASE"))
+	if mediaBase != "" {
+		srv.MediaURLBase = mediaBase
+	}
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           srv.Routes(),

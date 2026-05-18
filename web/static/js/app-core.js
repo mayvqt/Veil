@@ -8,6 +8,8 @@ let wsReconnectTimer = null;
 let wsReconnectAttempts = 0;
 let activeEmojiPicker = null;
 let activeEmojiToggle = null;
+let activeStickerPicker = null;
+let activeStickerToggle = null;
 let emojiOutsideHandlerBound = false;
 let pendingAttachment = null;
 let roomName = '';
@@ -32,7 +34,7 @@ let sidebarCollapsed = loadSidebarCollapsed();
 
 const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
 const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
-const EMOJI_CHOICES = ['😀','😄','😂','😊','😍','😎','🥳','😭','😅','😐','🙃','😉','👍','👎','👏','🙌','🙏','💪','🔥','✨','💯','❤️','💙','💚','👀','🤔','✅','❌','⚠️','🔒','🫡','🎉'];
+const EMOJI_CHOICES = ['😀','😃','😄','😁','😆','😂','🤣','🙂','😊','😇','😉','😍','🥰','😘','😎','🤩','🥳','🤗','😭','😢','😅','😐','🙃','🤔','🫡','🙌','👏','👍','👎','🙏','💪','✌️','🤝','🔥','✨','💯','❤️','🧡','💛','💚','💙','💜','🤍','🖤','👀','✅','❌','⚠️','🔒','🎉','🚀','⭐','🎯','😴','🤯','😤','😬','🥲','🤖','👋','💬','📌','📎','🛡️','🌈'];
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/png','image/jpeg','image/webp','image/gif']);
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
@@ -99,6 +101,8 @@ let typingTimer = null;
 let messageReactions = new Map();
 let myReactions = new Map();
 let pinnedMessageIDs = new Set();
+let customEmojiMap = new Map();
+let customStickerMap = new Map();
 let unreadDividerRowID = 0;
 const NOTIFY_SOUND_KEY = 'veil.notifySound';
 const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
@@ -455,7 +459,61 @@ function renderMentions(text){
   });
 }
 function renderRichText(text){
-  return renderMentions(linkifyText(text));
+  return renderCustomEmojiTokens(renderMentions(linkifyText(text)));
+}
+function renderCustomEmojiTokens(text){
+  if((!customEmojiMap || customEmojiMap.size===0) && (!customStickerMap || customStickerMap.size===0)) return String(text ?? '');
+  return String(text ?? '').replace(/:([a-z0-9_-]{1,32}):/gi,(full,rawName)=>{
+    const name=String(rawName || '').toLowerCase();
+    const emojiItem=customEmojiMap.get(name);
+    if(emojiItem && emojiItem.url){
+      return `<img class="inline-custom-emoji" src="${esc(emojiItem.url)}" alt=":${esc(name)}:" title=":${esc(name)}:" loading="lazy"/>`;
+    }
+    const stickerItem=customStickerMap.get(name);
+    if(stickerItem && stickerItem.url){
+      return `<img class="inline-custom-sticker" src="${esc(stickerItem.url)}" alt=":${esc(name)}:" title=":${esc(name)}:" loading="lazy"/>`;
+    }
+    return full;
+  });
+}
+
+function renderEmojiVisual(value){
+  const raw=String(value || '');
+  const match=raw.match(/^:([a-z0-9_-]{1,32}):$/i);
+  if(match){
+    const name=String(match[1] || '').toLowerCase();
+    const item=customEmojiMap.get(name);
+    if(item && item.url){
+      return `<img class="reaction-emoji-img" src="${esc(item.url)}" alt=":${esc(name)}:" title=":${esc(name)}:" loading="lazy"/>`;
+    }
+  }
+  return esc(raw);
+}
+
+function renderEmojiChoicesHTML(){
+  const baseChoices = EMOJI_CHOICES.map((emoji)=>`<button class="emoji-choice" type="button" data-emoji="${esc(emoji)}" title="${esc(emoji)}" aria-label="Insert ${esc(emoji)}" role="option">${esc(emoji)}</button>`);
+  const customChoices = [...customEmojiMap.values()].map((item)=>{
+    const token = `:${item.name}:`;
+    return `<button class="emoji-choice emoji-choice-custom" type="button" data-emoji="${esc(token)}" title="${esc(token)}" aria-label="Insert ${esc(token)}" role="option"><img src="${esc(item.url)}" alt="${esc(token)}" loading="lazy"/></button>`;
+  });
+  return [...baseChoices, ...customChoices].join('');
+}
+
+function renderStickerChoicesHTML(){
+  const stickerChoices = [...customStickerMap.values()].map((item)=>{
+    const token = `:${item.name}:`;
+    return `<button class="emoji-choice emoji-choice-custom" type="button" data-sticker="${esc(token)}" title="Insert sticker ${esc(token)}" aria-label="Insert sticker ${esc(token)}" role="option"><img src="${esc(item.url)}" alt="${esc(token)}" loading="lazy"/></button>`;
+  });
+  return stickerChoices.join('');
+}
+
+function renderReactionChoicesHTML(){
+  const baseChoices = EMOJI_CHOICES.map((emoji)=>`<button class="reaction-choice" type="button" data-reaction-emoji="${esc(emoji)}" aria-label="React with ${esc(emoji)}">${esc(emoji)}</button>`);
+  const customChoices = [...customEmojiMap.values()].map((item)=>{
+    const token = `:${item.name}:`;
+    return `<button class="reaction-choice reaction-choice-custom" type="button" data-reaction-emoji="${esc(token)}" aria-label="React with ${esc(token)}"><img src="${esc(item.url)}" alt="${esc(token)}" loading="lazy"/></button>`;
+  });
+  return [...baseChoices, ...customChoices].join('');
 }
 function bytesToHex(bytes){ let out=''; for(const b of bytes) out += b.toString(16).padStart(2,'0'); return out; }
 function hexToBytes(hex){ if(typeof hex!=='string' || hex.length%2!==0) throw new Error('invalid hex'); const out=new Uint8Array(hex.length/2); for(let i=0;i<hex.length;i+=2) out[i/2]=parseInt(hex.slice(i,i+2),16); return out; }
@@ -634,7 +692,7 @@ function renderReactionsHTML(messageID){
   const key=String(messageID||'');
   const counts=messageReactions.get(key) || {};
   const mine=myReactions.get(key) || {};
-  const chips=Object.entries(counts).filter(([,count])=>Number(count)>0).slice(0,8).map(([emoji,count])=>`<button class="reaction-chip${mine[emoji]?' mine':''}" data-react-toggle="${esc(key)}" data-react-emoji="${esc(emoji)}">${esc(emoji)} ${esc(String(count))}</button>`).join('');
+  const chips=Object.entries(counts).filter(([,count])=>Number(count)>0).slice(0,8).map(([emoji,count])=>`<button class="reaction-chip${mine[emoji]?' mine':''}" data-react-toggle="${esc(key)}" data-react-emoji="${esc(emoji)}">${renderEmojiVisual(emoji)} ${esc(String(count))}</button>`).join('');
   return `<span class="reactions" data-reactions-msg="${esc(key)}">${chips}</span>`;
 }
 function latestOwnMessageRowID(){
