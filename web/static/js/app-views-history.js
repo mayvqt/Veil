@@ -40,11 +40,18 @@ function chatPanelHTML(){
               <path d="M16.2 16.2L21 21"></path>
             </svg>
           </button>
+          <button id="pinToggle" class="secondary member-toggle icon-btn" type="button" aria-label="Open pinned messages" title="Pinned messages">
+            <svg class="icon-search" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M9 3h6v2l-1.2 2.4v4.1l2.2 2.2v1.3H8v-1.3l2.2-2.2V7.4L9 5V3z"></path>
+              <path d="M12 15v6"></path>
+            </svg>
+          </button>
           <button id="memberToggle" class="secondary member-toggle" type="button" aria-label="Open online members list">Online Members <span id="memberCount">0</span></button>
           <div class="profile-chip">${profilePreview}<span>${esc(currentDisplayName||'member')}</span></div>
         </div>
       </header>
       <div id="memberPopover" class="member-popover"><div id="memberList" class="member-list"></div></div>
+      <div id="pinPopover" class="member-popover pin-popover"><div id="pinList" class="member-list"></div></div>
       <div class="panel chat-panel"><div id="pinnedBar" class="status"></div><div id="messages" class="chat-log"></div><button id="jumpLatest" class="jump-latest-fab" type="button" aria-label="Jump to newest loaded message" title="Scroll to newest loaded message">↓</button></div>
       <div id="composer" class="composer">
         <div id="replyPreview" class="status" style="display:none;"></div>

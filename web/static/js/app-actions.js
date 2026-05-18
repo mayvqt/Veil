@@ -10,6 +10,9 @@ function bindChatActions(){
   const typingStatus=$('typingStatus');
   const memberToggle=$('memberToggle');
   const memberPopover=$('memberPopover');
+  const pinToggle=$('pinToggle');
+  const pinPopover=$('pinPopover');
+  const pinList=$('pinList');
   const searchInput=$('chatSearchInput');
   const searchWrap=$('chatSearchWrap');
   const searchToggle=$('chatSearchToggle');
@@ -45,6 +48,42 @@ function bindChatActions(){
       memberPopover.classList.remove('open');
     }, {capture:true});
   }
+  const renderPinPopover=()=>{
+    if(!pinList || !messages) return;
+    const ids=[...pinnedMessageIDs];
+    if(ids.length===0){
+      pinList.innerHTML='<div class="member-empty muted">No pinned messages.</div>';
+      return;
+    }
+    pinList.innerHTML=ids.map((id)=>{
+      const source=knownMessages.get(id);
+      const preview=source ? `${source.display_name}: ${String(source.preview||'').slice(0,72)}` : `Pinned ${id.slice(0,8)}`;
+      return `<button class="tiny-action pin-jump-btn" type="button" data-pin-jump="${esc(id)}">${esc(preview)}</button>`;
+    }).join('');
+    pinList.querySelectorAll('button[data-pin-jump]').forEach((btn)=>{
+      btn.addEventListener('click',()=>{
+        const id=btn.getAttribute('data-pin-jump') || '';
+        const row=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
+        if(row){
+          row.scrollIntoView({block:'center', behavior:'smooth'});
+          row.classList.add('line-enter');
+        }
+        if(pinPopover) pinPopover.classList.remove('open');
+      });
+    });
+  };
+  if(pinToggle && pinPopover){
+    pinToggle.addEventListener('click',()=>{
+      renderPinPopover();
+      pinPopover.classList.toggle('open');
+    });
+    document.addEventListener('click',(e)=>{
+      const target=e.target;
+      if(!(target instanceof Node)) return;
+      if(pinPopover.contains(target) || pinToggle.contains(target)) return;
+      pinPopover.classList.remove('open');
+    }, {capture:true});
+  }
 
   const updateReplyPreview=()=>{
     if(!replyPreview) return;
@@ -59,7 +98,10 @@ function bindChatActions(){
     replyPreview.textContent=label;
   };
   const applyChatSearch=()=>chatApplySearch(messages, searchInput && searchInput.value);
-  const renderPinnedBar=()=>chatRenderPinnedBar(pinnedBar, messages);
+  const renderPinnedBar=()=>{
+    chatRenderPinnedBar(pinnedBar, messages);
+    renderPinPopover();
+  };
   const updateJumpLatestVisibility=()=>{
     if(!messages || !jumpLatestBtn) return;
     const distanceFromBottom = messages.scrollHeight - messages.clientHeight - messages.scrollTop;
