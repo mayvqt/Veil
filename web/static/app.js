@@ -78,6 +78,17 @@ const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').repl
 const hashName = (n) => { let h=0; for(let i=0;i<n.length;i++) h=((h<<5)-h)+n.charCodeAt(i); return Math.abs(h); };
 let customUserColors = loadUserColors();
 let historyLoadSeq = 0;
+let oldestLoadedRowID = 0;
+let hasMoreHistory = true;
+let historyLoadingMore = false;
+let knownMessages = new Map();
+let pendingOutgoing = new Map();
+let readReceipts = new Map();
+let typingUsers = new Map();
+let onlineUsers = new Set();
+let replyToMessageID = '';
+let reconnectNeedsCatchup = false;
+let typingTimer = null;
 const userColor = (n) => customUserColors[n] || PASTELS[hashName(n) % PASTELS.length];
 const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
 
@@ -143,6 +154,21 @@ async function api(path, opts={}){
   return {ok:r.ok,data};
 }
 const $ = (id) => document.getElementById(id);
+function cssEscape(value){
+  if(window.CSS && typeof window.CSS.escape==='function') return window.CSS.escape(value);
+  return String(value).replace(/["\\]/g,'\\$&');
+}
+function getMessageByID(messageID){
+  const id=String(messageID || '').trim();
+  if(!id) return null;
+  return knownMessages.get(id) || null;
+}
+function setReplyTarget(messageID){
+  replyToMessageID = String(messageID || '').trim();
+}
+function clearReplyTarget(){
+  replyToMessageID = '';
+}
 function escapeRegex(value){ return String(value).replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 function convertEmoticons(text){
   let out=String(text);
@@ -377,7 +403,7 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   if(roomBytes.length!==32) throw new Error('Invalid room key in file');
   return bytesToHex(roomBytes);
 }
-function drawLine(name,text,ts=''){ const c=userColor(name); return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span></div>`; }
+function drawLine(name,text,ts=''){ const c=userColor(name); return `<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span>`; }
 function parseMessagePayload(text){
   try{
     const payload=JSON.parse(text);
@@ -403,21 +429,63 @@ function parseMessagePayload(text){
         caption:typeof payload.caption==='string' ? payload.caption : ''
       };
     }
+    if(payload.type==='text' && typeof payload.text==='string'){
+      return {
+        type:'text',
+        text:payload.text,
+        replyToID:typeof payload.reply_to_id==='string' ? payload.reply_to_id : ''
+      };
+    }
   }catch{}
   return {type:'text', text};
 }
-function drawMessage(name,text,ts=''){
+function drawMessage(record, text){
+  const name = record.display_name || '';
+  const ts = record.created_at || '';
+  const messageID = String(record.id || '');
+  const senderID = String(record.sender_id || '');
+  const rowID = Number(record.row_id || 0);
+  const isMine = !!myUserID && senderID === myUserID;
   const c=userColor(name);
   const payload=parseMessagePayload(text);
+  const replyToID = String(record.reply_to_id || payload.replyToID || '');
+  const deleted = String(record.deleted_at || '').trim() !== '';
+  const edited = !deleted && String(record.edited_at || '').trim() !== '';
+  const status = isMine ? messageDeliveryLabel(rowID, messageID) : '';
+  const statusHTML = `<span class="line-meta" data-meta-msg="${esc(messageID)}">${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>`;
+  const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
+  const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}<button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
+  if(deleted){
+    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${drawLine(name,'[message deleted]',ts)}${statusHTML}${actions}</div>`;
+  }
   if(payload.type==='file'){
     const src=`data:${payload.mime};base64,${payload.data}`;
     const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-    return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media"><a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
+    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
   }
-  if(payload.type!=='image') return drawLine(name,text,ts);
+  if(payload.type!=='image'){
+    const textValue = payload.type === 'text' ? payload.text : text;
+    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<span class="line-text">${renderRichText(textValue)}</span>${statusHTML}${actions}</span></div>`;
+  }
   const src=`data:${payload.mime};base64,${payload.data}`;
   const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-  return `<div class="line"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media"><img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}</span></div>`;
+  return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
+}
+function messageDeliveryLabel(rowID, messageID){
+  if(pendingOutgoing.has(messageID)) return 'sending...';
+  if(!rowID) return 'sent';
+  let seenByOther = false;
+  for(const [uid,lastRow] of readReceipts.entries()){
+    if(uid===myUserID) continue;
+    if(Number(lastRow||0) >= rowID){ seenByOther=true; break; }
+  }
+  return seenByOther ? 'seen' : 'sent';
+}
+function renderReplySnippet(replyToID){
+  const source = knownMessages.get(replyToID);
+  if(!source) return `<span class="reply-snippet">Replying to earlier message</span>`;
+  const shortText = String(source.preview || '').slice(0,80);
+  return `<span class="reply-snippet">Reply to ${esc(source.display_name || 'message')}: ${esc(shortText || '[attachment]')}</span>`;
 }
 function scrollChatToBottom(){
   const messages=$('messages');
@@ -431,6 +499,41 @@ function scrollChatToBottom(){
   setTimeout(scroll,50);
   setTimeout(scroll,250);
   setTimeout(scroll,750);
+}
+function updateTypingBanner(){
+  const el=$('typingStatus');
+  if(!el) return;
+  const names=[...typingUsers.values()].filter((name)=>name && name!==currentDisplayName);
+  if(names.length===0){ el.textContent=''; return; }
+  el.textContent = names.length===1 ? `${names[0]} is typing...` : `${names.slice(0,2).join(', ')} are typing...`;
+}
+function updatePresenceCount(){
+  const el=$('presenceStatus');
+  if(!el) return;
+  const count = onlineUsers.size;
+  el.textContent = count > 0 ? `${count} online` : '';
+}
+function refreshAllMessageMeta(){
+  document.querySelectorAll('.line[data-msg-id]').forEach((row)=>{
+    const msgID=row.getAttribute('data-msg-id') || '';
+    const rowID=Number(row.getAttribute('data-row-id')||0);
+    const senderID=row.getAttribute('data-sender-id') || '';
+    if(senderID!==myUserID) return;
+    const meta=row.querySelector('.line-meta');
+    if(!meta) return;
+    const edited = String(knownMessages.get(msgID)?.edited_at || '').trim() !== '';
+    const status = messageDeliveryLabel(rowID, msgID);
+    meta.textContent = `${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}`;
+  });
+}
+async function sendReadReceiptForVisible(){
+  const messages=$('messages');
+  if(!messages) return;
+  const first=messages.querySelector('.line[data-row-id]');
+  if(!first) return;
+  const rowID=Number(first.getAttribute('data-row-id')||0);
+  if(!rowID) return;
+  await api('/api/messages/read',{method:'POST',body:JSON.stringify({last_seen_rowid:rowID})});
 }
 function bindMessageImageScroll(){
   const messages=$('messages');
@@ -554,9 +657,11 @@ function chatPanelHTML(){
   const title = roomName || 'Room Chat';
   return `
     <section class="main">
-      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span id="presenceStatus" class="muted"></span><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
       <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
+        <div id="replyPreview" class="status" style="display:none;"></div>
+        <div id="typingStatus" class="muted"></div>
         <div id="attachmentPreview" class="attachment-preview"></div>
         <input id="m" placeholder="Type message" enterkeyhint="send" autocomplete="off"/>
         <div id="mentionPicker" class="mention-picker" aria-label="Mention picker"></div>
@@ -769,23 +874,43 @@ async function inviteView(token){
   };
 }
 
-async function loadHistory(){
+async function loadHistory({appendOlder=false}={}){
   const seq = ++historyLoadSeq;
   const messages = $('messages');
   if(!messages) return;
-  const history = await api('/api/messages');
+  const params=new URLSearchParams();
+  params.set('limit','50');
+  if(appendOlder && oldestLoadedRowID>0) params.set('before_rowid', String(oldestLoadedRowID));
+  const history = await api(`/api/messages?${params.toString()}`);
   if(seq !== historyLoadSeq) return;
   if(!history.ok) return;
-  seenMessageIDs = new Set();
-  messages.innerHTML='';
-  for(const m of history.data.messages){
-    await appendMessageRecord(messages, m);
+  const list = Array.isArray(history.data.messages) ? history.data.messages : [];
+  hasMoreHistory = !!history.data.has_more;
+  if(!appendOlder){
+    seenMessageIDs = new Set();
+    knownMessages = new Map();
+    messages.innerHTML='';
+    oldestLoadedRowID = 0;
+  }
+  for(const m of list){
+    await appendMessageRecord(messages, m, {appendOlder});
+    const rowID=Number(m.row_id||0);
+    if(rowID>0 && (oldestLoadedRowID===0 || rowID<oldestLoadedRowID)) oldestLoadedRowID=rowID;
+  }
+  if(history.data && history.data.receipts){
+    for(const [uid,row] of Object.entries(history.data.receipts)) readReceipts.set(uid, Number(row||0));
+  }
+  if(appendOlder){
+    historyLoadingMore=false;
+  }else{
+    messages.scrollTop = 0;
   }
   bindMessageImageScroll();
-  messages.scrollTop = 0;
+  updatePresenceCount();
+  await sendReadReceiptForVisible();
 }
 
-async function appendMessageRecord(messagesEl, record){
+async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepend=false}={}){
   if(!messagesEl || !record) return false;
   const messageID = String(record.id || '').trim();
   if(messageID){
@@ -794,9 +919,17 @@ async function appendMessageRecord(messagesEl, record){
   }
   registerDisplayName(record.display_name || '');
   let plain='[decrypt failed]';
-  try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,record.nonce,record.ciphertext); }catch{}
-  const row = drawMessage(record.display_name, plain, record.created_at || new Date().toISOString());
-  messagesEl.insertAdjacentHTML('beforeend', row);
+  const deleted = String(record.deleted_at||'').trim() !== '';
+  if(!deleted){
+    try{ if(roomKeyHex) plain=await decryptText(roomKeyHex,record.nonce,record.ciphertext); }catch{}
+  }
+  const parsed=parseMessagePayload(plain);
+  const previewText = parsed.type==='text' ? String(parsed.text||plain) : (parsed.caption || `[${parsed.type}]`);
+  knownMessages.set(messageID, {display_name:record.display_name||'', preview:previewText, row_id:Number(record.row_id||0), edited_at:String(record.edited_at||'')});
+  const row = drawMessage(record, plain);
+  if(prepend) messagesEl.insertAdjacentHTML('afterbegin', row);
+  else if(appendOlder) messagesEl.insertAdjacentHTML('beforeend', row);
+  else messagesEl.insertAdjacentHTML('beforeend', row);
   return true;
 }
 
@@ -807,6 +940,76 @@ function scheduleSocketReconnect(){
     wsReconnectTimer=null;
     ensureSocket();
   },delay);
+}
+
+async function handleIncomingMessage(data, messages){
+  await appendMessageRecord(messages, data, {prepend:true});
+  const clientMsgID=String(data.client_msg_id||'');
+  if(clientMsgID && pendingOutgoing.has(clientMsgID)){
+    pendingOutgoing.delete(clientMsgID);
+  }
+  bindMessageImageScroll();
+  if(messages.scrollTop < 12) messages.scrollTop = 0;
+  await sendReadReceiptForVisible();
+  refreshAllMessageMeta();
+}
+
+async function handleMessageUpdate(data, messages){
+  const id=String(data.id||'');
+  if(!id) return;
+  const existing=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
+  if(existing) existing.remove();
+  seenMessageIDs.delete(id);
+  await appendMessageRecord(messages, data);
+  await sendReadReceiptForVisible();
+  refreshAllMessageMeta();
+}
+
+function handleReceipt(data){
+  const uid=String(data.user_id||'');
+  const row=Number(data.last_seen_rowid||0);
+  if(uid && row>0) readReceipts.set(uid, Math.max(row, Number(readReceipts.get(uid)||0)));
+  refreshAllMessageMeta();
+}
+
+function handleTyping(data){
+  const uid=String(data.user_id||'');
+  const name=String(data.display_name||'');
+  const on=String(data.typing||'')==='1';
+  if(!uid || uid===myUserID) return;
+  if(on) typingUsers.set(uid,name); else typingUsers.delete(uid);
+  updateTypingBanner();
+}
+
+function handlePresence(data){
+  const uid=String(data.user_id||'');
+  const on=String(data.online||'')==='1';
+  if(!uid) return;
+  if(on) onlineUsers.add(uid); else onlineUsers.delete(uid);
+  updatePresenceCount();
+}
+
+async function handleSocketEvent(evt, messages){
+  const data = evt.data || {};
+  if(evt.type==='message'){
+    await handleIncomingMessage(data, messages);
+    return;
+  }
+  if(evt.type==='message_update'){
+    await handleMessageUpdate(data, messages);
+    return;
+  }
+  if(evt.type==='receipt'){
+    handleReceipt(data);
+    return;
+  }
+  if(evt.type==='typing'){
+    handleTyping(data);
+    return;
+  }
+  if(evt.type==='presence'){
+    handlePresence(data);
+  }
 }
 
 function ensureSocket(){
@@ -827,6 +1030,10 @@ function ensureSocket(){
 
     socket.onopen=()=>{
       wsReconnectAttempts=0;
+      if(reconnectNeedsCatchup && currentView===VIEW_CHAT){
+        loadHistory();
+        reconnectNeedsCatchup=false;
+      }
       finish(socket);
     };
     socket.onerror=()=>finish(null);
@@ -834,17 +1041,14 @@ function ensureSocket(){
   socket.onmessage = async(ev)=>{
     let x;
     try{ x=JSON.parse(ev.data); }catch{ return; }
-    if(x.type!=='message') return;
     const messages=document.getElementById('messages');
     if(!messages) return;
-    const sender = String((x.data && x.data.display_name) || '').trim();
-    await appendMessageRecord(messages, x.data || {});
-    bindMessageImageScroll();
-    scrollChatToBottom();
+    await handleSocketEvent(x, messages);
   };
   socket.onclose=()=>{
     if(ws===socket) ws=null;
     wsReady=null;
+    reconnectNeedsCatchup=true;
     scheduleSocketReconnect();
   };
   return wsReady;
@@ -937,6 +1141,8 @@ function bindChatActions(){
   const mentionPicker=$('mentionPicker');
   const composer=$('composer');
   const messages=$('messages');
+  const replyPreview=$('replyPreview');
+  const typingStatus=$('typingStatus');
   const emojiToggle=$('emojiToggle');
   const emojiPicker=$('emojiPicker');
   const attachToggle=$('attachToggle');
@@ -950,6 +1156,20 @@ function bindChatActions(){
   activeEmojiPicker=emojiPicker;
   activeEmojiToggle=emojiToggle;
   const emojiButtons=emojiPicker ? [...emojiPicker.querySelectorAll('button[data-emoji]')] : [];
+  if(typingStatus) typingStatus.textContent='';
+
+  const updateReplyPreview=()=>{
+    if(!replyPreview) return;
+    if(!replyToMessageID){
+      replyPreview.style.display='none';
+      replyPreview.textContent='';
+      return;
+    }
+    const source=getMessageByID(replyToMessageID);
+    const label=source ? `Replying to ${source.display_name}: ${String(source.preview||'').slice(0,80)}` : 'Replying to earlier message';
+    replyPreview.style.display='block';
+    replyPreview.textContent=label;
+  };
 
   const closeEmojiPicker=()=>{
     if(!emojiPicker || !emojiToggle) return;
@@ -997,6 +1217,10 @@ function bindChatActions(){
       mentionPicker.classList.remove('open');
       mentionPicker.innerHTML='';
     }
+  };
+  const emitTyping=(typing)=>{
+    if(!ws || ws.readyState!==WebSocket.OPEN) return;
+    ws.send(JSON.stringify({type:'typing',typing:!!typing}));
   };
   const applyMention=(name)=>{
     if(mentionStart<0) return;
@@ -1133,6 +1357,13 @@ function bindChatActions(){
   }
   if(preview && pendingAttachment) showAttachment();
   if(input) input.addEventListener('input',refreshMentionPicker);
+  if(input){
+    input.addEventListener('input',()=>{
+      clearTimeout(typingTimer);
+      emitTyping(true);
+      typingTimer=setTimeout(()=>emitTyping(false), 1400);
+    });
+  }
 
   input.addEventListener('paste',(e)=>{
     const item=[...(e.clipboardData?.items || [])].find((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type));
@@ -1174,6 +1405,40 @@ function bindChatActions(){
     });
   }
   if(messages){
+    messages.addEventListener('scroll',()=>{
+      if(messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
+      historyLoadingMore=true;
+      loadHistory({appendOlder:true});
+    });
+    messages.addEventListener('click', async(e)=>{
+      const target=e.target;
+      if(!(target instanceof HTMLElement)) return;
+      const replyBtn=target.closest('button[data-reply-msg]');
+      if(replyBtn){
+        setReplyTarget(replyBtn.getAttribute('data-reply-msg') || '');
+        updateReplyPreview();
+        input.focus();
+        return;
+      }
+      const editBtn=target.closest('button[data-edit-msg]');
+      if(editBtn){
+        const id=editBtn.getAttribute('data-edit-msg') || '';
+        const source=getMessageByID(id);
+        if(!source) return;
+        const next=prompt('Edit message:', String(source.preview||''));
+        if(next===null) return;
+        if(!next.trim()) return;
+        const enc=await encryptText(roomKeyHex, JSON.stringify({v:1,type:'text',text:next.trim()}));
+        await api('/api/messages/edit',{method:'POST',body:JSON.stringify({message_id:id,ciphertext:enc.ciphertext,nonce:enc.nonce})});
+        return;
+      }
+      const delBtn=target.closest('button[data-delete-msg]');
+      if(delBtn){
+        const id=delBtn.getAttribute('data-delete-msg') || '';
+        if(!confirm('Delete this message?')) return;
+        await api('/api/messages/delete',{method:'POST',body:JSON.stringify({message_id:id})});
+      }
+    });
     messages.addEventListener('dragover',(e)=>{
       if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
         e.preventDefault();
@@ -1197,7 +1462,8 @@ function bindChatActions(){
     if(!text && !pendingAttachment) return;
     if(!roomKeyHex){ alert('No room key loaded. Import room.keys first.'); return; }
     try{
-      const payload=pendingAttachment ? JSON.stringify({v:1,type:pendingAttachment.kind,mime:pendingAttachment.mime,name:pendingAttachment.name,size:pendingAttachment.size,data:pendingAttachment.data,caption:text}) : text;
+      const clientMsgID=crypto.randomUUID();
+      const payload=pendingAttachment ? JSON.stringify({v:1,type:pendingAttachment.kind,mime:pendingAttachment.mime,name:pendingAttachment.name,size:pendingAttachment.size,data:pendingAttachment.data,caption:text,reply_to_id:replyToMessageID||''}) : JSON.stringify({v:1,type:'text',text,reply_to_id:replyToMessageID||''});
       const enc=await encryptText(roomKeyHex,payload);
       const conn=await ensureSocket();
       if(!conn || conn.readyState!==WebSocket.OPEN){
@@ -1205,10 +1471,14 @@ function bindChatActions(){
         scheduleSocketReconnect();
         return;
       }
-      conn.send(JSON.stringify({ciphertext:enc.ciphertext,nonce:enc.nonce}));
+      pendingOutgoing.set(clientMsgID, Date.now());
+      conn.send(JSON.stringify({type:'message',client_msg_id:clientMsgID,ciphertext:enc.ciphertext,nonce:enc.nonce,reply_to_id:replyToMessageID||''}));
       input.value='';
       clearAttachment();
+      clearReplyTarget();
+      updateReplyPreview();
       closeMentionPicker();
+      emitTyping(false);
       input.focus();
     }catch{ alert('Message could not be sent.'); }
   };
@@ -1250,6 +1520,10 @@ function bindChatActions(){
     if(e.key==='Escape'){
       closeEmojiPicker();
       closeMentionPicker();
+      if(replyToMessageID){
+        clearReplyTarget();
+        updateReplyPreview();
+      }
     }
     if(e.key===' '){
       setTimeout(convertInputEmoticons,0);
@@ -1265,6 +1539,7 @@ function bindChatActions(){
     if(e.target===input || mentionPicker.contains(e.target)) return;
     closeMentionPicker();
   },{capture:true});
+  updateReplyPreview();
 }
 
 function bindKeyActions(){

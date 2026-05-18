@@ -231,10 +231,36 @@
       padding: 14px 18px;
       box-shadow: none;
     }
-    .line { display: grid; grid-template-columns: auto auto minmax(0,1fr); gap: 8px; word-break: break-word; }
+    .line { display: grid; grid-template-columns: auto auto minmax(0,1fr); gap: 8px; word-break: break-word; align-items: start; }
     .line-time { color: var(--quiet); font-size: .78rem; }
     .line-user { font-weight: 600; }
     .line-text { color: var(--ink); }
+    .line-media { display: grid; gap: 4px; min-width: 0; }
+    .line-meta { color: var(--muted); font-size: .72rem; }
+    .line-actions { display: inline-flex; gap: 6px; margin-top: 2px; }
+    .tiny-action {
+      border: 1px solid var(--line);
+      background: transparent;
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: .7rem;
+      cursor: pointer;
+    }
+    .tiny-action:hover { color: var(--ink); border-color: var(--accent); }
+    .tiny-action.danger:hover { color: var(--danger); border-color: var(--danger); }
+    .reply-snippet {
+      display: block;
+      font-size: .72rem;
+      color: var(--muted);
+      border-left: 2px solid var(--line-2);
+      padding-left: 8px;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: min(460px, 100%);
+    }
     .mention {
       display: inline-block;
       padding: 0 6px;

@@ -1,0 +1,55 @@
+package web
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
+
+func (s *Server) Routes() http.Handler {
+	r := chi.NewRouter()
+	r.Use(securityHeaders)
+
+	r.Get("/health", s.health)
+	r.Get("/", s.home)
+	r.Get("/invite/{token}", s.home)
+
+	r.Post("/api/bootstrap", s.bootstrap)
+	r.Post("/api/invite", s.createInvite)
+	r.Post("/api/join", s.joinInvite)
+	r.Post("/api/session/from-credential", s.sessionFromCredential)
+
+	r.Get("/api/messages", s.listMessages)
+	r.Post("/api/messages/read", s.markMessagesRead)
+	r.Post("/api/messages/edit", s.editMessage)
+	r.Post("/api/messages/delete", s.deleteMessage)
+	r.Get("/api/room", s.roomInfo)
+
+	r.Get("/api/admin/users", s.listUsers)
+	r.Post("/api/admin/role", s.changeRole)
+	r.Post("/api/admin/remove-user", s.removeUser)
+	r.Get("/api/admin/invites", s.listInvites)
+	r.Post("/api/admin/revoke-invite", s.revokeInvite)
+	r.Post("/api/admin/revoke-unused-invites", s.revokeUnusedInvites)
+	r.Post("/api/admin/purge-used-revoked-invites", s.purgeUsedRevokedInvites)
+	r.Get("/api/admin/messages/stats", s.messageStats)
+	r.Post("/api/admin/messages/clear", s.clearMessages)
+	r.Post("/api/admin/messages/retain", s.retainMessages)
+
+	r.Get("/ws", s.ws)
+	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	return r
+}
+
+func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
+	initialized, err := s.Store.IsInitialized()
+	if err != nil {
+		writeJSON(w, 500, map[string]any{"ok": false})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "initialized": initialized})
+}
+
+func (s *Server) home(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "web/static/index.html")
+}

@@ -59,8 +59,18 @@ CREATE TABLE IF NOT EXISTS messages (
   sender_id TEXT NOT NULL,
   ciphertext TEXT NOT NULL,
   nonce TEXT NOT NULL,
+  reply_to_id TEXT,
+  edited_at TEXT,
+  deleted_at TEXT,
   created_at TEXT NOT NULL,
   FOREIGN KEY(sender_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS message_receipts (
+  user_id TEXT PRIMARY KEY,
+  last_seen_rowid INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
 CREATE TABLE IF NOT EXISTS invites (
@@ -83,6 +93,9 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 		return err
 	}
 	if err := ensureUsersActiveColumn(db); err != nil {
+		return err
+	}
+	if err := ensureMessagesColumns(db); err != nil {
 		return err
 	}
 	return nil
@@ -119,4 +132,51 @@ func ensureUsersActiveColumn(db *sql.DB) error {
 	}
 	_, err = db.Exec("ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
 	return err
+}
+
+func ensureMessagesColumns(db *sql.DB) error {
+	rows, err := db.Query("PRAGMA table_info(messages)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	hasReplyTo := false
+	hasEditedAt := false
+	hasDeletedAt := false
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		switch name {
+		case "reply_to_id":
+			hasReplyTo = true
+		case "edited_at":
+			hasEditedAt = true
+		case "deleted_at":
+			hasDeletedAt = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if !hasReplyTo {
+		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN reply_to_id TEXT"); err != nil {
+			return err
+		}
+	}
+	if !hasEditedAt {
+		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN edited_at TEXT"); err != nil {
+			return err
+		}
+	}
+	if !hasDeletedAt {
+		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN deleted_at TEXT"); err != nil {
+			return err
+		}
+	}
+	return nil
 }

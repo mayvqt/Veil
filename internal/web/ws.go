@@ -42,6 +42,16 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	closeReason := make(chan []byte, 1)
 	s.Hub.Add(out)
 	defer s.Hub.Remove(out)
+	connected := s.trackPresenceConnect(u.ID)
+	if connected {
+		s.Hub.Broadcast(chat.Outbound{Type: "presence", Data: map[string]string{"user_id": u.ID, "display_name": u.DisplayName, "online": "1"}})
+	}
+	defer func() {
+		disconnected := s.trackPresenceDisconnect(u.ID)
+		if disconnected {
+			s.Hub.Broadcast(chat.Outbound{Type: "presence", Data: map[string]string{"user_id": u.ID, "display_name": u.DisplayName, "online": "0"}})
+		}
+	}()
 
 	go func() {
 		ticker := time.NewTicker(wsPingEvery)
@@ -73,9 +83,21 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	for {
-		var in struct{ Ciphertext, Nonce string }
+		var in struct {
+			Type        string `json:"type"`
+			Ciphertext  string `json:"ciphertext"`
+			Nonce       string `json:"nonce"`
+			ReplyToID   string `json:"reply_to_id"`
+			ClientMsgID string `json:"client_msg_id"`
+			Typing      bool   `json:"typing"`
+		}
 		if err := c.ReadJSON(&in); err != nil {
 			return
+		}
+		msgType := strings.TrimSpace(in.Type)
+		if msgType == "typing" {
+			s.Hub.Broadcast(chat.Outbound{Type: "typing", Data: map[string]string{"user_id": u.ID, "display_name": u.DisplayName, "typing": boolToFlag(in.Typing)}})
+			continue
 		}
 		active, err := s.Store.IsUserActive(u.ID)
 		if err != nil || !active {
@@ -88,7 +110,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(in.Ciphertext) == "" || strings.TrimSpace(in.Nonce) == "" {
 			continue
 		}
-		msg, err := s.Store.SaveMessage(u.ID, u.DisplayName, in.Ciphertext, in.Nonce)
+		msg, err := s.Store.SaveMessage(u.ID, u.DisplayName, in.Ciphertext, in.Nonce, cleanInput(in.ReplyToID, 128))
 		if err != nil {
 			continue
 		}
@@ -98,8 +120,15 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if s.RetainCount > 0 {
 			_ = s.Store.PruneMessagesToLimit(s.RetainCount)
 		}
-		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: map[string]string{"id": msg.ID, "created_at": msg.CreatedAt, "display_name": msg.DisplayName, "ciphertext": msg.Ciphertext, "nonce": msg.Nonce}})
+		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: outboundMessageData(msg, cleanInput(in.ClientMsgID, 128))})
 	}
+}
+
+func boolToFlag(v bool) string {
+	if v {
+		return "1"
+	}
+	return "0"
 }
 
 func (s *Server) checkWebSocketOrigin(r *http.Request) bool {
