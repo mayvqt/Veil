@@ -266,11 +266,7 @@ func ensureUsersAvatarRingColumns(db *sql.DB) error {
 		return err
 	}
 	defer rows.Close()
-	hasRingColor := false
-	hasRingColor2 := false
-	hasRingColor3 := false
-	hasRingColor4 := false
-	hasRingMode := false
+	existing := make(map[string]bool, 5)
 	for rows.Next() {
 		var cid int
 		var name, colType string
@@ -279,44 +275,26 @@ func ensureUsersAvatarRingColumns(db *sql.DB) error {
 		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
 			return err
 		}
-		switch name {
-		case "avatar_ring_color":
-			hasRingColor = true
-		case "avatar_ring_color2":
-			hasRingColor2 = true
-		case "avatar_ring_color3":
-			hasRingColor3 = true
-		case "avatar_ring_color4":
-			hasRingColor4 = true
-		case "avatar_ring_mode":
-			hasRingMode = true
-		}
+		existing[name] = true
 	}
 	if err := rows.Err(); err != nil {
 		return err
 	}
-	if !hasRingColor {
-		if _, err := db.Exec("ALTER TABLE users ADD COLUMN avatar_ring_color TEXT NOT NULL DEFAULT ''"); err != nil {
-			return err
-		}
+	requiredColumns := []struct {
+		name      string
+		columnDef string
+	}{
+		{name: "avatar_ring_color", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_color2", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_color3", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_color4", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_mode", columnDef: "TEXT NOT NULL DEFAULT 'none'"},
 	}
-	if !hasRingColor2 {
-		if _, err := db.Exec("ALTER TABLE users ADD COLUMN avatar_ring_color2 TEXT NOT NULL DEFAULT ''"); err != nil {
-			return err
+	for _, col := range requiredColumns {
+		if existing[col.name] {
+			continue
 		}
-	}
-	if !hasRingColor3 {
-		if _, err := db.Exec("ALTER TABLE users ADD COLUMN avatar_ring_color3 TEXT NOT NULL DEFAULT ''"); err != nil {
-			return err
-		}
-	}
-	if !hasRingColor4 {
-		if _, err := db.Exec("ALTER TABLE users ADD COLUMN avatar_ring_color4 TEXT NOT NULL DEFAULT ''"); err != nil {
-			return err
-		}
-	}
-	if !hasRingMode {
-		if _, err := db.Exec("ALTER TABLE users ADD COLUMN avatar_ring_mode TEXT NOT NULL DEFAULT 'none'"); err != nil {
+		if _, err := db.Exec("ALTER TABLE users ADD COLUMN " + col.name + " " + col.columnDef); err != nil {
 			return err
 		}
 	}

@@ -54,7 +54,12 @@ docker compose up --build
 Then open `http://localhost:3847`.
 
 By default, data persists in `./data` (mapped to `/config` in container).  
-For Unraid, set `VEIL_CONFIG_PATH` to an appdata path (for example `/mnt/user/appdata/veil`).
+For Unraid, set `VEIL_CONFIG_PATH` to an appdata path (for example `/mnt/user/appdata/veil`), which maps to `/config` in the container.
+
+Unraid-safe defaults in this repo:
+- `DATABASE_PATH=/config/veil.db`
+- `VEIL_DATA_DIR=/config`
+- `AVATAR_DIR=/config/avatars`
 
 ## Environment Variables
 
@@ -87,6 +92,18 @@ In non-dev deployments, Veil refuses startup if `SESSION_SECRET` is still defaul
 - `PGID` default `100`
 - `TZ` default `UTC`
 - `UMASK` default `022`
+- `VEIL_DATA_DIR` default `/config`
+- `AVATAR_DIR` default `/config/avatars`
+- `AVATAR_URL_BASE` default `/avatars`
+
+### Unraid Mapping Example
+
+- Host path: `/mnt/user/appdata/veil`
+- Container path: `/config`
+- Recommended env:
+  - `DATABASE_PATH=/config/veil.db`
+  - `VEIL_DATA_DIR=/config`
+  - `AVATAR_DIR=/config/avatars`
 
 ## Reverse Proxy / HTTPS
 

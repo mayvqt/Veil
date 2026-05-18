@@ -542,11 +542,15 @@ function avatarMarkup(name, avatarURL='', record={}){
   const initial = clean ? clean.slice(0, 1).toUpperCase() : '?';
   const src = String(avatarURL || '').trim();
   const ring=avatarRingStyle(record, record.chat_color || userColor(clean || '?'));
-  if(/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(src) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(src)){
+  if(isAvatarImageURL(src)){
     return `<span class="${ring.className}"${ring.style}><img class="line-avatar-img" src="${esc(src)}" alt="${esc(clean || 'avatar')}" loading="lazy" /></span>`;
   }
   const bg = userColor(clean || '?');
   return `<span class="${ring.className}"${ring.style}><span class="line-avatar" aria-hidden="true" style="background:${esc(bg)}">${esc(initial)}</span></span>`;
+}
+function isAvatarImageURL(value){
+  const src = String(value || '').trim();
+  return /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(src) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(src);
 }
 function parseMessagePayload(text){
   try{
@@ -626,9 +630,8 @@ function latestOwnMessageRowID(){
   }
   return maxRow;
 }
-function messageDeliveryLabel(rowID, messageID, senderID){
+function messageDeliveryLabel(rowID, messageID, senderID, latestMineRowID=0){
   if(String(senderID||'')!==String(myUserID||'')) return '';
-  const latestMineRowID = latestOwnMessageRowID();
   if(latestMineRowID>0 && Number(rowID||0)!==latestMineRowID) return '';
   if(pendingOutgoing.has(messageID)) return 'sending...';
   if(!rowID) return 'sent';
@@ -731,6 +734,7 @@ function playNotificationSound(){
   setTimeout(()=>ctx.close(), 250);
 }
 function refreshAllMessageMeta(){
+  const latestMineRowID = latestOwnMessageRowID();
   document.querySelectorAll('.line[data-msg-id]').forEach((row)=>{
     const msgID=row.getAttribute('data-msg-id') || '';
     const rowID=Number(row.getAttribute('data-row-id')||0);
@@ -739,7 +743,7 @@ function refreshAllMessageMeta(){
     const meta=row.querySelector('.line-meta');
     if(!meta) return;
     const edited = String(knownMessages.get(msgID)?.edited_at || '').trim() !== '';
-    const status = messageDeliveryLabel(rowID, msgID, senderID);
+    const status = messageDeliveryLabel(rowID, msgID, senderID, latestMineRowID);
     meta.textContent = `${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}`;
   });
 }
