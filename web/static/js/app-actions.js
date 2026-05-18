@@ -560,28 +560,28 @@ function bindThemeActions(){
     };
   }
   if(avatarToggle){
-    avatarToggle.textContent = showAvatars ? 'Show Avatars: On' : 'Show Avatars: Off';
-    avatarToggle.onclick=()=>{
-      setShowAvatars(!showAvatars);
-      avatarToggle.textContent = showAvatars ? 'Show Avatars: On' : 'Show Avatars: Off';
+    avatarToggle.checked = showAvatars;
+    avatarToggle.onchange=()=>{
+      setShowAvatars(avatarToggle.checked);
+      avatarToggle.checked = showAvatars;
       setStatus(status, `Avatars ${showAvatars ? 'enabled' : 'hidden'} for this browser.`, 'ok');
     };
   }
   if(avatarRingToggle){
-    avatarRingToggle.textContent = showAvatarRings ? 'Avatar Rings: On' : 'Avatar Rings: Off';
-    avatarRingToggle.onclick=async()=>{
-      setShowAvatarRings(!showAvatarRings);
-      avatarRingToggle.textContent = showAvatarRings ? 'Avatar Rings: On' : 'Avatar Rings: Off';
+    avatarRingToggle.checked = showAvatarRings;
+    avatarRingToggle.onchange=async()=>{
+      setShowAvatarRings(avatarRingToggle.checked);
+      avatarRingToggle.checked = showAvatarRings;
       renderMembersList();
       if(currentView===VIEW_CHAT) await loadHistory();
       setStatus(status, `Avatar rings ${showAvatarRings ? 'enabled' : 'hidden'} for this browser.`, 'ok');
     };
   }
   if(timestampToggle){
-    timestampToggle.textContent = timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always';
-    timestampToggle.onclick=()=>{
-      setTimestampMode(timestampMode==='hover' ? 'always' : 'hover');
-      timestampToggle.textContent = timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always';
+    timestampToggle.checked = timestampMode==='hover';
+    timestampToggle.onchange=()=>{
+      setTimestampMode(timestampToggle.checked ? 'hover' : 'always');
+      timestampToggle.checked = timestampMode==='hover';
       setStatus(status, `Timestamps set to ${timestampMode==='hover' ? 'on hover' : 'always visible'}.`, 'ok');
     };
   }
@@ -600,6 +600,7 @@ function bindProfileActions(){
   const avatarRingAlpha3Input=$('profile-avatar-ring-alpha3');
   const avatarRingAlpha4Input=$('profile-avatar-ring-alpha4');
   const avatarRingModeInput=$('profile-avatar-ring-mode');
+  const avatarRingEnabled=$('profileAvatarRingEnabled');
   const avatarRingClearBtn=$('profileAvatarRingClear');
   const backgroundFileInput=$('profile-background-file');
   const backgroundClearBtn=$('profileBackgroundClear');
@@ -666,7 +667,26 @@ function bindProfileActions(){
     currentAvatarRingColor3=ringColor3;
     currentAvatarRingColor4=ringColor4;
     currentAvatarRingMode=ringMode;
+    if(avatarRingEnabled) avatarRingEnabled.checked = true;
     setStatus(status, 'Profile picture ring saved for everyone.', 'ok');
+    await refreshMembers();
+    if(currentView===VIEW_CHAT) await loadHistory();
+  };
+  const clearAvatarRing=async()=>{
+    const r=await api('/api/profile/avatar-ring',{method:'POST',body:JSON.stringify({avatar_ring_color:'',avatar_ring_color2:'',avatar_ring_color3:'',avatar_ring_color4:'',avatar_ring_mode:'none'})});
+    if(!r.ok){
+      setStatus(status, r.data.error || 'Failed to clear picture ring.', 'err');
+      if(avatarRingEnabled) avatarRingEnabled.checked = true;
+      return;
+    }
+    currentAvatarRingColor='';
+    currentAvatarRingColor2='';
+    currentAvatarRingColor3='';
+    currentAvatarRingColor4='';
+    currentAvatarRingMode='none';
+    if(avatarRingModeInput) avatarRingModeInput.value='none';
+    if(avatarRingEnabled) avatarRingEnabled.checked = false;
+    setStatus(status, 'Profile picture ring cleared.', 'ok');
     await refreshMembers();
     if(currentView===VIEW_CHAT) await loadHistory();
   };
@@ -689,6 +709,15 @@ function bindProfileActions(){
       input.addEventListener('change', saveAvatarRing);
     });
   }
+  if(avatarRingEnabled){
+    avatarRingEnabled.onchange=async()=>{
+      if(avatarRingEnabled.checked){
+        await saveAvatarRing();
+        return;
+      }
+      await clearAvatarRing();
+    };
+  }
   if(backgroundFileInput){
     backgroundFileInput.addEventListener('change', applyBackground);
   }
@@ -707,22 +736,7 @@ function bindProfileActions(){
     };
   }
   if(avatarRingClearBtn){
-    avatarRingClearBtn.onclick=async()=>{
-      const r=await api('/api/profile/avatar-ring',{method:'POST',body:JSON.stringify({avatar_ring_color:'',avatar_ring_color2:'',avatar_ring_color3:'',avatar_ring_color4:'',avatar_ring_mode:'none'})});
-      if(!r.ok){
-        setStatus(status, r.data.error || 'Failed to clear picture ring.', 'err');
-        return;
-      }
-      currentAvatarRingColor='';
-      currentAvatarRingColor2='';
-      currentAvatarRingColor3='';
-      currentAvatarRingColor4='';
-      currentAvatarRingMode='none';
-      if(avatarRingModeInput) avatarRingModeInput.value='none';
-      setStatus(status, 'Profile picture ring cleared.', 'ok');
-      await refreshMembers();
-      if(currentView===VIEW_CHAT) await loadHistory();
-    };
+    avatarRingClearBtn.onclick=clearAvatarRing;
   }
   if(backgroundClearBtn){
     backgroundClearBtn.onclick=()=>{
@@ -740,10 +754,10 @@ function bindProfileActions(){
   }
 
   if(soundToggle){
-    soundToggle.textContent = notifySoundEnabled ? 'Notification Sound: On' : 'Notification Sound: Off';
-    soundToggle.onclick=()=>{
-      setNotifySoundEnabled(!notifySoundEnabled);
-      soundToggle.textContent = notifySoundEnabled ? 'Notification Sound: On' : 'Notification Sound: Off';
+    soundToggle.checked = notifySoundEnabled;
+    soundToggle.onchange=()=>{
+      setNotifySoundEnabled(soundToggle.checked);
+      soundToggle.checked = notifySoundEnabled;
       unlockAudio();
       setStatus(status, `Notification sound ${notifySoundEnabled ? 'enabled' : 'disabled'}.`, 'ok');
     };
