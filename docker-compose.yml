@@ -1,6 +1,6 @@
 services:
   veil:
-    image: ${IMAGE_REPO:-mayvqt/veil}:${IMAGE_TAG:-latest}
+    image: ${IMAGE_REPO:-ghcr.io/mayvqt/veil}:${IMAGE_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile
