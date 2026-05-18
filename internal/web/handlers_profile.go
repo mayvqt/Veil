@@ -12,7 +12,9 @@ import (
 )
 
 var chatColorHexPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+var ringColorHexPattern = regexp.MustCompile(`^#[0-9a-f]{6}([0-9a-f]{2})?$`)
 var avatarDataURLPattern = regexp.MustCompile(`^data:(image/(png|jpeg|webp|gif));base64,([a-zA-Z0-9+/=]+)$`)
+var avatarRingModes = map[string]struct{}{"none": {}, "pulse": {}, "glow": {}, "rainbow": {}}
 
 func (s *Server) updateProfileColor(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.requireAPIUser(w, r)
@@ -110,4 +112,61 @@ func (s *Server) updateProfileAvatar(w http.ResponseWriter, r *http.Request) {
 	removeAvatarFileIfLocal(s.AvatarDir, previousURL)
 	s.pruneUnusedAvatarFiles()
 	writeJSON(w, 200, map[string]any{"ok": true, "avatar_url": publicURL})
+}
+
+func (s *Server) updateProfileAvatarRing(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		RingColor  string `json:"avatar_ring_color"`
+		RingColor2 string `json:"avatar_ring_color2"`
+		RingColor3 string `json:"avatar_ring_color3"`
+		RingColor4 string `json:"avatar_ring_color4"`
+		RingMode   string `json:"avatar_ring_mode"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	color := strings.ToLower(cleanInput(req.RingColor, 9))
+	if color != "" && !ringColorHexPattern.MatchString(color) {
+		writeJSON(w, 400, map[string]string{"error": "avatar_ring_color must be empty, #aabbcc, or #aabbccdd"})
+		return
+	}
+	color2 := strings.ToLower(cleanInput(req.RingColor2, 9))
+	if color2 != "" && !ringColorHexPattern.MatchString(color2) {
+		writeJSON(w, 400, map[string]string{"error": "avatar_ring_color2 must be empty, #aabbcc, or #aabbccdd"})
+		return
+	}
+	color3 := strings.ToLower(cleanInput(req.RingColor3, 9))
+	if color3 != "" && !ringColorHexPattern.MatchString(color3) {
+		writeJSON(w, 400, map[string]string{"error": "avatar_ring_color3 must be empty, #aabbcc, or #aabbccdd"})
+		return
+	}
+	color4 := strings.ToLower(cleanInput(req.RingColor4, 9))
+	if color4 != "" && !ringColorHexPattern.MatchString(color4) {
+		writeJSON(w, 400, map[string]string{"error": "avatar_ring_color4 must be empty, #aabbcc, or #aabbccdd"})
+		return
+	}
+	mode := strings.ToLower(cleanInput(req.RingMode, 16))
+	if mode == "" {
+		mode = "none"
+	}
+	if _, ok := avatarRingModes[mode]; !ok {
+		writeJSON(w, 400, map[string]string{"error": "avatar_ring_mode must be none, pulse, glow, or rainbow"})
+		return
+	}
+	if color == "" {
+		color2 = ""
+		color3 = ""
+		color4 = ""
+		mode = "none"
+	}
+	if err := s.Store.SetUserAvatarRing(u.ID, color, color2, color3, color4, mode); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update avatar ring"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "avatar_ring_color": color, "avatar_ring_color2": color2, "avatar_ring_color3": color3, "avatar_ring_color4": color4, "avatar_ring_mode": mode})
 }

@@ -2,6 +2,7 @@
   if('scrollRestoration' in history) history.scrollRestoration='manual';
   bindImageLightbox();
   applyTheme(currentTheme());
+  applyLocalBackground();
   applyTimestampMode();
   const path=window.location.pathname;
   const inviteMatch=path.match(/^\/invite\/([^/]+)$/);

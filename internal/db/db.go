@@ -43,6 +43,11 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL,
   chat_color TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
+  avatar_ring_color TEXT NOT NULL DEFAULT '',
+  avatar_ring_color2 TEXT NOT NULL DEFAULT '',
+  avatar_ring_color3 TEXT NOT NULL DEFAULT '',
+  avatar_ring_color4 TEXT NOT NULL DEFAULT '',
+  avatar_ring_mode TEXT NOT NULL DEFAULT 'none',
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
@@ -101,6 +106,9 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 		return err
 	}
 	if err := ensureUsersAvatarURLColumn(db); err != nil {
+		return err
+	}
+	if err := ensureUsersAvatarRingColumns(db); err != nil {
 		return err
 	}
 	if err := backfillUsersChatColors(db); err != nil {
@@ -250,6 +258,47 @@ func ensureUsersAvatarURLColumn(db *sql.DB) error {
 	}
 	_, err = db.Exec("ALTER TABLE users ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''")
 	return err
+}
+
+func ensureUsersAvatarRingColumns(db *sql.DB) error {
+	rows, err := db.Query("PRAGMA table_info(users)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	existing := make(map[string]bool, 5)
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		existing[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	requiredColumns := []struct {
+		name      string
+		columnDef string
+	}{
+		{name: "avatar_ring_color", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_color2", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_color3", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_color4", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "avatar_ring_mode", columnDef: "TEXT NOT NULL DEFAULT 'none'"},
+	}
+	for _, col := range requiredColumns {
+		if existing[col.name] {
+			continue
+		}
+		if _, err := db.Exec("ALTER TABLE users ADD COLUMN " + col.name + " " + col.columnDef); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func backfillUsersChatColors(db *sql.DB) error {

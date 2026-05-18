@@ -45,7 +45,7 @@ function handleTyping(data){
   const name=String(data.display_name||'');
   const on=String(data.typing||'')==='1';
   if(!uid || uid===myUserID) return;
-  if(on) typingUsers.set(uid,name); else typingUsers.delete(uid);
+  setPresenceLikeState(typingUsers, uid, on, name);
   updateTypingBanner();
 }
 
@@ -53,32 +53,36 @@ function handlePresence(data){
   const uid=String(data.user_id||'');
   const on=String(data.online||'')==='1';
   if(!uid) return;
-  if(on) onlineUsers.add(uid); else onlineUsers.delete(uid);
+  setPresenceLikeState(onlineUsers, uid, on);
   updatePresenceCount();
   renderMembersList();
 }
 
+function setPresenceLikeState(collection, key, on, value){
+  if(on){
+    if(collection instanceof Map){
+      collection.set(key, value);
+      return;
+    }
+    collection.add(key);
+    return;
+  }
+  collection.delete(key);
+}
+
+const socketEventHandlers = {
+  message: async(data, messages)=>handleIncomingMessage(data, messages),
+  message_update: async(data, messages)=>handleMessageUpdate(data, messages),
+  receipt: async(data)=>{ handleReceipt(data); },
+  typing: async(data)=>{ handleTyping(data); },
+  presence: async(data)=>{ handlePresence(data); },
+};
+
 async function handleSocketEvent(evt, messages){
   const data = evt.data || {};
-  if(evt.type==='message'){
-    await handleIncomingMessage(data, messages);
-    return;
-  }
-  if(evt.type==='message_update'){
-    await handleMessageUpdate(data, messages);
-    return;
-  }
-  if(evt.type==='receipt'){
-    handleReceipt(data);
-    return;
-  }
-  if(evt.type==='typing'){
-    handleTyping(data);
-    return;
-  }
-  if(evt.type==='presence'){
-    handlePresence(data);
-  }
+  const handler = socketEventHandlers[evt.type];
+  if(!handler) return;
+  await handler(data, messages);
 }
 
 function ensureSocket(){
@@ -130,6 +134,16 @@ async function refreshMembers(){
   roomMembers = members;
   onlineUsers = new Set(members.filter((m)=>!!m.online).map((m)=>String(m.id||'')));
   myUserID = res.data.me || myUserID;
+  const me = members.find((m)=>String(m.id||'')===String(myUserID||''));
+  if(me){
+    currentAvatarRingColor=normalizeHexColorAlpha(me.avatar_ring_color || '');
+    currentAvatarRingColor2=normalizeHexColorAlpha(me.avatar_ring_color2 || '');
+    currentAvatarRingColor3=normalizeHexColorAlpha(me.avatar_ring_color3 || '');
+    currentAvatarRingColor4=normalizeHexColorAlpha(me.avatar_ring_color4 || '');
+    currentAvatarRingMode=normalizeAvatarRingMode(me.avatar_ring_mode || '');
+    const selfColor=normalizeHexColor(me.chat_color || '');
+    if(selfColor) currentUserChatColor=selfColor;
+  }
   updatePresenceCount();
   renderMembersList();
 }
@@ -158,12 +172,13 @@ function renderMembersList(){
     const name = String(m.display_name || 'member');
     const id = String(m.id || '');
     const color = normalizeHexColor(m.chat_color || '') || userColor(name);
+    const ring = avatarRingStyle(m, color);
     const initial = name.slice(0,1).toUpperCase() || '?';
     const avatarURL = String(m.avatar_url || '');
     const online = onlineUsers.has(id);
     const self = myUserID && id===myUserID;
-    const hasImageAvatar = /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(avatarURL) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(avatarURL);
-    const avatar = !showAvatars ? '' : (hasImageAvatar ? `<img class="member-avatar-img" src="${esc(avatarURL)}" alt="${esc(name)}" loading="lazy"/>` : `<span class="member-avatar" style="background:${esc(color)}">${esc(initial)}</span>`);
+    const hasImageAvatar = isAvatarImageURL(avatarURL);
+    const avatar = !showAvatars ? '' : `<span class="${ring.className}"${ring.style}>${hasImageAvatar ? `<img class="member-avatar-img" src="${esc(avatarURL)}" alt="${esc(name)}" loading="lazy"/>` : `<span class="member-avatar" style="background:${esc(color)}">${esc(initial)}</span>`}</span>`;
     return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online?'on':'off'}" aria-hidden="true"></span>${avatar}<span class="member-name">${esc(name)}${self?' (you)':''}</span></div>`;
   }).join('');
 }

@@ -90,4 +90,11 @@ INSERT INTO users (id, display_name, role, active, created_at) VALUES ('u1','ali
 	if avatarURL != "" {
 		t.Fatalf("expected migrated user avatar_url default empty, got %q", avatarURL)
 	}
+	var ringColor, ringColor2, ringColor3, ringColor4, ringMode string
+	if err := dbRaw.QueryRow("SELECT avatar_ring_color, avatar_ring_color2, avatar_ring_color3, avatar_ring_color4, avatar_ring_mode FROM users WHERE id='u1'").Scan(&ringColor, &ringColor2, &ringColor3, &ringColor4, &ringMode); err != nil {
+		t.Fatal(err)
+	}
+	if ringColor != "" || ringColor2 != "" || ringColor3 != "" || ringColor4 != "" || ringMode != "none" {
+		t.Fatalf("expected migrated avatar ring defaults empty/empty/empty/empty/none, got %q/%q/%q/%q/%q", ringColor, ringColor2, ringColor3, ringColor4, ringMode)
+	}
 }

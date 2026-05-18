@@ -21,6 +21,11 @@ let currentView = VIEW_CHAT;
 let myRole = 'member';
 let myUserID = '';
 let currentUserChatColor = '';
+let currentAvatarRingColor = '';
+let currentAvatarRingColor2 = '';
+let currentAvatarRingColor3 = '';
+let currentAvatarRingColor4 = '';
+let currentAvatarRingMode = 'none';
 const knownDisplayNames = new Set();
 const SIDEBAR_COLLAPSED_KEY = 'veil.sidebarCollapsed';
 let sidebarCollapsed = loadSidebarCollapsed();
@@ -94,7 +99,10 @@ let typingTimer = null;
 const NOTIFY_SOUND_KEY = 'veil.notifySound';
 const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
 const SHOW_AVATARS_KEY = 'veil.showAvatars';
+const SHOW_AVATAR_RINGS_KEY = 'veil.showAvatarRings';
 const TIMESTAMP_MODE_KEY = 'veil.timestampMode';
+const LOCAL_BACKGROUND_KEY = 'veil.localBackgroundImage';
+const LOCAL_BACKGROUND_STRENGTH_KEY = 'veil.localBackgroundStrength';
 let notifySoundEnabled = (() => {
   try {
     return localStorage.getItem(NOTIFY_SOUND_KEY) !== '0';
@@ -116,6 +124,13 @@ let showAvatars = (() => {
     return true;
   }
 })();
+let showAvatarRings = (() => {
+  try {
+    return localStorage.getItem(SHOW_AVATAR_RINGS_KEY) !== '0';
+  } catch {
+    return true;
+  }
+})();
 let timestampMode = (() => {
   try {
     const raw = String(localStorage.getItem(TIMESTAMP_MODE_KEY) || '').trim();
@@ -131,6 +146,47 @@ const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
 function normalizeHexColor(value){
   const v=String(value||'').trim();
   return /^#[0-9a-f]{6}$/i.test(v) ? v.toLowerCase() : '';
+}
+function normalizeHexColorAlpha(value){
+  const v=String(value||'').trim();
+  return /^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(v) ? v.toLowerCase() : '';
+}
+function hexColorBase(value, fallback='#000000'){
+  const color=normalizeHexColorAlpha(value);
+  return color ? color.slice(0,7) : fallback;
+}
+function hexColorAlpha(value){
+  const color=normalizeHexColorAlpha(value);
+  if(!color || color.length !== 9) return 100;
+  return Math.round((parseInt(color.slice(7,9), 16) / 255) * 100);
+}
+function hexWithAlpha(value, alphaPercent=100){
+  const base=normalizeHexColor(value) || hexColorBase(value, '');
+  if(!base) return '';
+  const alpha=Math.max(0, Math.min(100, Math.round(Number(alphaPercent))));
+  const hex=Math.round((alpha/100)*255).toString(16).padStart(2,'0');
+  return alpha >= 100 ? base : `${base}${hex}`;
+}
+function normalizeAvatarRingMode(value){
+  const v=String(value||'').trim().toLowerCase();
+  return ['none','pulse','glow','rainbow'].includes(v) ? v : 'none';
+}
+function avatarRingStyle(record={}, fallbackColor=''){
+  if(!showAvatarRings){
+    return {color:'', color2:'', mode:'none', className:'avatar-ring', style:''};
+  }
+  const ringColor=normalizeHexColorAlpha(record.avatar_ring_color || '') || normalizeHexColor(fallbackColor || '');
+  const ringColor2=normalizeHexColorAlpha(record.avatar_ring_color2 || '') || ringColor;
+  const ringColor3=normalizeHexColorAlpha(record.avatar_ring_color3 || '') || '#57db84';
+  const ringColor4=normalizeHexColorAlpha(record.avatar_ring_color4 || '') || '#9d7bff';
+  const ringMode=ringColor ? normalizeAvatarRingMode(record.avatar_ring_mode || '') : 'none';
+  return {
+    color:ringColor,
+    color2:ringColor2,
+    mode:ringMode,
+    className:`avatar-ring${ringColor ? ' has-ring' : ''}${ringMode !== 'none' ? ` ring-${ringMode}` : ''}`,
+    style:ringColor ? ` style="--avatar-ring:${esc(ringColor)};--avatar-ring-2:${esc(ringColor2)};--avatar-ring-3:${esc(ringColor3)};--avatar-ring-4:${esc(ringColor4)}"` : ''
+  };
 }
 function loadSidebarCollapsed(){
   try{
@@ -273,6 +329,65 @@ function saveTheme(theme){
 function resetTheme(){
   localStorage.removeItem(THEME_STORAGE_KEY);
   applyTheme(DEFAULT_THEME);
+}
+function localBackgroundImage(){
+  try{
+    const raw=String(localStorage.getItem(LOCAL_BACKGROUND_KEY) || '').trim();
+    return /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw) ? raw : '';
+  }catch{
+    return '';
+  }
+}
+function normalizeLocalBackgroundStrength(value){
+  const n=Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 45;
+}
+function localBackgroundStrength(){
+  try{
+    const raw=localStorage.getItem(LOCAL_BACKGROUND_STRENGTH_KEY);
+    return raw === null ? 45 : normalizeLocalBackgroundStrength(raw);
+  }catch{
+    return 45;
+  }
+}
+function applyLocalBackgroundStrength(strength=localBackgroundStrength()){
+  const value=normalizeLocalBackgroundStrength(strength);
+  const show=value/100;
+  const dim=(lightest,darkest)=>(darkest - ((darkest-lightest)*show)).toFixed(2);
+  const root=document.documentElement.style;
+  root.setProperty('--local-bg-app-a', dim(.34,.86));
+  root.setProperty('--local-bg-app-b', dim(.5,.9));
+  root.setProperty('--local-bg-main-a', dim(.22,.8));
+  root.setProperty('--local-bg-main-b', dim(.36,.86));
+  root.setProperty('--local-bg-chat-a', dim(.2,.78));
+  root.setProperty('--local-bg-chat-b', dim(.34,.84));
+  root.setProperty('--local-bg-bar', dim(.32,.84));
+}
+function applyLocalBackground(imageURL=localBackgroundImage()){
+  const root=document.documentElement;
+  applyLocalBackgroundStrength();
+  if(imageURL){
+    root.style.setProperty('--local-bg-image', `url("${imageURL}")`);
+    root.classList.add('has-local-bg');
+  }else{
+    root.style.setProperty('--local-bg-image', 'none');
+    root.classList.remove('has-local-bg');
+  }
+}
+function saveLocalBackground(imageURL){
+  const value=String(imageURL || '').trim();
+  if(value){
+    localStorage.setItem(LOCAL_BACKGROUND_KEY, value);
+  }else{
+    localStorage.removeItem(LOCAL_BACKGROUND_KEY);
+  }
+  applyLocalBackground(value);
+}
+function saveLocalBackgroundStrength(strength){
+  const value=normalizeLocalBackgroundStrength(strength);
+  localStorage.setItem(LOCAL_BACKGROUND_STRENGTH_KEY, String(value));
+  applyLocalBackgroundStrength(value);
+  return value;
 }
 function formatBytes(bytes){
   if(bytes < 1024) return `${bytes} B`;
@@ -422,15 +537,20 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   return bytesToHex(roomBytes);
 }
 function drawLine(name,text,ts='', color=''){ const c=color || userColor(name); return `<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span>`; }
-function avatarMarkup(name, avatarURL=''){
+function avatarMarkup(name, avatarURL='', record={}){
   const clean = String(name || '').trim();
   const initial = clean ? clean.slice(0, 1).toUpperCase() : '?';
   const src = String(avatarURL || '').trim();
-  if(/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(src) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(src)){
-    return `<img class="line-avatar-img" src="${esc(src)}" alt="${esc(clean || 'avatar')}" loading="lazy" />`;
+  const ring=avatarRingStyle(record, record.chat_color || userColor(clean || '?'));
+  if(isAvatarImageURL(src)){
+    return `<span class="${ring.className}"${ring.style}><img class="line-avatar-img" src="${esc(src)}" alt="${esc(clean || 'avatar')}" loading="lazy" /></span>`;
   }
   const bg = userColor(clean || '?');
-  return `<span class="line-avatar" aria-hidden="true" style="background:${esc(bg)}">${esc(initial)}</span>`;
+  return `<span class="${ring.className}"${ring.style}><span class="line-avatar" aria-hidden="true" style="background:${esc(bg)}">${esc(initial)}</span></span>`;
+}
+function isAvatarImageURL(value){
+  const src = String(value || '').trim();
+  return /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(src) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(src);
 }
 function parseMessagePayload(text){
   try{
@@ -484,7 +604,7 @@ function drawMessage(record, text){
   const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
   const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}<button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
   const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
-  const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '') : '';
+  const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '', record) : '';
   if(deleted){
     return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${actions}</div>`;
   }
@@ -510,9 +630,8 @@ function latestOwnMessageRowID(){
   }
   return maxRow;
 }
-function messageDeliveryLabel(rowID, messageID, senderID){
+function messageDeliveryLabel(rowID, messageID, senderID, latestMineRowID=0){
   if(String(senderID||'')!==String(myUserID||'')) return '';
-  const latestMineRowID = latestOwnMessageRowID();
   if(latestMineRowID>0 && Number(rowID||0)!==latestMineRowID) return '';
   if(pendingOutgoing.has(messageID)) return 'sending...';
   if(!rowID) return 'sent';
@@ -575,6 +694,12 @@ function setShowAvatars(next){
     localStorage.setItem(SHOW_AVATARS_KEY, showAvatars ? '1' : '0');
   } catch {}
 }
+function setShowAvatarRings(next){
+  showAvatarRings = !!next;
+  try {
+    localStorage.setItem(SHOW_AVATAR_RINGS_KEY, showAvatarRings ? '1' : '0');
+  } catch {}
+}
 function applyTimestampMode(){
   document.documentElement.classList.toggle('timestamps-hover', timestampMode === 'hover');
 }
@@ -609,6 +734,7 @@ function playNotificationSound(){
   setTimeout(()=>ctx.close(), 250);
 }
 function refreshAllMessageMeta(){
+  const latestMineRowID = latestOwnMessageRowID();
   document.querySelectorAll('.line[data-msg-id]').forEach((row)=>{
     const msgID=row.getAttribute('data-msg-id') || '';
     const rowID=Number(row.getAttribute('data-row-id')||0);
@@ -617,7 +743,7 @@ function refreshAllMessageMeta(){
     const meta=row.querySelector('.line-meta');
     if(!meta) return;
     const edited = String(knownMessages.get(msgID)?.edited_at || '').trim() !== '';
-    const status = messageDeliveryLabel(rowID, msgID, senderID);
+    const status = messageDeliveryLabel(rowID, msgID, senderID, latestMineRowID);
     meta.textContent = `${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}`;
   });
 }

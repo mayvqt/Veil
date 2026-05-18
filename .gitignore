@@ -17,6 +17,7 @@ coverage.out
 !.env.example
 
 # Local app data
+data/
 *.db
 *.db-shm
 *.db-wal

@@ -34,7 +34,7 @@ func (s *Store) SaveMessage(senderID, displayName, ciphertext, nonce, replyToID 
 
 func (s *Store) ListRecentMessages(limit int, beforeRowID int64) ([]map[string]string, error) {
 	query := `
-SELECT m.rowid, m.id, m.sender_id, u.display_name, COALESCE(u.chat_color,''), COALESCE(u.avatar_url,''), m.ciphertext, m.nonce, COALESCE(m.reply_to_id,''), COALESCE(m.edited_at,''), COALESCE(m.deleted_at,''), m.created_at
+SELECT m.rowid, m.id, m.sender_id, u.display_name, COALESCE(u.chat_color,''), COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none'), m.ciphertext, m.nonce, COALESCE(m.reply_to_id,''), COALESCE(m.edited_at,''), COALESCE(m.deleted_at,''), m.created_at
 FROM messages m JOIN users u ON u.id = m.sender_id
 %s
 ORDER BY m.rowid DESC LIMIT ?`
@@ -53,11 +53,11 @@ ORDER BY m.rowid DESC LIMIT ?`
 	out := make([]map[string]string, 0, limit)
 	for rows.Next() {
 		var rowID int64
-		var id, senderID, name, chatColor, avatarURL, ct, nonce, replyToID, editedAt, deletedAt, created string
-		if err := rows.Scan(&rowID, &id, &senderID, &name, &chatColor, &avatarURL, &ct, &nonce, &replyToID, &editedAt, &deletedAt, &created); err != nil {
+		var id, senderID, name, chatColor, avatarURL, ringColor, ringColor2, ringColor3, ringColor4, ringMode, ct, nonce, replyToID, editedAt, deletedAt, created string
+		if err := rows.Scan(&rowID, &id, &senderID, &name, &chatColor, &avatarURL, &ringColor, &ringColor2, &ringColor3, &ringColor4, &ringMode, &ct, &nonce, &replyToID, &editedAt, &deletedAt, &created); err != nil {
 			return nil, err
 		}
-		out = append(out, messageMap(rowID, id, senderID, name, chatColor, avatarURL, ct, nonce, replyToID, editedAt, deletedAt, created))
+		out = append(out, messageMap(rowID, id, senderID, name, chatColor, avatarURL, ringColor, ringColor2, ringColor3, ringColor4, ringMode, ct, nonce, replyToID, editedAt, deletedAt, created))
 	}
 	return out, rows.Err()
 }
@@ -124,29 +124,34 @@ func (s *Store) ListReadReceipts() (map[string]int64, error) {
 	return out, rows.Err()
 }
 
-func messageMap(rowID int64, id, senderID, name, chatColor, avatarURL, ct, nonce, replyToID, editedAt, deletedAt, created string) map[string]string {
+func messageMap(rowID int64, id, senderID, name, chatColor, avatarURL, ringColor, ringColor2, ringColor3, ringColor4, ringMode, ct, nonce, replyToID, editedAt, deletedAt, created string) map[string]string {
 	return map[string]string{
-		"row_id":       strconv.FormatInt(rowID, 10),
-		"id":           id,
-		"sender_id":    senderID,
-		"display_name": name,
-		"chat_color":   chatColor,
-		"avatar_url":   avatarURL,
-		"ciphertext":   ct,
-		"nonce":        nonce,
-		"reply_to_id":  replyToID,
-		"edited_at":    editedAt,
-		"deleted_at":   deletedAt,
-		"created_at":   created,
+		"row_id":             strconv.FormatInt(rowID, 10),
+		"id":                 id,
+		"sender_id":          senderID,
+		"display_name":       name,
+		"chat_color":         chatColor,
+		"avatar_url":         avatarURL,
+		"avatar_ring_color":  ringColor,
+		"avatar_ring_color2": ringColor2,
+		"avatar_ring_color3": ringColor3,
+		"avatar_ring_color4": ringColor4,
+		"avatar_ring_mode":   ringMode,
+		"ciphertext":         ct,
+		"nonce":              nonce,
+		"reply_to_id":        replyToID,
+		"edited_at":          editedAt,
+		"deleted_at":         deletedAt,
+		"created_at":         created,
 	}
 }
 
 func (s *Store) getMessageByID(messageID string) (*Message, error) {
 	msg := &Message{}
 	if err := s.DB.QueryRow(`
-SELECT m.rowid, m.id, m.sender_id, u.display_name, COALESCE(u.chat_color,''), COALESCE(u.avatar_url,''), m.ciphertext, m.nonce, COALESCE(m.reply_to_id,''), COALESCE(m.edited_at,''), COALESCE(m.deleted_at,''), m.created_at
+SELECT m.rowid, m.id, m.sender_id, u.display_name, COALESCE(u.chat_color,''), COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none'), m.ciphertext, m.nonce, COALESCE(m.reply_to_id,''), COALESCE(m.edited_at,''), COALESCE(m.deleted_at,''), m.created_at
 FROM messages m JOIN users u ON u.id = m.sender_id
-WHERE m.id=?`, messageID).Scan(&msg.RowID, &msg.ID, &msg.SenderID, &msg.DisplayName, &msg.ChatColor, &msg.AvatarURL, &msg.Ciphertext, &msg.Nonce, &msg.ReplyToID, &msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt); err != nil {
+WHERE m.id=?`, messageID).Scan(&msg.RowID, &msg.ID, &msg.SenderID, &msg.DisplayName, &msg.ChatColor, &msg.AvatarURL, &msg.AvatarRingColor, &msg.AvatarRingColor2, &msg.AvatarRingColor3, &msg.AvatarRingColor4, &msg.AvatarRingMode, &msg.Ciphertext, &msg.Nonce, &msg.ReplyToID, &msg.EditedAt, &msg.DeletedAt, &msg.CreatedAt); err != nil {
 		return nil, err
 	}
 	return msg, nil
