@@ -8,14 +8,15 @@ function scheduleSocketReconnect(){
 }
 
 async function handleIncomingMessage(data, messages){
-  const nearBottom = (messages.scrollHeight - messages.clientHeight - messages.scrollTop) < 48;
+  const nearBottom = (messages.scrollHeight - messages.clientHeight - messages.scrollTop) < 140;
+  const mine = !!myUserID && String(data.sender_id||'') === String(myUserID);
   await appendMessageRecord(messages, data);
   const clientMsgID=String(data.client_msg_id||'');
   if(clientMsgID && pendingOutgoing.has(clientMsgID)){
     pendingOutgoing.delete(clientMsgID);
   }
   bindMessageImageScroll();
-  if(nearBottom) scrollChatToBottom();
+  if(mine || nearBottom) scrollChatToBottom();
   await sendReadReceiptForVisible();
   refreshAllMessageMeta();
 }
