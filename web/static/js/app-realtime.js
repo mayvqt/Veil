@@ -138,13 +138,17 @@ function ensureSocket(){
 
     socket.onopen=()=>{
       wsReconnectAttempts=0;
+      updateRoomConnectionStatus(true);
       if(reconnectNeedsCatchup && currentView===VIEW_CHAT){
         loadHistory();
         reconnectNeedsCatchup=false;
       }
       finish(socket);
     };
-    socket.onerror=()=>finish(null);
+    socket.onerror=()=>{
+      updateRoomConnectionStatus(false);
+      finish(null);
+    };
   });
   socket.onmessage = async(ev)=>{
     let x;
@@ -154,6 +158,7 @@ function ensureSocket(){
     await handleSocketEvent(x, messages);
   };
   socket.onclose=()=>{
+    updateRoomConnectionStatus(false);
     if(ws===socket) ws=null;
     wsReady=null;
     reconnectNeedsCatchup=true;

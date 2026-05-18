@@ -27,7 +27,7 @@ function chatPanelHTML(){
           <button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button>
           <div class="room-title">
             <strong>${esc(title)}</strong>
-            <small><span class="status-dot on" aria-hidden="true"></span>encrypted room</small>
+            <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span></small>
           </div>
         </div>
         <div class="top-actions">
@@ -134,6 +134,7 @@ function settingsSectionHTML(title, body, extraClass=''){
 
 function themePanelHTML(){
   const t=currentTheme();
+  const canCustomizeRoomStatus = isAdminRole(myRole);
   const fields=[
     ['bg','Background','Page base'],
     ['bg2','Depth','Page gradient'],
@@ -169,6 +170,10 @@ function themePanelHTML(){
             ${switchControlHTML('themeAvatarToggle', 'Show avatars', showAvatars)}
             ${switchControlHTML('themeAvatarRingToggle', 'Show avatar rings', showAvatarRings)}
             ${switchControlHTML('themeTimestampToggle', 'Show timestamps on hover', timestampMode==='hover')}
+            ${canCustomizeRoomStatus ? `<div class="theme-row wide-control">
+              <label for="roomStatusText">Room Status Text<span>Shown under room title</span></label>
+              <input id="roomStatusText" type="text" maxlength="48" value="${esc(roomStatusText)}" placeholder="encrypted room"/>
+            </div>` : ''}
           </div>
           <div class="theme-actions settings-footer">
             <button id="resetTheme" class="secondary">Reset</button>
@@ -342,6 +347,12 @@ function controlPanelHTML(){
                 <input id="roomNameInput" type="text" maxlength="80" placeholder="Room name" value="${esc(roomName || '')}"/>
                 <button id="saveRoomName" class="secondary">Save Name</button>
               </div>
+              <p class="admin-lead">Set the status text shown under the room title.</p>
+              <div class="theme-actions admin-actions-row">
+                <input id="roomStatusTextAdminInput" type="text" maxlength="48" placeholder="encrypted room" value="${esc(roomStatusText)}"/>
+                <button id="saveRoomStatusTextAdmin" class="secondary">Save Status Text</button>
+              </div>
+              <div id="roomStatusTextAdminStatus" class="status">Admins can update the room status text.</div>
               <div id="roomNameStatus" class="status">Admins can update the room name.</div>
             </section>
             <section class="settings-section admin-section admin-card admin-card-danger">

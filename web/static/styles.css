@@ -45,6 +45,15 @@
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --control-h: 40px;
+      --control-h-sm: 30px;
+      --floating-shadow: 0 14px 30px rgba(0,0,0,.3);
+      --elevated-shadow: 0 10px 22px rgba(0,0,0,.24);
       --emoji-inline-size: 3em;
     }
     * { box-sizing: border-box; }
@@ -286,11 +295,15 @@
       height: 8px;
       border-radius: 999px;
       background: var(--line-2);
-      box-shadow: 0 0 0 3px rgba(255,255,255,.03);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--ink) 6%, transparent);
     }
     .status-dot.on {
-      background: #57db84;
-      box-shadow: 0 0 0 3px rgba(87,219,132,.12);
+      background: var(--ok);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
+    }
+    .status-dot.off {
+      background: var(--danger);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 22%, transparent);
     }
     .profile-chip {
       display: inline-flex;
@@ -359,8 +372,8 @@
     .pin-jump-btn {
       width: 100%;
       text-align: left;
-      padding: 8px 10px;
-      border-radius: 8px;
+      padding: var(--space-2) var(--space-3);
+      border-radius: var(--radius-sm);
       margin: 0;
       white-space: normal;
       line-height: 1.3;
@@ -386,8 +399,8 @@
       border-radius: 999px;
       background: var(--line-2);
     }
-    .member-dot.on { background: #57db84; }
-    .member-dot.off { background: #7f7380; }
+    .member-dot.on { background: var(--ok); }
+    .member-dot.off { background: color-mix(in srgb, var(--quiet) 70%, var(--muted)); }
     .avatar-ring {
       --avatar-ring: var(--accent);
       --avatar-ring-2: var(--accent-2);
@@ -444,7 +457,7 @@
       place-items: center;
       font-size: .64rem;
       font-weight: 700;
-      color: #111;
+      color: color-mix(in srgb, var(--bg) 88%, var(--ink));
     }
     .member-row .avatar-ring {
       margin: 0 1px;
@@ -570,7 +583,8 @@
       animation: fadein .14s ease;
       max-width: min(360px, calc(100vw - 22px));
       max-height: min(340px, 62vh);
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
     .reaction-picker-pop[hidden] {
       display: none !important;
@@ -634,6 +648,7 @@
     }
     .line {
       position: relative;
+      width: 100%;
       display: grid;
       grid-template-columns: 40px auto auto minmax(0,1fr);
       gap: 6px;
@@ -697,7 +712,7 @@
       font-size: .95rem;
       line-height: 1;
       font-weight: 700;
-      color: #0d0d0d;
+      color: color-mix(in srgb, var(--bg) 88%, var(--ink));
       margin-top: 1px;
     }
     .line > .avatar-ring {
@@ -734,32 +749,35 @@
       to { transform: rotate(360deg); }
     }
     .line-time { color: var(--quiet); font-size: .78rem; }
+    .timestamps-hover .line {
+      padding-right: 72px;
+    }
     .timestamps-hover .line-time {
-      display: inline-block;
+      position: absolute;
+      top: 4px;
+      right: 8px;
       white-space: nowrap;
-      width: 0;
+      width: auto;
       opacity: 0;
-      overflow: hidden;
-      margin-right: 0;
-      transform: translateX(-4px);
-      transition: width .16s ease, margin-right .16s ease, opacity .14s ease, transform .14s ease;
+      pointer-events: none;
+      transform: translateX(3px);
+      transition: opacity .14s ease, transform .14s ease;
     }
     .timestamps-hover .line:hover .line-time,
     .timestamps-hover .line:focus-within .line-time {
-      width: 3.9rem;
-      margin-right: 6px;
       opacity: 1;
       transform: translateX(0);
     }
     .line-user { font-weight: 600; }
     .line-text { color: var(--ink); }
     .line-media {
-      position: relative;
+      position: static;
       display: grid;
       gap: 2px;
       min-width: 0;
       max-width: min(520px, 100%);
       padding-top: 2px;
+      padding-right: 168px;
       transition: transform .18s ease, background .18s ease;
     }
     .line:hover .line-media {
@@ -768,36 +786,73 @@
     .line-meta { color: var(--muted); font-size: .72rem; }
     .line-actions {
       position: absolute;
-      top: 2px;
-      left: 2px;
-      right: auto;
+      top: -10px;
+      left: auto !important;
+      right: 82px !important;
       z-index: 3;
       display: inline-flex;
-      gap: 5px;
-      padding: 3px 6px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: color-mix(in srgb, var(--panel) 86%, transparent);
-      backdrop-filter: blur(3px);
-      box-shadow: 0 6px 16px rgba(0,0,0,.24);
+      align-items: center;
+      gap: 2px;
+      padding: 4px;
+      border-radius: 11px;
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--panel-2) 92%, transparent), color-mix(in srgb, var(--panel) 88%, transparent));
+      border: 1px solid color-mix(in srgb, var(--accent-2) 24%, var(--line-2));
+      box-shadow:
+        var(--floating-shadow),
+        0 0 0 1px color-mix(in srgb, var(--accent-soft) 42%, transparent);
+      backdrop-filter: blur(4px);
       opacity: 0;
       visibility: hidden;
       pointer-events: none;
-      transform: translateY(-1px);
-      transition: opacity .18s ease, transform .18s ease, filter .18s ease;
+      transform: translateY(-3px);
+      transition: opacity .16s ease, transform .16s ease;
     }
     .tiny-action {
-      border: 1px solid var(--line);
+      border: 0;
+      width: 28px;
+      height: 28px;
+      display: inline-grid;
+      place-items: center;
       background: transparent;
-      color: var(--muted);
-      border-radius: 6px;
-      padding: 1px 6px;
-      font-size: .7rem;
+      color: color-mix(in srgb, var(--ink) 78%, var(--muted));
+      border-radius: 8px;
+      padding: 0;
+      font-size: .86rem;
+      line-height: 1;
+      font-weight: 600;
       cursor: pointer;
+      transition: transform .15s ease, background .15s ease, color .15s ease;
     }
-    .tiny-action:hover { color: var(--ink); border-color: var(--accent); }
-    .tiny-action.danger:hover { color: var(--danger); border-color: var(--danger); }
+    .tiny-action svg {
+      width: 16px;
+      height: 16px;
+      display: block;
+    }
+    .tiny-action:hover,
+    .tiny-action:focus-visible {
+      color: var(--active-ink);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent) 20%, transparent), color-mix(in srgb, var(--accent-soft) 88%, var(--surface-2)));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent);
+      transform: translateY(-1px);
+      outline: none;
+    }
+    .tiny-action.danger {
+      color: color-mix(in srgb, var(--danger) 82%, var(--ink));
+    }
+    .tiny-action.danger:hover,
+    .tiny-action.danger:focus-visible {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 30%, transparent), color-mix(in srgb, var(--danger) 20%, var(--surface-2)));
+      color: color-mix(in srgb, var(--danger) 34%, var(--active-ink));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 46%, transparent);
+    }
+    .line-actions button[data-delete-msg] {
+      margin-left: auto;
+    }
+    .line:hover .line-actions,
     .line-media:hover .line-actions,
+    .line-actions:hover,
     .line-actions:focus-within {
       opacity: 1;
       visibility: visible;
@@ -805,18 +860,30 @@
       transform: translateY(0);
     }
     @media (hover: none) {
+      .timestamps-hover .line {
+        padding-right: 0;
+      }
+      .timestamps-hover .line-time {
+        position: static;
+        opacity: 1;
+        transform: none;
+        pointer-events: auto;
+      }
       .line-actions {
         position: static;
         opacity: 1;
         visibility: visible;
         pointer-events: auto;
         transform: none;
-        border: 0;
-        background: transparent;
-        box-shadow: none;
         padding: 0;
         margin-top: 1px;
       }
+      .line-media {
+        padding-right: 0;
+      }
+    }
+    .timestamps-hover .line .line-media {
+      padding-right: 248px;
     }
     .reply-snippet {
       display: block;
@@ -840,7 +907,6 @@
     }
     .mention-self {
       background: rgba(255, 127, 155, 0.2);
-      color: #ff9ab0;
       background: color-mix(in srgb, var(--danger) 20%, transparent);
       color: var(--mention-self);
       box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--danger) 45%, transparent);
@@ -1139,7 +1205,7 @@
     .admin-card-danger {
       border-color: color-mix(in srgb, var(--line) 70%, var(--danger) 30%);
       background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, #3a1d21 30%), color-mix(in srgb, var(--surface) 87%, black));
+        linear-gradient(180deg, color-mix(in srgb, var(--surface) 72%, var(--danger) 28%), color-mix(in srgb, var(--surface) 87%, var(--bg)));
     }
     .admin-card h3 {
       font-size: 1.02rem;
@@ -1211,8 +1277,8 @@
       gap: 8px;
     }
     .btn-danger {
-      background: linear-gradient(180deg, #6d342a, #54251e);
-      border-color: #8c4b3d;
+      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 58%, var(--surface)), color-mix(in srgb, var(--danger) 42%, var(--bg)));
+      border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
     }
     .admin-user strong { display: block; }
     .admin-role { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
@@ -1427,7 +1493,7 @@
     .theme-actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: var(--space-2);
       max-width: 760px;
     }
 
@@ -1446,18 +1512,49 @@
     button {
       background: linear-gradient(180deg, var(--button-a), var(--button-b));
       font-weight: 600;
+      min-height: var(--control-h);
       cursor: pointer;
-      transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+      transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, border-color .16s ease, background .16s ease;
     }
-    button:hover { background: linear-gradient(180deg, var(--button-hover-a), var(--button-hover-b)); transform: translateY(-1px); box-shadow: 0 8px 20px rgba(0,0,0,.28); }
+    button:hover { background: linear-gradient(180deg, var(--button-hover-a), var(--button-hover-b)); transform: translateY(-1px); box-shadow: var(--elevated-shadow); }
     button:active { transform: translateY(0); }
-    button.secondary { background: var(--surface-2); }
+    button.secondary {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 88%, transparent), color-mix(in srgb, var(--surface) 92%, transparent));
+      border-color: color-mix(in srgb, var(--line) 72%, var(--accent) 28%);
+      color: color-mix(in srgb, var(--ink) 90%, var(--muted));
+      box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+    }
+    button.secondary:hover {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 68%, var(--accent-soft)), color-mix(in srgb, var(--surface) 84%, var(--accent-soft)));
+      border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+    }
+    button.ghost {
+      background: color-mix(in srgb, var(--surface) 65%, transparent);
+      border-color: color-mix(in srgb, var(--line) 78%, transparent);
+      box-shadow: none;
+    }
+    button.ghost:hover {
+      background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface));
+      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+    }
     button:disabled { opacity: .55; cursor: default; }
+    button.btn-danger {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 58%, var(--surface)), color-mix(in srgb, var(--danger) 42%, var(--bg)));
+      border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+      color: color-mix(in srgb, var(--active-ink) 92%, var(--danger));
+    }
+    button.btn-danger:hover {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 66%, var(--surface)), color-mix(in srgb, var(--danger) 48%, var(--bg)));
+      border-color: color-mix(in srgb, var(--danger) 65%, var(--line));
+    }
     input::placeholder, textarea::placeholder { color: var(--placeholder); }
     input:focus, select:focus, textarea:focus, button:focus-visible {
       outline: none;
       border-color: var(--accent);
       box-shadow: 0 0 0 3px var(--focus-ring);
+    }
+    button:focus-visible {
+      box-shadow: 0 0 0 3px var(--focus-ring), var(--elevated-shadow);
     }
 
     .boot-wrap {

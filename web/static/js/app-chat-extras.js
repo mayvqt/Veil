@@ -25,7 +25,7 @@ function bindReactionPickerHandlers() {
   if (reactionPickerEl) {
     reactionPickerEl.addEventListener("click", async (e) => {
       const target = e.target;
-      if (!(target instanceof HTMLElement)) return;
+      if (!(target instanceof Element)) return;
       const pick = target.closest("button[data-reaction-emoji]");
       if (!pick) return;
       const emoji = pick.getAttribute("data-reaction-emoji") || "";
@@ -48,7 +48,7 @@ function bindReactionPickerHandlers() {
     (e) => {
       if (!reactionPickerEl || reactionPickerEl.hidden) return;
       const target = e.target;
-      if (!(target instanceof HTMLElement)) return;
+      if (!(target instanceof Element)) return;
       if (
         target.closest(".reaction-picker-pop") ||
         target.closest("button[data-react-msg]")
@@ -74,9 +74,25 @@ function openReactionPicker(anchorBtn, messageID) {
   picker.hidden = false;
   const margin = 12;
   const gap = 8;
+  const cellSize = 38;
+  const gridGap = 6;
+  const padX = 20;
   const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
   const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
-  const pickerW = picker.offsetWidth || 0;
+  const choiceCount = picker.querySelectorAll("button[data-reaction-emoji]").length || 1;
+
+  const maxColumnsByViewport =
+    viewportW > 0
+      ? Math.max(1, Math.floor((viewportW - margin * 2 - padX + gridGap) / (cellSize + gridGap)))
+      : 8;
+  const columns = Math.max(1, Math.min(8, choiceCount, maxColumnsByViewport));
+  const computedWidth = padX + columns * cellSize + (columns - 1) * gridGap;
+  picker.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
+  picker.style.width = `${computedWidth}px`;
+  picker.style.maxWidth = `${Math.max(120, viewportW - margin * 2)}px`;
+  picker.style.maxHeight = `${Math.max(180, viewportH - margin * 2)}px`;
+
+  const pickerW = picker.offsetWidth || computedWidth;
   const pickerH = picker.offsetHeight || 0;
 
   let left = Math.round(rect.left);
@@ -170,7 +186,7 @@ function chatRenderPinnedBar(pinnedBarEl, messagesEl) {
 }
 
 async function chatHandleExtendedMessageAction(target, { onPinsChanged } = {}) {
-  if (!(target instanceof HTMLElement)) return false;
+  if (!(target instanceof Element)) return false;
 
   const reactBtn = target.closest("button[data-react-msg]");
   if (reactBtn) {

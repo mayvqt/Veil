@@ -382,29 +382,6 @@ function bindChatActions(){
     });
   }
   if(messages){
-    const placeActionsNearPointer=(media,e)=>{
-      const actions=media.querySelector('.line-actions');
-      if(!(actions instanceof HTMLElement)) return;
-      const rect=media.getBoundingClientRect();
-      const w=actions.offsetWidth || 0;
-      const h=actions.offsetHeight || 0;
-      const x=e.clientX-rect.left+12;
-      const y=e.clientY-rect.top-12;
-      const maxX=Math.max(2, rect.width-w-2);
-      const maxY=Math.max(2, rect.height-h-2);
-      const left=Math.max(2, Math.min(x, maxX));
-      const top=Math.max(2, Math.min(y, maxY));
-      actions.style.left=`${left}px`;
-      actions.style.top=`${top}px`;
-    };
-    messages.addEventListener('pointerover',(e)=>{
-      const target=e.target;
-      if(!(target instanceof HTMLElement)) return;
-      if(target.closest('.line-actions')) return;
-      const media=target.closest('.line-media');
-      if(!(media instanceof HTMLElement)) return;
-      placeActionsNearPointer(media,e);
-    });
     messages.addEventListener('scroll',()=>{
       updateJumpLatestVisibility();
       if(messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
@@ -413,7 +390,7 @@ function bindChatActions(){
     });
     messages.addEventListener('click', async(e)=>{
       const target=e.target;
-      if(!(target instanceof HTMLElement)) return;
+      if(!(target instanceof Element)) return;
       const replyBtn=target.closest('button[data-reply-msg]');
       if(replyBtn){
         setReplyTarget(replyBtn.getAttribute('data-reply-msg') || '');
@@ -637,6 +614,7 @@ function bindThemeActions(){
   const avatarToggle=$('themeAvatarToggle');
   const avatarRingToggle=$('themeAvatarRingToggle');
   const timestampToggle=$('themeTimestampToggle');
+  const roomStatusTextInput=$('roomStatusText');
   const readThemeFromInputs=()=>{
     const theme={};
     for(const input of inputs) theme[input.dataset.themeKey]=input.value;
@@ -668,6 +646,10 @@ function bindThemeActions(){
     resetBtn.onclick=()=>{
       resetTheme();
       fillInputs(DEFAULT_THEME);
+      if(roomStatusTextInput){
+        roomStatusTextInput.value = 'encrypted room';
+        setRoomStatusText('encrypted room');
+      }
       setStatus(status, 'Theme reset.', 'ok');
     };
   }
@@ -696,6 +678,13 @@ function bindThemeActions(){
       timestampToggle.checked = timestampMode==='hover';
       setStatus(status, `Timestamps set to ${timestampMode==='hover' ? 'on hover' : 'always visible'}.`, 'ok');
     };
+  }
+  if(roomStatusTextInput){
+    roomStatusTextInput.value = roomStatusText;
+    roomStatusTextInput.addEventListener('input',()=>{
+      setRoomStatusText(roomStatusTextInput.value);
+      setStatus(status, 'Room status text updated.', 'ok');
+    });
   }
 }
 
@@ -1170,6 +1159,9 @@ function bindControlActions(){
   const roomNameInput = $('roomNameInput');
   const saveRoomNameBtn = $('saveRoomName');
   const roomNameStatus = $('roomNameStatus');
+  const roomStatusTextAdminInput = $('roomStatusTextAdminInput');
+  const saveRoomStatusTextAdminBtn = $('saveRoomStatusTextAdmin');
+  const roomStatusTextAdminStatus = $('roomStatusTextAdminStatus');
   const auditStatus = $('auditStatus');
   const auditList = $('auditList');
   const messageStatus=$('messageAdminStatus');
@@ -1352,6 +1344,17 @@ function bindControlActions(){
             }
         };
     }
+  if (saveRoomStatusTextAdminBtn) {
+    saveRoomStatusTextAdminBtn.onclick = async () => {
+      const nextText = String((roomStatusTextAdminInput && roomStatusTextAdminInput.value) || '').trim();
+      setRoomStatusText(nextText || 'encrypted room');
+      if (roomStatusTextAdminInput) roomStatusTextAdminInput.value = roomStatusText;
+      if (roomStatusTextAdminStatus) {
+        roomStatusTextAdminStatus.textContent = 'Room status text updated.';
+        roomStatusTextAdminStatus.className = 'status ok';
+      }
+    };
+  }
   if(retainMessagesBtn){
     retainMessagesBtn.onclick=async()=>{
       const keepLatest = Number((retainCountInput && retainCountInput.value) || 0);
@@ -1497,6 +1500,7 @@ async function renderMain(){
     bindChatActions();
     await loadHistory();
     await refreshMembers();
+    updateRoomConnectionStatus(!!ws && ws.readyState===WebSocket.OPEN);
     ensureSocket();
     return;
   }

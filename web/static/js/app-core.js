@@ -109,6 +109,7 @@ const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
 const SHOW_AVATARS_KEY = 'veil.showAvatars';
 const SHOW_AVATAR_RINGS_KEY = 'veil.showAvatarRings';
 const TIMESTAMP_MODE_KEY = 'veil.timestampMode';
+const ROOM_STATUS_TEXT_KEY = 'veil.roomStatusText';
 const LOCAL_BACKGROUND_KEY = 'veil.localBackgroundImage';
 const LOCAL_BACKGROUND_STRENGTH_KEY = 'veil.localBackgroundStrength';
 let notifySoundEnabled = (() => {
@@ -145,6 +146,14 @@ let timestampMode = (() => {
     return raw === 'hover' ? 'hover' : 'always';
   } catch {
     return 'always';
+  }
+})();
+let roomStatusText = (() => {
+  try {
+    const raw = String(localStorage.getItem(ROOM_STATUS_TEXT_KEY) || '').trim();
+    return raw || 'encrypted room';
+  } catch {
+    return 'encrypted room';
   }
 })();
 let audioUnlocked = false;
@@ -666,8 +675,14 @@ function drawMessage(record, text){
   const editedTitle = edited ? ` title="edited ${esc(new Date(record.edited_at).toLocaleString())}"` : '';
   const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
   const reactionHTML = renderReactionsHTML(messageID);
-  const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}">${pinnedMessageIDs.has(messageID) ? 'Unpin' : 'Pin'}</button>` : '';
-  const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}${pinBtn}<button class="tiny-action" data-react-msg="${esc(messageID)}">React</button><button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
+  const canDelete = isMine || isAdminRole(myRole);
+  const iconReact = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/><path d="M8.7 14.3c.9 1.3 2 2 3.3 2s2.4-.7 3.3-2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`;
+  const iconReply = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7 4.5 12 10 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h8.2c3.4 0 6.3 1.7 6.3 5.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+  const iconEdit = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.8V20h3.2L17 10.2l-3.2-3.2L4 16.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m12.9 7.8 3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const iconPin = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8l-2.1 4.6v3.2l2.8 2.7H7.3l2.8-2.7V8.6L8 4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.5V20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  const iconDelete = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.2 7.2V5.8h5.6v1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.2 7.2 9 18.3h6l.8-11.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
+  const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}" title="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}" aria-label="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}">${iconPin}</button>` : '';
+  const actions = `<span class="line-actions"><button class="tiny-action" data-react-msg="${esc(messageID)}" title="Add reaction" aria-label="Add reaction">${iconReact}</button><button class="tiny-action" data-reply-msg="${esc(messageID)}" title="Reply" aria-label="Reply">${iconReply}</button>${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}" title="Edit message" aria-label="Edit message">${iconEdit}</button>` : ''}${pinBtn}${canDelete ? `<button class="tiny-action danger" data-delete-msg="${esc(messageID)}" title="Delete message" aria-label="Delete message">${iconDelete}</button>` : ''}</span>`;
   const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
   const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '', record) : '';
   const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
@@ -783,6 +798,24 @@ function setTimestampMode(next){
     localStorage.setItem(TIMESTAMP_MODE_KEY, timestampMode);
   } catch {}
   applyTimestampMode();
+}
+function setRoomStatusText(next){
+  if(!isAdminRole(myRole)) return;
+  const cleaned = String(next || '').trim();
+  roomStatusText = cleaned || 'encrypted room';
+  try {
+    localStorage.setItem(ROOM_STATUS_TEXT_KEY, roomStatusText);
+  } catch {}
+  updateRoomConnectionStatus(!!ws && ws.readyState === WebSocket.OPEN);
+}
+function updateRoomConnectionStatus(isOnline){
+  const dot = document.querySelector('.room-title .status-dot');
+  const label = document.getElementById('roomStatusLabel');
+  if(dot){
+    dot.classList.toggle('on', !!isOnline);
+    dot.classList.toggle('off', !isOnline);
+  }
+  if(label) label.textContent = roomStatusText;
 }
 function unlockAudio(){
   audioUnlocked = true;
