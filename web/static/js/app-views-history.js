@@ -5,6 +5,7 @@ function navHTML(){
       <div class="brand"><div class="eyebrow">encrypted room</div><h1>Veil</h1><span class="muted">private realtime chat</span></div>
       <nav class="nav">
         <button class="nav-btn ${currentView===VIEW_CHAT?'active':''}" id="tabChat">Chat</button>
+        <button class="nav-btn ${currentView===VIEW_PROFILE?'active':''}" id="tabProfile">Profile</button>
         <button class="nav-btn ${currentView===VIEW_KEYS?'active':''}" id="tabKeys">Keys</button>
         <button class="nav-btn ${currentView===VIEW_THEME?'active':''}" id="tabTheme">Theme</button>
         ${canOpenControl ? `<button class="nav-btn ${currentView===VIEW_CONTROL?'active':''}" id="tabControl">Control</button>` : ''}
@@ -19,7 +20,8 @@ function chatPanelHTML(){
   const title = roomName || 'Room Chat';
   return `
     <section class="main">
-      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><span id="presenceStatus" class="muted"></span><span class="muted" aria-hidden="true">|</span><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>${esc(title)}</strong><small>AES-GCM end-to-end encrypted</small></div><div class="top-actions"><button id="memberToggle" class="secondary member-toggle" type="button" aria-label="Open online members list">Online Members <span id="memberCount">0</span></button><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <div id="memberPopover" class="member-popover"><div id="memberList" class="member-list"></div></div>
       <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
         <div id="replyPreview" class="status" style="display:none;"></div>
@@ -109,10 +111,10 @@ function themePanelHTML(){
             ${fields.map(([key,label,hint])=>`<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(t[key])}"/></div>`).join('')}
           </div>
           <div class="divider"></div>
-          <h3>Chat Identity</h3>
-          <div class="theme-row">
-            <label for="theme-chat-color">Name Color<span>Used for your display name for everyone in this room</span></label>
-            <input id="theme-chat-color" type="color" value="${esc(currentUserChatColor || userColor(currentDisplayName||''))}"/>
+          <h3>Display</h3>
+          <div class="theme-actions">
+            <button id="themeAvatarToggle" class="secondary">${showAvatars ? 'Show Avatars: On' : 'Show Avatars: Off'}</button>
+            <button id="themeTimestampToggle" class="secondary">${timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always'}</button>
           </div>
           <div class="theme-actions">
             <button id="saveTheme">Save Theme</button>
@@ -120,6 +122,40 @@ function themePanelHTML(){
           </div>
           <div id="themeStatus" class="status">Unsaved changes preview immediately.</div>
           <div class="status-note">Theme changes are stored per-browser on this device only.</div>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function profilePanelHTML(){
+  return `
+    <section class="main utility">
+      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}" aria-label="${sidebarCollapsed?'Open sidebar':'Collapse sidebar'}">${sidebarCollapsed?'☰':'✕'}</button><strong>Profile</strong><small>Your identity and chat preferences</small></div><div class="top-actions"><span class="muted">${esc(currentDisplayName||'member')}</span></div></header>
+      <div class="panel utility-panel">
+        <section class="card">
+          <h3>Chat Identity</h3>
+          <div class="theme-row">
+            <label for="profile-avatar-file">Profile Picture<span>Visible to all users in this room</span></label>
+            <input id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+          </div>
+          <div class="theme-actions">
+            <button id="profileAvatarUpload" class="secondary">Upload Picture</button>
+            <button id="profileAvatarClear" class="secondary">Clear Picture</button>
+          </div>
+          <div class="theme-row">
+            <label for="profile-chat-color">Name Color<span>Used for your display name for everyone in this room</span></label>
+            <input id="profile-chat-color" type="color" value="${esc(currentUserChatColor || userColor(currentDisplayName||''))}"/>
+          </div>
+          <h3>Notifications</h3>
+          <div class="theme-actions">
+            <button id="profileSoundToggle" class="secondary">${notifySoundEnabled?'Notification Sound: On':'Notification Sound: Off'}</button>
+          </div>
+          <div class="theme-row">
+            <label for="profile-notify-volume">Notification Volume<span>Lower is softer. Stored in this browser.</span></label>
+            <input id="profile-notify-volume" type="range" min="0" max="200" step="1" value="${esc(String(Math.round(notifyVolume*100)))}"/>
+          </div>
+          <div id="profileStatus" class="status">Profile preferences apply immediately.</div>
         </section>
       </div>
     </section>
@@ -280,6 +316,7 @@ async function loadHistory({appendOlder=false}={}){
   bindMessageImageScroll();
   updatePresenceCount();
   await sendReadReceiptForVisible();
+  refreshAllMessageMeta();
 }
 
 async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepend=false}={}){
@@ -302,7 +339,7 @@ async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepe
   }
   const parsed=parseMessagePayload(plain);
   const previewText = parsed.type==='text' ? String(parsed.text||plain) : (parsed.caption || `[${parsed.type}]`);
-  knownMessages.set(messageID, {display_name:record.display_name||'', preview:previewText, row_id:Number(record.row_id||0), edited_at:String(record.edited_at||'')});
+  knownMessages.set(messageID, {display_name:record.display_name||'', preview:previewText, row_id:Number(record.row_id||0), sender_id:String(record.sender_id||''), edited_at:String(record.edited_at||'')});
   const row = drawMessage(record, plain);
   if(prepend) messagesEl.insertAdjacentHTML('afterbegin', row);
   else if(appendOlder) messagesEl.insertAdjacentHTML('beforeend', row);

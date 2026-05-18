@@ -106,10 +106,14 @@ func (s *Server) removeUser(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "cannot remove root admin"})
 		return
 	}
+	avatarURL, _ := s.Store.GetUserAvatarURL(target.ID)
 	if err := s.Store.DeactivateUser(target.ID); err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to remove user"})
 		return
 	}
+	_ = s.Store.ClearUserAvatarURL(target.ID)
+	removeAvatarFileIfLocal(s.AvatarDir, avatarURL)
+	s.pruneUnusedAvatarFiles()
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 

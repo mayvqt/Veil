@@ -6,6 +6,7 @@ set -euo pipefail
 : "${TZ:=UTC}"
 : "${UMASK:=022}"
 : "${VEIL_DATA_DIR:=/config}"
+: "${AVATAR_DIR:=${VEIL_DATA_DIR%/}/avatars}"
 : "${APP_BIND_ADDR:=:3847}"
 : "${COOKIE_SECURE:=false}"
 
@@ -19,10 +20,10 @@ if [[ -f "/usr/share/zoneinfo/${TZ}" ]]; then
   echo "${TZ}" > /etc/timezone
 fi
 
-mkdir -p "${VEIL_DATA_DIR}" "$(dirname "${DATABASE_PATH}")"
+mkdir -p "${VEIL_DATA_DIR}" "$(dirname "${DATABASE_PATH}")" "${AVATAR_DIR}"
 
 touch "${DATABASE_PATH}"
-chown -R "${PUID}:${PGID}" "${VEIL_DATA_DIR}" "$(dirname "${DATABASE_PATH}")"
+chown -R "${PUID}:${PGID}" "${VEIL_DATA_DIR}" "$(dirname "${DATABASE_PATH}")" "${AVATAR_DIR}"
 
 umask "${UMASK}"
 

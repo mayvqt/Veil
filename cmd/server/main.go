@@ -33,6 +33,19 @@ func main() {
 		log.Fatal(err)
 	}
 	srv := web.New(store)
+	avatarDir := strings.TrimSpace(os.Getenv("AVATAR_DIR"))
+	if avatarDir == "" {
+		dataDir := strings.TrimSpace(os.Getenv("VEIL_DATA_DIR"))
+		if dataDir == "" {
+			dataDir = "."
+		}
+		avatarDir = strings.TrimRight(dataDir, "/") + "/avatars"
+	}
+	srv.AvatarDir = avatarDir
+	avatarBase := strings.TrimSpace(os.Getenv("AVATAR_URL_BASE"))
+	if avatarBase != "" {
+		srv.AvatarURLBase = avatarBase
+	}
 	httpServer := &http.Server{
 		Addr:              addr,
 		Handler:           srv.Routes(),

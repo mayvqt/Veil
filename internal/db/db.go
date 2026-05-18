@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS users (
   display_name TEXT NOT NULL,
   role TEXT NOT NULL,
   chat_color TEXT NOT NULL DEFAULT '',
+  avatar_url TEXT NOT NULL DEFAULT '',
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
@@ -97,6 +98,9 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 		return err
 	}
 	if err := ensureUsersChatColorColumn(db); err != nil {
+		return err
+	}
+	if err := ensureUsersAvatarURLColumn(db); err != nil {
 		return err
 	}
 	if err := backfillUsersChatColors(db); err != nil {
@@ -215,6 +219,36 @@ func ensureUsersChatColorColumn(db *sql.DB) error {
 		return nil
 	}
 	_, err = db.Exec("ALTER TABLE users ADD COLUMN chat_color TEXT NOT NULL DEFAULT ''")
+	return err
+}
+
+func ensureUsersAvatarURLColumn(db *sql.DB) error {
+	rows, err := db.Query("PRAGMA table_info(users)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	hasAvatarURL := false
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == "avatar_url" {
+			hasAvatarURL = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if hasAvatarURL {
+		return nil
+	}
+	_, err = db.Exec("ALTER TABLE users ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''")
 	return err
 }
 

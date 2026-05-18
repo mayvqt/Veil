@@ -1,12 +1,18 @@
 package web
 
 import (
+	"encoding/base64"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var chatColorHexPattern = regexp.MustCompile(`^#[0-9a-f]{6}$`)
+var avatarDataURLPattern = regexp.MustCompile(`^data:(image/(png|jpeg|webp|gif));base64,([a-zA-Z0-9+/=]+)$`)
 
 func (s *Server) updateProfileColor(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.requireAPIUser(w, r)
@@ -30,4 +36,78 @@ func (s *Server) updateProfileColor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, 200, map[string]any{"ok": true, "chat_color": color})
+}
+
+func (s *Server) updateProfileAvatar(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		AvatarURL string `json:"avatar_url"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	avatarURL := strings.TrimSpace(cleanInput(req.AvatarURL, maxAvatarURLLen))
+	previousURL, _ := s.Store.GetUserAvatarURL(u.ID)
+	if avatarURL == "" {
+		removeAvatarFileIfLocal(s.AvatarDir, previousURL)
+		if err := s.Store.SetUserAvatarURL(u.ID, ""); err != nil {
+			writeJSON(w, 500, map[string]string{"error": "failed to clear avatar"})
+			return
+		}
+		s.pruneUnusedAvatarFiles()
+		writeJSON(w, 200, map[string]any{"ok": true, "avatar_url": ""})
+		return
+	}
+	matches := avatarDataURLPattern.FindStringSubmatch(avatarURL)
+	if len(matches) != 4 {
+		writeJSON(w, 400, map[string]string{"error": "avatar_url must be a base64 data URL for png/jpeg/webp/gif"})
+		return
+	}
+	mime := matches[1]
+	decoded, err := base64.StdEncoding.DecodeString(matches[3])
+	if err != nil {
+		writeJSON(w, 400, map[string]string{"error": "avatar data is not valid base64"})
+		return
+	}
+	if len(decoded) == 0 || len(decoded) > 4*1024*1024 {
+		writeJSON(w, 400, map[string]string{"error": "avatar image must be between 1 byte and 4MB"})
+		return
+	}
+	ext := ".png"
+	switch mime {
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/webp":
+		ext = ".webp"
+	case "image/gif":
+		ext = ".gif"
+	}
+	if err := os.MkdirAll(s.AvatarDir, 0o755); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to prepare avatar storage"})
+		return
+	}
+	baseName := fmt.Sprintf("user_%s_%d%s", strings.ReplaceAll(u.ID, "-", ""), time.Now().UnixNano(), ext)
+	fullPath := filepath.Join(s.AvatarDir, baseName)
+	if err := os.WriteFile(fullPath, decoded, 0o644); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to save avatar"})
+		return
+	}
+	base := strings.TrimSpace(s.AvatarURLBase)
+	if base == "" {
+		base = "/avatars"
+	}
+	base = "/" + strings.Trim(base, "/")
+	publicURL := fmt.Sprintf("%s/%s?v=%d", base, baseName, time.Now().Unix())
+	if err := s.Store.SetUserAvatarURL(u.ID, publicURL); err != nil {
+		_ = os.Remove(fullPath)
+		writeJSON(w, 500, map[string]string{"error": "failed to update avatar"})
+		return
+	}
+	removeAvatarFileIfLocal(s.AvatarDir, previousURL)
+	s.pruneUnusedAvatarFiles()
+	writeJSON(w, 200, map[string]any{"ok": true, "avatar_url": publicURL})
 }

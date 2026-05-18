@@ -35,6 +35,9 @@ func TestMessageLifecycleAndPagination(t *testing.T) {
 	if err := s.SetUserChatColor("u2", "#11bbaa"); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.SetUserAvatarURL("u1", "data:image/png;base64,abc"); err != nil {
+		t.Fatal(err)
+	}
 
 	m1, err := s.SaveMessage("u1", "alice", "ct1", "n1", "")
 	if err != nil {
@@ -64,6 +67,9 @@ func TestMessageLifecycleAndPagination(t *testing.T) {
 	}
 	if page1[0]["chat_color"] == "" || page1[1]["chat_color"] == "" {
 		t.Fatalf("expected chat_color on listed messages, got %#v", page1)
+	}
+	if page1[0]["sender_id"] == "u1" && page1[0]["avatar_url"] == "" {
+		t.Fatalf("expected avatar_url for u1 message, got %#v", page1[0])
 	}
 
 	page2, err := s.ListRecentMessages(2, m2.RowID)

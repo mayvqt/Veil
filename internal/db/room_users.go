@@ -82,11 +82,11 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 
 func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT u.id, u.display_name, u.role, u.chat_color
+SELECT u.id, u.display_name, u.role, u.chat_color, COALESCE(u.avatar_url,'')
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -96,7 +96,7 @@ WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 }
 
 func (s *Store) ListUsers() ([]User, error) {
-	rows, err := s.DB.Query("SELECT id, display_name, role, chat_color FROM users WHERE active=1 ORDER BY created_at ASC")
+	rows, err := s.DB.Query("SELECT id, display_name, role, chat_color, COALESCE(avatar_url,'') FROM users WHERE active=1 ORDER BY created_at ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (s *Store) ListUsers() ([]User, error) {
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor); err != nil {
+		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -150,6 +150,41 @@ func (s *Store) SetUserChatColor(userID, chatColor string) error {
 	}
 	_, err := s.DB.Exec("UPDATE users SET chat_color=? WHERE id=? AND active=1", chatColor, userID)
 	return err
+}
+
+func (s *Store) SetUserAvatarURL(userID, avatarURL string) error {
+	_, err := s.DB.Exec("UPDATE users SET avatar_url=? WHERE id=? AND active=1", avatarURL, userID)
+	return err
+}
+
+func (s *Store) GetUserAvatarURL(userID string) (string, error) {
+	var avatarURL string
+	if err := s.DB.QueryRow("SELECT COALESCE(avatar_url,'') FROM users WHERE id=?", userID).Scan(&avatarURL); err != nil {
+		return "", err
+	}
+	return avatarURL, nil
+}
+
+func (s *Store) ClearUserAvatarURL(userID string) error {
+	_, err := s.DB.Exec("UPDATE users SET avatar_url='' WHERE id=?", userID)
+	return err
+}
+
+func (s *Store) ListActiveAvatarURLs() ([]string, error) {
+	rows, err := s.DB.Query("SELECT COALESCE(avatar_url,'') FROM users WHERE active=1 AND TRIM(COALESCE(avatar_url,''))<>''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]string, 0)
+	for rows.Next() {
+		var url string
+		if err := rows.Scan(&url); err != nil {
+			return nil, err
+		}
+		out = append(out, url)
+	}
+	return out, rows.Err()
 }
 
 func defaultChatColorForUserID(userID string) string {

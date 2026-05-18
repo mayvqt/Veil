@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -154,13 +156,88 @@ func TestProfileColorEndpointPersistsColor(t *testing.T) {
 	}
 }
 
+func TestProfileAvatarEndpointPersistsAvatar(t *testing.T) {
+	srv, h := testServer(t)
+	srv.AvatarDir = t.TempDir()
+	addUser(t, srv.Store, "u1", "alice", "member")
+	token := sessionToken(srv.Secret, "u1")
+
+	smallPNG := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2jvKsAAAAASUVORK5CYII="
+	rr := doReq(t, h, http.MethodPost, "/api/profile/avatar", token, map[string]any{"avatar_url": smallPNG})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile avatar status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	var got string
+	if err := srv.Store.DB.QueryRow("SELECT avatar_url FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got == "" || !strings.HasPrefix(got, "/avatars/") {
+		t.Fatalf("expected avatar static URL, got %q", got)
+	}
+	entries, err := os.ReadDir(srv.AvatarDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 avatar file after first upload, got %d", len(entries))
+	}
+	firstURL := got
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/avatar", token, map[string]any{"avatar_url": smallPNG})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile avatar second upload status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := srv.Store.DB.QueryRow("SELECT avatar_url FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got == firstURL {
+		t.Fatalf("expected avatar URL version to change on reupload, got %q", got)
+	}
+	entries, err = os.ReadDir(srv.AvatarDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected old avatar file cleanup after replace, got %d files", len(entries))
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/avatar", token, map[string]any{"avatar_url": "data:text/plain;base64,SGk="})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid mime 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/avatar", token, map[string]any{"avatar_url": ""})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("clear avatar status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := srv.Store.DB.QueryRow("SELECT avatar_url FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != "" {
+		t.Fatalf("expected avatar cleared, got %q", got)
+	}
+	entries, err = os.ReadDir(srv.AvatarDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected avatar files cleaned on clear, got %d", len(entries))
+	}
+}
+
 func TestAdminEndpoints_RoleAndRemovalGuards(t *testing.T) {
 	srv, h := testServer(t)
+	srv.AvatarDir = t.TempDir()
 	addUser(t, srv.Store, "root", "root", "root_admin")
 	addUser(t, srv.Store, "adm", "admin", "admin")
 	addUser(t, srv.Store, "mem", "member", "member")
 	tokRoot := sessionToken(srv.Secret, "root")
 	tokAdmin := sessionToken(srv.Secret, "adm")
+	smallPNG := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2jvKsAAAAASUVORK5CYII="
+	upload := doReq(t, h, http.MethodPost, "/api/profile/avatar", tokAdmin, map[string]any{"avatar_url": smallPNG})
+	if upload.Code != http.StatusOK {
+		t.Fatalf("admin avatar upload expected 200, got %d body=%s", upload.Code, upload.Body.String())
+	}
 
 	rr := doReq(t, h, http.MethodPost, "/api/admin/role", tokAdmin, map[string]any{
 		"user_id": "mem", "role": "admin",
@@ -211,6 +288,13 @@ func TestAdminEndpoints_RoleAndRemovalGuards(t *testing.T) {
 	if active {
 		t.Fatal("expected removed admin to be inactive")
 	}
+	entries, err := os.ReadDir(srv.AvatarDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("expected removed user's avatar file to be cleaned, got %d files", len(entries))
+	}
 }
 
 func TestAuthRequiredForProtectedEndpoints(t *testing.T) {
@@ -219,6 +303,14 @@ func TestAuthRequiredForProtectedEndpoints(t *testing.T) {
 	rr := doReq(t, h, http.MethodGet, "/api/messages", "", nil)
 	if rr.Code != http.StatusUnauthorized {
 		t.Fatalf("expected 401 for unauthenticated messages list, got %d", rr.Code)
+	}
+	rr = doReq(t, h, http.MethodGet, "/api/members", "", nil)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for unauthenticated members list, got %d", rr.Code)
+	}
+	rr = doReq(t, h, http.MethodPost, "/api/profile/avatar", "", map[string]any{"avatar_url": ""})
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for unauthenticated avatar update, got %d", rr.Code)
 	}
 	rr = doReq(t, h, http.MethodPost, "/api/messages/read", "", map[string]any{"last_seen_rowid": 1})
 	if rr.Code != http.StatusUnauthorized {
@@ -244,5 +336,51 @@ func TestMessageEndpointsRejectInvalidPayloads(t *testing.T) {
 	rr = doReq(t, h, http.MethodPost, "/api/messages/delete", token, map[string]any{"message_id": ""})
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400 for invalid delete payload, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestMembersEndpointListsPresence(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "u1", "alice", "member")
+	addUser(t, srv.Store, "u2", "bob", "member")
+	srv.trackPresenceConnect("u2")
+	token := sessionToken(srv.Secret, "u1")
+
+	rr := doReq(t, h, http.MethodGet, "/api/members", token, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("members status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	body := decodeBody(t, rr)
+	members, ok := body["members"].([]any)
+	if !ok || len(members) != 2 {
+		t.Fatalf("expected 2 members, got %#v", body["members"])
+	}
+	onlineByID := map[string]bool{}
+	for _, m := range members {
+		item, ok := m.(map[string]any)
+		if !ok {
+			continue
+		}
+		onlineByID[item["id"].(string)] = item["online"] == true
+	}
+	if onlineByID["u1"] {
+		t.Fatal("u1 should be offline in this test")
+	}
+	if !onlineByID["u2"] {
+		t.Fatal("u2 should be online in this test")
+	}
+}
+
+func TestMembersEndpointRejectsInactiveSessionUser(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "u1", "alice", "member")
+	if err := srv.Store.DeactivateUser("u1"); err != nil {
+		t.Fatal(err)
+	}
+	token := sessionToken(srv.Secret, "u1")
+
+	rr := doReq(t, h, http.MethodGet, "/api/members", token, nil)
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 for inactive members session, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }

@@ -14,6 +14,7 @@ func outboundMessageData(msg *db.Message, clientMsgID string) map[string]string 
 		"created_at":    msg.CreatedAt,
 		"display_name":  msg.DisplayName,
 		"chat_color":    msg.ChatColor,
+		"avatar_url":    msg.AvatarURL,
 		"ciphertext":    msg.Ciphertext,
 		"nonce":         msg.Nonce,
 		"reply_to_id":   msg.ReplyToID,

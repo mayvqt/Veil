@@ -8,6 +8,8 @@ function bindChatActions(){
   const messages=$('messages');
   const replyPreview=$('replyPreview');
   const typingStatus=$('typingStatus');
+  const memberToggle=$('memberToggle');
+  const memberPopover=$('memberPopover');
   const emojiToggle=$('emojiToggle');
   const emojiPicker=$('emojiPicker');
   const attachToggle=$('attachToggle');
@@ -22,6 +24,17 @@ function bindChatActions(){
   activeEmojiToggle=emojiToggle;
   const emojiButtons=emojiPicker ? [...emojiPicker.querySelectorAll('button[data-emoji]')] : [];
   if(typingStatus) typingStatus.textContent='';
+  if(memberToggle && memberPopover){
+    memberToggle.addEventListener('click',()=>{
+      memberPopover.classList.toggle('open');
+    });
+    document.addEventListener('click',(e)=>{
+      const target = e.target;
+      if(!(target instanceof Node)) return;
+      if(memberPopover.contains(target) || memberToggle.contains(target)) return;
+      memberPopover.classList.remove('open');
+    }, {capture:true});
+  }
 
   const updateReplyPreview=()=>{
     if(!replyPreview) return;
@@ -345,6 +358,7 @@ function bindChatActions(){
   }
 
   sendBtn.onclick=async()=>{
+    unlockAudio();
     convertInputEmoticons();
     const text=input.value.trim();
     if(!text && !pendingAttachment) return;
@@ -371,6 +385,7 @@ function bindChatActions(){
     }catch{ alert('Message could not be sent.'); }
   };
   input.addEventListener('keydown',(e)=>{
+    unlockAudio();
     if(mentionOpen){
       if(e.key==='ArrowDown'){
         e.preventDefault();
@@ -428,6 +443,7 @@ function bindChatActions(){
     closeMentionPicker();
   },{capture:true});
   updateReplyPreview();
+  refreshMembers();
 }
 
 function bindKeyActions(){
@@ -506,7 +522,8 @@ function bindKeyActions(){
 function bindThemeActions(){
   const status=$('themeStatus');
   const inputs=[...document.querySelectorAll('input[data-theme-key]')];
-  const chatColorInput=$('theme-chat-color');
+  const avatarToggle=$('themeAvatarToggle');
+  const timestampToggle=$('themeTimestampToggle');
   const readThemeFromInputs=()=>{
     const theme={};
     for(const input of inputs) theme[input.dataset.themeKey]=input.value;
@@ -546,9 +563,107 @@ function bindThemeActions(){
     resetBtn.onclick=()=>{
       resetTheme();
       fillInputs(DEFAULT_THEME);
-      if(chatColorInput) chatColorInput.value=userColor(currentDisplayName || '');
       setStatus(status, 'Theme reset.', 'ok');
     };
+  }
+  if(avatarToggle){
+    avatarToggle.textContent = showAvatars ? 'Show Avatars: On' : 'Show Avatars: Off';
+    avatarToggle.onclick=()=>{
+      setShowAvatars(!showAvatars);
+      avatarToggle.textContent = showAvatars ? 'Show Avatars: On' : 'Show Avatars: Off';
+      setStatus(status, `Avatars ${showAvatars ? 'enabled' : 'hidden'} for this browser.`, 'ok');
+    };
+  }
+  if(timestampToggle){
+    timestampToggle.textContent = timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always';
+    timestampToggle.onclick=()=>{
+      setTimestampMode(timestampMode==='hover' ? 'always' : 'hover');
+      timestampToggle.textContent = timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always';
+      setStatus(status, `Timestamps set to ${timestampMode==='hover' ? 'on hover' : 'always visible'}.`, 'ok');
+    };
+  }
+}
+
+function bindProfileActions(){
+  const status=$('profileStatus');
+  const avatarFileInput=$('profile-avatar-file');
+  const avatarUploadBtn=$('profileAvatarUpload');
+  const avatarClearBtn=$('profileAvatarClear');
+  const chatColorInput=$('profile-chat-color');
+  const soundToggle=$('profileSoundToggle');
+  const soundVolume=$('profile-notify-volume');
+
+  const readAvatarDataURL=async(file)=>{
+    if(!file) throw new Error('Select an image first.');
+    const mime=normalizeMime(file.type);
+    if(!['image/png','image/jpeg','image/webp','image/gif'].includes(mime)){
+      throw new Error('Use png, jpeg, webp, or gif.');
+    }
+    if(file.size <= 0 || file.size > 4*1024*1024){
+      throw new Error('Image must be 4MB or smaller.');
+    }
+    const raw=await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(String(r.result||''));
+      r.onerror=()=>reject(r.error || new Error('read failed'));
+      r.readAsDataURL(file);
+    });
+    if(!raw.startsWith(`data:${mime};base64,`)) throw new Error('Could not process image.');
+    return raw;
+  };
+
+  if(avatarUploadBtn && avatarFileInput){
+    avatarUploadBtn.onclick=async()=>{
+      try{
+        const file=avatarFileInput.files && avatarFileInput.files[0];
+        const avatarURL=await readAvatarDataURL(file);
+        const r=await api('/api/profile/avatar',{method:'POST',body:JSON.stringify({avatar_url:avatarURL})});
+        if(!r.ok){
+          setStatus(status, r.data.error || 'Failed to upload profile picture.', 'err');
+          return;
+        }
+        setStatus(status, 'Profile picture uploaded. It is now visible to everyone.', 'ok');
+        await refreshMembers();
+        if(currentView===VIEW_CHAT) await loadHistory();
+      }catch(e){
+        setStatus(status, e.message || 'Failed to upload profile picture.', 'err');
+      }
+    };
+  }
+  if(avatarClearBtn){
+    avatarClearBtn.onclick=async()=>{
+      const r=await api('/api/profile/avatar',{method:'POST',body:JSON.stringify({avatar_url:''})});
+      if(!r.ok){
+        setStatus(status, r.data.error || 'Failed to clear profile picture.', 'err');
+        return;
+      }
+      if(avatarFileInput) avatarFileInput.value='';
+      setStatus(status, 'Profile picture cleared.', 'ok');
+      await refreshMembers();
+      if(currentView===VIEW_CHAT) await loadHistory();
+    };
+  }
+
+  if(soundToggle){
+    soundToggle.textContent = notifySoundEnabled ? 'Notification Sound: On' : 'Notification Sound: Off';
+    soundToggle.onclick=()=>{
+      setNotifySoundEnabled(!notifySoundEnabled);
+      soundToggle.textContent = notifySoundEnabled ? 'Notification Sound: On' : 'Notification Sound: Off';
+      unlockAudio();
+      setStatus(status, `Notification sound ${notifySoundEnabled ? 'enabled' : 'disabled'}.`, 'ok');
+    };
+  }
+  if(soundVolume){
+    soundVolume.value = String(Math.round(notifyVolume*100));
+    soundVolume.addEventListener('input',()=>{
+      const n = Number(soundVolume.value || 0);
+      setNotifyVolume(n/100);
+      setStatus(status, `Notification volume: ${Math.round(notifyVolume*100)}%.`, 'ok');
+    });
+    soundVolume.addEventListener('change',()=>{
+      unlockAudio();
+      playNotificationSound();
+    });
   }
   if(chatColorInput){
     chatColorInput.addEventListener('input',()=>{
@@ -722,6 +837,7 @@ function bindControlActions(){
 
 function renderPanelHTML(){
   if(currentView === VIEW_KEYS) return keysPanelHTML();
+  if(currentView === VIEW_PROFILE) return profilePanelHTML();
   if(currentView === VIEW_THEME) return themePanelHTML();
   if(currentView === VIEW_CONTROL) return controlPanelHTML();
   return chatPanelHTML();
@@ -750,6 +866,7 @@ async function renderMain(){
     };
   }
   $('tabChat').onclick=()=>{ currentView=VIEW_CHAT; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
+  $('tabProfile').onclick=()=>{ currentView=VIEW_PROFILE; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
   $('tabKeys').onclick=()=>{ currentView=VIEW_KEYS; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
   $('tabTheme').onclick=()=>{ currentView=VIEW_THEME; if(shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true); renderMain(); };
   const tabControl = $('tabControl');
@@ -760,11 +877,16 @@ async function renderMain(){
   if(currentView===VIEW_CHAT){
     bindChatActions();
     await loadHistory();
+    await refreshMembers();
     ensureSocket();
     return;
   }
   if(currentView===VIEW_KEYS){
     bindKeyActions();
+    return;
+  }
+  if(currentView===VIEW_PROFILE){
+    bindProfileActions();
     return;
   }
   if(currentView===VIEW_THEME){

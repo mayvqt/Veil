@@ -1,5 +1,7 @@
 package web
 
+import "maps"
+
 func (s *Server) trackPresenceConnect(userID string) bool {
 	s.presenceMu.Lock()
 	defer s.presenceMu.Unlock()
@@ -17,4 +19,10 @@ func (s *Server) trackPresenceDisconnect(userID string) bool {
 	}
 	s.presenceCounts[userID] = current - 1
 	return false
+}
+
+func (s *Server) presenceSnapshot() map[string]int {
+	s.presenceMu.Lock()
+	defer s.presenceMu.Unlock()
+	return maps.Clone(s.presenceCounts)
 }

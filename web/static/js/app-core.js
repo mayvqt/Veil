@@ -16,6 +16,7 @@ const VIEW_CHAT = 'chat';
 const VIEW_KEYS = 'keys';
 const VIEW_CONTROL = 'control';
 const VIEW_THEME = 'theme';
+const VIEW_PROFILE = 'profile';
 let currentView = VIEW_CHAT;
 let myRole = 'member';
 let myUserID = '';
@@ -86,9 +87,44 @@ let pendingOutgoing = new Map();
 let readReceipts = new Map();
 let typingUsers = new Map();
 let onlineUsers = new Set();
+let roomMembers = [];
 let replyToMessageID = '';
 let reconnectNeedsCatchup = false;
 let typingTimer = null;
+const NOTIFY_SOUND_KEY = 'veil.notifySound';
+const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
+const SHOW_AVATARS_KEY = 'veil.showAvatars';
+const TIMESTAMP_MODE_KEY = 'veil.timestampMode';
+let notifySoundEnabled = (() => {
+  try {
+    return localStorage.getItem(NOTIFY_SOUND_KEY) !== '0';
+  } catch {
+    return true;
+  }
+})();
+let notifyVolume = (() => {
+  try {
+    const raw = Number(localStorage.getItem(NOTIFY_VOLUME_KEY));
+    if(Number.isFinite(raw)) return Math.max(0, Math.min(2, raw));
+  } catch {}
+  return 0.25;
+})();
+let showAvatars = (() => {
+  try {
+    return localStorage.getItem(SHOW_AVATARS_KEY) !== '0';
+  } catch {
+    return true;
+  }
+})();
+let timestampMode = (() => {
+  try {
+    const raw = String(localStorage.getItem(TIMESTAMP_MODE_KEY) || '').trim();
+    return raw === 'hover' ? 'hover' : 'always';
+  } catch {
+    return 'always';
+  }
+})();
+let audioUnlocked = false;
 const userColor = (n) => customUserColors[n] || PASTELS[hashName(n) % PASTELS.length];
 const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
 
@@ -386,6 +422,16 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   return bytesToHex(roomBytes);
 }
 function drawLine(name,text,ts='', color=''){ const c=color || userColor(name); return `<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span>`; }
+function avatarMarkup(name, avatarURL=''){
+  const clean = String(name || '').trim();
+  const initial = clean ? clean.slice(0, 1).toUpperCase() : '?';
+  const src = String(avatarURL || '').trim();
+  if(/^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(src) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(src)){
+    return `<img class="line-avatar-img" src="${esc(src)}" alt="${esc(clean || 'avatar')}" loading="lazy" />`;
+  }
+  const bg = userColor(clean || '?');
+  return `<span class="line-avatar" aria-hidden="true" style="background:${esc(bg)}">${esc(initial)}</span>`;
+}
 function parseMessagePayload(text){
   try{
     const payload=JSON.parse(text);
@@ -433,27 +479,41 @@ function drawMessage(record, text){
   const replyToID = String(record.reply_to_id || payload.replyToID || '');
   const deleted = String(record.deleted_at || '').trim() !== '';
   const edited = !deleted && String(record.edited_at || '').trim() !== '';
-  const status = isMine ? messageDeliveryLabel(rowID, messageID) : '';
+  const status = isMine ? messageDeliveryLabel(rowID, messageID, senderID) : '';
   const statusHTML = `<span class="line-meta" data-meta-msg="${esc(messageID)}">${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>`;
   const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
   const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}<button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
+  const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
+  const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '') : '';
   if(deleted){
-    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${actions}</div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${actions}</div>`;
   }
   if(payload.type==='file'){
     const src=`data:${payload.mime};base64,${payload.data}`;
     const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
   }
   if(payload.type!=='image'){
     const textValue = payload.type === 'text' ? payload.text : text;
-    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<span class="line-text">${renderRichText(textValue)}</span>${statusHTML}${actions}</span></div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<span class="line-text">${renderRichText(textValue)}</span>${statusHTML}${actions}</span></div>`;
   }
   const src=`data:${payload.mime};base64,${payload.data}`;
   const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-  return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}"><span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
+  return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
 }
-function messageDeliveryLabel(rowID, messageID){
+function latestOwnMessageRowID(){
+  let maxRow = 0;
+  for(const item of knownMessages.values()){
+    if(String(item?.sender_id||'')!==String(myUserID||'')) continue;
+    const row=Number(item?.row_id||0);
+    if(row>maxRow) maxRow=row;
+  }
+  return maxRow;
+}
+function messageDeliveryLabel(rowID, messageID, senderID){
+  if(String(senderID||'')!==String(myUserID||'')) return '';
+  const latestMineRowID = latestOwnMessageRowID();
+  if(latestMineRowID>0 && Number(rowID||0)!==latestMineRowID) return '';
   if(pendingOutgoing.has(messageID)) return 'sending...';
   if(!rowID) return 'sent';
   let seenByOther = false;
@@ -490,10 +550,63 @@ function updateTypingBanner(){
   el.textContent = names.length===1 ? `${names[0]} is typing...` : `${names.slice(0,2).join(', ')} are typing...`;
 }
 function updatePresenceCount(){
-  const el=$('presenceStatus');
-  if(!el) return;
-  const count = onlineUsers.size;
-  el.textContent = count > 0 ? `${count} online` : '';
+  const countEl=$('memberCount');
+  const toggleEl=$('memberToggle');
+  if(countEl) countEl.textContent = String(onlineUsers.size);
+  if(toggleEl) toggleEl.setAttribute('aria-label', `Open online members list (${onlineUsers.size} online)`);
+}
+function setNotifySoundEnabled(next){
+  notifySoundEnabled = !!next;
+  try {
+    localStorage.setItem(NOTIFY_SOUND_KEY, notifySoundEnabled ? '1' : '0');
+  } catch {}
+}
+function setNotifyVolume(next){
+  const n = Number(next);
+  if(!Number.isFinite(n)) return;
+  notifyVolume = Math.max(0, Math.min(2, n));
+  try {
+    localStorage.setItem(NOTIFY_VOLUME_KEY, String(notifyVolume));
+  } catch {}
+}
+function setShowAvatars(next){
+  showAvatars = !!next;
+  try {
+    localStorage.setItem(SHOW_AVATARS_KEY, showAvatars ? '1' : '0');
+  } catch {}
+}
+function applyTimestampMode(){
+  document.documentElement.classList.toggle('timestamps-hover', timestampMode === 'hover');
+}
+function setTimestampMode(next){
+  timestampMode = next === 'hover' ? 'hover' : 'always';
+  try {
+    localStorage.setItem(TIMESTAMP_MODE_KEY, timestampMode);
+  } catch {}
+  applyTimestampMode();
+}
+function unlockAudio(){
+  audioUnlocked = true;
+}
+function playNotificationSound(){
+  if(!notifySoundEnabled || !audioUnlocked) return;
+  const Ctor = window.AudioContext || window.webkitAudioContext;
+  if(!Ctor) return;
+  const ctx = new Ctor();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 660;
+  gain.gain.value = 0.0001;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  const now = ctx.currentTime;
+  const peak = Math.max(0.0001, 0.2 * notifyVolume);
+  gain.gain.exponentialRampToValueAtTime(peak, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  osc.start(now);
+  osc.stop(now + 0.17);
+  setTimeout(()=>ctx.close(), 250);
 }
 function refreshAllMessageMeta(){
   document.querySelectorAll('.line[data-msg-id]').forEach((row)=>{
@@ -504,7 +617,7 @@ function refreshAllMessageMeta(){
     const meta=row.querySelector('.line-meta');
     if(!meta) return;
     const edited = String(knownMessages.get(msgID)?.edited_at || '').trim() !== '';
-    const status = messageDeliveryLabel(rowID, msgID);
+    const status = messageDeliveryLabel(rowID, msgID, senderID);
     meta.textContent = `${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}`;
   });
 }

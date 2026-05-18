@@ -19,11 +19,13 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/join", s.joinInvite)
 	r.Post("/api/session/from-credential", s.sessionFromCredential)
 	r.Post("/api/profile/color", s.updateProfileColor)
+	r.Post("/api/profile/avatar", s.updateProfileAvatar)
 
 	r.Get("/api/messages", s.listMessages)
 	r.Post("/api/messages/read", s.markMessagesRead)
 	r.Post("/api/messages/edit", s.editMessage)
 	r.Post("/api/messages/delete", s.deleteMessage)
+	r.Get("/api/members", s.listMembers)
 	r.Get("/api/room", s.roomInfo)
 
 	r.Get("/api/admin/users", s.listUsers)
@@ -38,6 +40,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/admin/messages/retain", s.retainMessages)
 
 	r.Get("/ws", s.ws)
+	r.Handle("/avatars/*", http.StripPrefix("/avatars/", http.FileServer(http.Dir(s.AvatarDir))))
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
 	return r
 }

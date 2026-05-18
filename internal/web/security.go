@@ -11,8 +11,10 @@ import (
 	"time"
 )
 
+const maxJSONPayloadBytes = 8 * 1024 * 1024
+
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, maxJSONPayloadBytes)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {

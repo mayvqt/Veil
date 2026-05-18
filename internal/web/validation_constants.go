@@ -11,4 +11,5 @@ const (
 	maxNonceLen        = 128
 	maxReplyToIDLen    = 128
 	maxCiphertextLen   = 25 * 1024 * 1024
+	maxAvatarURLLen    = 6 * 1024 * 1024
 )

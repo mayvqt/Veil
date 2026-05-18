@@ -83,4 +83,11 @@ INSERT INTO users (id, display_name, role, active, created_at) VALUES ('u1','ali
 	if color == "" {
 		t.Fatal("expected migrated user chat_color to be backfilled")
 	}
+	var avatarURL string
+	if err := dbRaw.QueryRow("SELECT avatar_url FROM users WHERE id='u1'").Scan(&avatarURL); err != nil {
+		t.Fatal(err)
+	}
+	if avatarURL != "" {
+		t.Fatalf("expected migrated user avatar_url default empty, got %q", avatarURL)
+	}
 }

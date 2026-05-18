@@ -16,6 +16,7 @@ async function handleIncomingMessage(data, messages){
     pendingOutgoing.delete(clientMsgID);
   }
   bindMessageImageScroll();
+  if(!mine) playNotificationSound();
   if(mine || nearBottom) scrollChatToBottom();
   await sendReadReceiptForVisible();
   refreshAllMessageMeta();
@@ -54,6 +55,7 @@ function handlePresence(data){
   if(!uid) return;
   if(on) onlineUsers.add(uid); else onlineUsers.delete(uid);
   updatePresenceCount();
+  renderMembersList();
 }
 
 async function handleSocketEvent(evt, messages){
@@ -119,6 +121,51 @@ function ensureSocket(){
     scheduleSocketReconnect();
   };
   return wsReady;
+}
+
+async function refreshMembers(){
+  const res = await api('/api/members');
+  if(!res.ok) return;
+  const members = Array.isArray(res.data.members) ? res.data.members : [];
+  roomMembers = members;
+  onlineUsers = new Set(members.filter((m)=>!!m.online).map((m)=>String(m.id||'')));
+  myUserID = res.data.me || myUserID;
+  updatePresenceCount();
+  renderMembersList();
+}
+
+function renderMembersList(){
+  const countEl = document.getElementById('memberCount');
+  const toggleEl = document.getElementById('memberToggle');
+  const listEl = document.getElementById('memberList');
+  if(!countEl || !listEl) return;
+  const onlineCount = onlineUsers.size;
+  countEl.textContent = String(onlineCount);
+  if(toggleEl){
+    toggleEl.setAttribute('aria-label', `Open online members list (${onlineCount} online)`);
+  }
+  const rows = [...roomMembers].sort((a,b)=>{
+    const aOn = onlineUsers.has(String(a.id||'')) ? 0 : 1;
+    const bOn = onlineUsers.has(String(b.id||'')) ? 0 : 1;
+    if(aOn !== bOn) return aOn - bOn;
+    return String(a.display_name||'').localeCompare(String(b.display_name||''));
+  });
+  if(rows.length===0){
+    listEl.innerHTML = `<div class="member-empty muted">No members yet.</div>`;
+    return;
+  }
+  listEl.innerHTML = rows.map((m)=>{
+    const name = String(m.display_name || 'member');
+    const id = String(m.id || '');
+    const color = normalizeHexColor(m.chat_color || '') || userColor(name);
+    const initial = name.slice(0,1).toUpperCase() || '?';
+    const avatarURL = String(m.avatar_url || '');
+    const online = onlineUsers.has(id);
+    const self = myUserID && id===myUserID;
+    const hasImageAvatar = /^data:image\/(png|jpeg|webp|gif);base64,[a-z0-9+/=]+$/i.test(avatarURL) || /^\/(static\/avatars|avatars)\/[a-z0-9._-]+(\?[^\s]*)?$/i.test(avatarURL);
+    const avatar = !showAvatars ? '' : (hasImageAvatar ? `<img class="member-avatar-img" src="${esc(avatarURL)}" alt="${esc(name)}" loading="lazy"/>` : `<span class="member-avatar" style="background:${esc(color)}">${esc(initial)}</span>`);
+    return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online?'on':'off'}" aria-hidden="true"></span>${avatar}<span class="member-name">${esc(name)}${self?' (you)':''}</span></div>`;
+  }).join('');
 }
 
 async function renderAdminUsers(){

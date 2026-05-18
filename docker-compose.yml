@@ -14,6 +14,7 @@ services:
       UMASK: "${UMASK:-022}"
       APP_BIND_ADDR: "${APP_BIND_ADDR:-:3847}"
       VEIL_DATA_DIR: "${VEIL_DATA_DIR:-/config}"
+      AVATAR_DIR: "${AVATAR_DIR:-/config/avatars}"
       DATABASE_PATH: "${DATABASE_PATH:-/config/veil.db}"
       # Runtime-only: set in .env (compose) or Unraid "Add Container" env vars.
       # Left blank here so `docker compose build` works without local secrets.
