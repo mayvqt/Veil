@@ -10,7 +10,7 @@ function scheduleSocketReconnect(){
 async function handleIncomingMessage(data, messages){
   const nearBottom = (messages.scrollHeight - messages.clientHeight - messages.scrollTop) < 140;
   const mine = !!myUserID && String(data.sender_id||'') === String(myUserID);
-  await appendMessageRecord(messages, data);
+  await appendMessageRecord(messages, data, {animate:true});
   const clientMsgID=String(data.client_msg_id||'');
   if(clientMsgID && pendingOutgoing.has(clientMsgID)){
     pendingOutgoing.delete(clientMsgID);
@@ -32,7 +32,7 @@ async function handleMessageUpdate(data, messages){
   const prevHeight = messages.scrollHeight;
   if(existing) existing.remove();
   seenMessageIDs.delete(id);
-  await appendMessageRecord(messages, data);
+  await appendMessageRecord(messages, data, {animate:true});
   if(existing){
     const next=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
     if(next && anchor) {

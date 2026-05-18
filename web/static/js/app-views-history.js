@@ -574,27 +574,10 @@ function renderUnreadDivider(){
 function renderPinnedBarFromState(){
   const bar=$('pinnedBar');
   const messages=$('messages');
-  if(!bar || !messages) return;
-  const ids=[...pinnedMessageIDs];
-  if(ids.length===0){
-    bar.textContent='';
-    return;
-  }
-  bar.innerHTML = ids.slice(0,4).map((id)=>{
-    const source=knownMessages.get(id);
-    const preview=source ? `${source.display_name}: ${String(source.preview||'').slice(0,48)}` : `Pinned ${id.slice(0,8)}`;
-    return `<button class="tiny-action" data-jump-msg="${esc(id)}">${esc(preview)}</button>`;
-  }).join('');
-  bar.querySelectorAll('button[data-jump-msg]').forEach((btn)=>{
-    btn.addEventListener('click',()=>{
-      const id=btn.getAttribute('data-jump-msg') || '';
-      const row=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
-      if(row) row.scrollIntoView({block:'center', behavior:'smooth'});
-    });
-  });
+  chatRenderPinnedBar(bar, messages);
 }
 
-async function appendMessageRecord(messagesEl, record, {prepend=false}={}){
+async function appendMessageRecord(messagesEl, record, {prepend=false, animate=false}={}){
   if(!messagesEl || !record) return false;
   const myUserIDStr = String(myUserID || '');
   const senderIDStr = String(record.sender_id || '');
@@ -627,5 +610,9 @@ async function appendMessageRecord(messagesEl, record, {prepend=false}={}){
   const row = drawMessage(record, plain);
   if(prepend) messagesEl.insertAdjacentHTML('afterbegin', row);
   else messagesEl.insertAdjacentHTML('beforeend', row);
+  if(animate){
+    const inserted = messagesEl.querySelector(`.line[data-msg-id="${cssEscape(messageID)}"]`);
+    if(inserted) inserted.classList.add('line-enter');
+  }
   return true;
 }

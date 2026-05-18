@@ -132,6 +132,72 @@ func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	}
 }
 
+func TestMessageReactionsPinsAndAuditEndpoints(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "root", "root", "root_admin")
+	addUser(t, srv.Store, "u1", "alice", "member")
+	rootTok := sessionToken(srv.Secret, "root")
+	userTok := sessionToken(srv.Secret, "u1")
+
+	msg, err := srv.Store.SaveMessage("u1", "alice", "ct1", "n1", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := doReq(t, h, http.MethodPost, "/api/messages/react", userTok, map[string]any{
+		"message_id": msg.ID,
+		"emoji":      "👍",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("react status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = doReq(t, h, http.MethodGet, "/api/messages?limit=20", userTok, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("list messages with reactions status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	list := decodeBody(t, rr)
+	if _, ok := list["reactions"]; !ok {
+		t.Fatalf("expected reactions in list response, got %#v", list)
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/admin/pin-message", userTok, map[string]any{
+		"message_id": msg.ID,
+		"pin":        true,
+	})
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("member pin should be forbidden, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/admin/pin-message", rootTok, map[string]any{
+		"message_id": msg.ID,
+		"pin":        true,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("root pin status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = doReq(t, h, http.MethodGet, "/api/messages/pins", userTok, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("pins list status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	pins := decodeBody(t, rr)
+	ids, ok := pins["pinned_ids"].([]any)
+	if !ok || len(ids) == 0 {
+		t.Fatalf("expected pinned_ids to include one message, got %#v", pins["pinned_ids"])
+	}
+
+	rr = doReq(t, h, http.MethodGet, "/api/admin/audit", rootTok, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("audit status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	audit := decodeBody(t, rr)
+	items, ok := audit["items"].([]any)
+	if !ok || len(items) == 0 {
+		t.Fatalf("expected audit items, got %#v", audit["items"])
+	}
+}
+
 func TestProfileColorEndpointPersistsColor(t *testing.T) {
 	srv, h := testServer(t)
 	addUser(t, srv.Store, "u1", "alice", "member")

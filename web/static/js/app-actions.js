@@ -38,8 +38,6 @@ function bindChatActions(){
       memberPopover.classList.remove('open');
     }, {capture:true});
   }
-  if(searchInput) searchInput.addEventListener('input', applyChatSearch);
-  if(jumpLatestBtn) jumpLatestBtn.onclick=()=>scrollChatToBottom();
 
   const updateReplyPreview=()=>{
     if(!replyPreview) return;
@@ -53,43 +51,16 @@ function bindChatActions(){
     replyPreview.style.display='block';
     replyPreview.textContent=label;
   };
-  const applyChatSearch=()=>{
-    if(!messages) return;
-    const q=String((searchInput && searchInput.value) || '').trim().toLowerCase();
-    messages.querySelectorAll('.line[data-msg-id]').forEach((row)=>{
-      if(!q){
-        row.style.display='';
-        return;
-      }
-      row.style.display=row.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-  };
-  const renderPinnedBar=()=>{
-    if(!pinnedBar || !messages) return;
-    const ids=[...pinnedMessageIDs];
-    if(ids.length===0){
-      pinnedBar.textContent='';
-      return;
-    }
-    pinnedBar.innerHTML = ids.slice(0,4).map((id)=>{
-      const source=knownMessages.get(id);
-      const preview=source ? `${source.display_name}: ${String(source.preview||'').slice(0,48)}` : `Pinned ${id.slice(0,8)}`;
-      return `<button class="tiny-action" data-jump-msg="${esc(id)}">${esc(preview)}</button>`;
-    }).join('');
-    pinnedBar.querySelectorAll('button[data-jump-msg]').forEach((btn)=>{
-      btn.addEventListener('click',()=>{
-        const id=btn.getAttribute('data-jump-msg') || '';
-        const row=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
-        if(row) row.scrollIntoView({block:'center', behavior:'smooth'});
-      });
-    });
-  };
+  const applyChatSearch=()=>chatApplySearch(messages, searchInput && searchInput.value);
+  const renderPinnedBar=()=>chatRenderPinnedBar(pinnedBar, messages);
 
   const closeEmojiPicker=()=>{
     if(!emojiPicker || !emojiToggle) return;
     emojiPicker.classList.remove('open');
     emojiToggle.setAttribute('aria-expanded','false');
   };
+  if(searchInput) searchInput.addEventListener('input', applyChatSearch);
+  if(jumpLatestBtn) jumpLatestBtn.onclick=()=>scrollChatToBottom();
   const toggleEmojiPicker=()=>{
     if(!emojiPicker || !emojiToggle) return;
     const open=!emojiPicker.classList.contains('open');
@@ -376,33 +347,7 @@ function bindChatActions(){
         await api('/api/messages/delete',{method:'POST',body:JSON.stringify({message_id:id})});
         return;
       }
-      const reactBtn=target.closest('button[data-react-msg]');
-      if(reactBtn){
-        const id=reactBtn.getAttribute('data-react-msg') || '';
-        const emoji=prompt('React with emoji (example: 👍):','👍');
-        if(!emoji || !emoji.trim()) return;
-        await api('/api/messages/react',{method:'POST',body:JSON.stringify({message_id:id,emoji:emoji.trim()})});
-        return;
-      }
-      const reactChip=target.closest('button[data-react-toggle]');
-      if(reactChip){
-        const id=reactChip.getAttribute('data-react-toggle') || '';
-        const emoji=reactChip.getAttribute('data-react-emoji') || '';
-        if(!id || !emoji) return;
-        await api('/api/messages/react',{method:'POST',body:JSON.stringify({message_id:id,emoji})});
-        return;
-      }
-      const pinBtn=target.closest('button[data-pin-msg]');
-      if(pinBtn){
-        const id=pinBtn.getAttribute('data-pin-msg') || '';
-        const pin = pinBtn.textContent.trim().toLowerCase() === 'pin';
-        const r=await api('/api/admin/pin-message',{method:'POST',body:JSON.stringify({message_id:id,pin})});
-        if(r.ok){
-          if(pin) pinnedMessageIDs.add(id);
-          else pinnedMessageIDs.delete(id);
-          renderPinnedBar();
-          await loadHistory();
-        }
+      if(await chatHandleExtendedMessageAction(target, {onPinsChanged: renderPinnedBar})){
         return;
       }
     });
