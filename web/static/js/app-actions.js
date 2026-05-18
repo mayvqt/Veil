@@ -1038,6 +1038,9 @@ function bindControlActions(){
   const inviteList=$('inviteList');
   const revokeUnusedBtn=$('revokeUnusedInvites');
   const purgeUsedRevokedBtn=$('purgeUsedRevokedInvites');
+    const roomNameInput = $('roomNameInput');
+    const saveRoomNameBtn = $('saveRoomName');
+    const roomNameStatus = $('roomNameStatus');
   const messageStatus=$('messageAdminStatus');
   const retainCountInput=$('retainCountInput');
   const retainMessagesBtn=$('retainMessages');
@@ -1127,6 +1130,34 @@ function bindControlActions(){
       refreshInvites();
     };
   }
+    if (saveRoomNameBtn) {
+        saveRoomNameBtn.onclick = async () => {
+            const nextName = String((roomNameInput && roomNameInput.value) || '').trim();
+            if (!nextName) {
+                if (roomNameStatus) {
+                    roomNameStatus.textContent = 'Enter a room name first.';
+                    roomNameStatus.className = 'status err';
+                }
+                return;
+            }
+            const r = await api('/api/admin/room-name', {method: 'POST', body: JSON.stringify({room_name: nextName})});
+            if (!r.ok) {
+                if (roomNameStatus) {
+                    roomNameStatus.textContent = r.data.error || 'failed';
+                    roomNameStatus.className = 'status err';
+                }
+                return;
+            }
+            roomName = String((r.data && r.data.room_name) || nextName).trim();
+            if (roomNameInput) roomNameInput.value = roomName;
+            const roomTitleEl = document.querySelector('.room-title strong');
+            if (roomTitleEl) roomTitleEl.textContent = roomName || 'Room Chat';
+            if (roomNameStatus) {
+                roomNameStatus.textContent = 'Room name updated.';
+                roomNameStatus.className = 'status ok';
+            }
+        };
+    }
   if(retainMessagesBtn){
     retainMessagesBtn.onclick=async()=>{
       const keepLatest = Number((retainCountInput && retainCountInput.value) || 0);

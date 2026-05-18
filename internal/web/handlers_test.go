@@ -330,6 +330,46 @@ func TestAdminEndpoints_RoleAndRemovalGuards(t *testing.T) {
 	}
 }
 
+func TestAdminRoomNameUpdate(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "root", "root", "root_admin")
+	addUser(t, srv.Store, "adm", "admin", "admin")
+	addUser(t, srv.Store, "mem", "member", "member")
+	tokRoot := sessionToken(srv.Secret, "root")
+	tokAdmin := sessionToken(srv.Secret, "adm")
+	tokMember := sessionToken(srv.Secret, "mem")
+
+	rr := doReq(t, h, http.MethodPost, "/api/admin/room-name", tokMember, map[string]any{"room_name": "Nope"})
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("member room rename expected 403, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/admin/room-name", tokAdmin, map[string]any{"room_name": "Team Alpha"})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("admin room rename expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	gotName, err := srv.Store.GetRoomName()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gotName != "Team Alpha" {
+		t.Fatalf("expected room name Team Alpha, got %q", gotName)
+	}
+	roomInfo := doReq(t, h, http.MethodGet, "/api/room", tokAdmin, nil)
+	if roomInfo.Code != http.StatusOK {
+		t.Fatalf("room info expected 200, got %d body=%s", roomInfo.Code, roomInfo.Body.String())
+	}
+	roomPayload := decodeJSONBody(t, roomInfo.Body.Bytes())
+	if roomPayload["room_name"] != "Team Alpha" {
+		t.Fatalf("expected room info room_name Team Alpha, got %#v", roomPayload["room_name"])
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/admin/room-name", tokRoot, map[string]any{"room_name": "   "})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("blank room rename expected 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestAuthRequiredForProtectedEndpoints(t *testing.T) {
 	_, h := testServer(t)
 

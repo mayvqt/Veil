@@ -854,6 +854,50 @@
       gap: 16px;
       align-content: start;
     }
+    .admin-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, .95fr);
+      gap: 14px;
+      align-content: start;
+    }
+    .admin-column {
+      display: grid;
+      gap: 14px;
+      align-content: start;
+      min-width: 0;
+    }
+    .admin-card {
+      border-color: color-mix(in srgb, var(--line) 78%, var(--accent) 22%);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, var(--panel)), color-mix(in srgb, var(--surface) 85%, black));
+      box-shadow:
+        0 12px 24px rgba(0,0,0,.2),
+        inset 0 1px 0 color-mix(in srgb, var(--ink) 7%, transparent);
+      gap: 10px;
+    }
+    .admin-card-danger {
+      border-color: color-mix(in srgb, var(--line) 70%, var(--danger) 30%);
+      background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, #3a1d21 30%), color-mix(in srgb, var(--surface) 87%, black));
+    }
+    .admin-card h3 {
+      font-size: 1.02rem;
+      letter-spacing: .01em;
+    }
+    .admin-lead {
+      margin: 0;
+      color: var(--muted);
+      font-size: .86rem;
+      line-height: 1.42;
+    }
+    .admin-actions-row {
+      max-width: none;
+    }
+    .admin-actions-row input[type="text"],
+    .admin-actions-row input[type="number"] {
+      min-width: 0;
+      flex: 1 1 220px;
+    }
     .card {
       border: 0;
       border-bottom: 1px solid var(--line);
@@ -872,7 +916,7 @@
       max-height: 132px;
       overflow: auto;
       border: 1px solid var(--line);
-      background: transparent;
+      background: color-mix(in srgb, var(--panel) 56%, transparent);
       padding: 10px;
       border-radius: var(--radius-sm);
       color: var(--ink);
@@ -886,7 +930,7 @@
       max-height: 340px;
       overflow: auto;
       border: 1px solid var(--line);
-      background: transparent;
+      background: color-mix(in srgb, var(--surface-2) 45%, transparent);
       padding: 10px;
       border-radius: var(--radius-sm);
     }
@@ -1281,6 +1325,8 @@
       .nav { grid-template-columns: 1fr; }
       .whoami { display: none; }
       .admin-grid { grid-template-columns: 1fr; }
+      .admin-layout { grid-template-columns: 1fr; }
+      .admin-column { gap: 12px; }
       .theme-grid { grid-template-columns: 1fr; }
       .auth-grid { grid-template-columns: 1fr; }
       .settings-stack,

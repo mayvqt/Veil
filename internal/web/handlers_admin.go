@@ -216,6 +216,34 @@ func (s *Server) messageStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"count": count, "retain_days": s.RetainDays, "retain_count": s.RetainCount})
 }
 
+func (s *Server) updateRoomName(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	var req struct {
+		RoomName string `json:"room_name"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	req.RoomName = cleanInput(req.RoomName, maxRoomNameLen)
+	if req.RoomName == "" {
+		writeJSON(w, 400, map[string]string{"error": "room_name required"})
+		return
+	}
+	if err := s.Store.SetRoomName(req.RoomName); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update room name"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "room_name": req.RoomName})
+}
+
 func (s *Server) clearMessages(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.requireUser(w, r)
 	if !ok {

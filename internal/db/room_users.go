@@ -22,6 +22,11 @@ func (s *Store) GetRoomName() (string, error) {
 	return roomName, err
 }
 
+func (s *Store) SetRoomName(roomName string) error {
+	_, err := s.DB.Exec("UPDATE room_state SET room_name=? WHERE id=1", roomName)
+	return err
+}
+
 func (s *Store) UserCount() (int, error) {
 	var c int
 	err := s.DB.QueryRow("SELECT COUNT(*) FROM users").Scan(&c)

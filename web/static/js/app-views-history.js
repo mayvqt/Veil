@@ -292,34 +292,49 @@ function controlPanelHTML(){
     <section class="main utility">
       ${viewTopbarHTML('Control Center', 'Room administration', `<span class="muted">${esc(myRole)}</span>`)}
       <div class="panel utility-panel">
-        <div class="settings-stack admin-stack">
-          <section class="settings-section admin-section">
-            <h3>Invites</h3>
-            <div class="theme-actions">
-              <button id="invite">Create Invite</button>
-              <button id="revokeUnusedInvites" class="secondary">Revoke Unused</button>
-              <button id="purgeUsedRevokedInvites" class="secondary">Purge Used/Revoked</button>
-            </div>
-            <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
-            <div id="inviteList" class="admin-users"></div>
-          </section>
-          <section class="settings-section admin-section">
-            <h3>Message Retention</h3>
-            <div id="messageAdminStatus" class="status">Loading message stats...</div>
-            <div class="theme-actions">
-              <input id="retainCountInput" type="number" min="1" step="1" placeholder="Keep latest count"/>
-              <button id="retainMessages" class="secondary">Keep Latest</button>
-            </div>
-            <div class="theme-actions">
-              <button id="clearMessages" class="btn-danger">Delete All Messages</button>
-            </div>
-          </section>
-
-          <section class="settings-section admin-section">
-            <h3>Members</h3>
-            <div id="roleStatus" class="status">${canManageUsers ? 'Load members to update roles.' : 'Only root admins can change roles.'}</div>
-            <div id="adminUsers" class="admin-users"></div>
-          </section>
+        <div class="admin-layout">
+          <div class="admin-column admin-column-main">
+            <section class="settings-section admin-section admin-card">
+              <h3>Members</h3>
+              <p class="admin-lead">Manage roles and member access for this room.</p>
+              <div id="roleStatus" class="status">${canManageUsers ? 'Load members to update roles.' : 'Only root admins can change roles.'}</div>
+              <div id="adminUsers" class="admin-users"></div>
+            </section>
+            <section class="settings-section admin-section admin-card">
+              <h3>Invites</h3>
+              <p class="admin-lead">Create and manage invitation links for new members.</p>
+              <div class="theme-actions admin-actions-row">
+                <button id="invite">Create Invite</button>
+                <button id="revokeUnusedInvites" class="secondary">Revoke Unused</button>
+                <button id="purgeUsedRevokedInvites" class="secondary">Purge Used/Revoked</button>
+              </div>
+              <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
+              <div id="inviteList" class="admin-users"></div>
+            </section>
+          </div>
+          <div class="admin-column admin-column-side">
+            <section class="settings-section admin-section admin-card">
+              <h3>Room</h3>
+              <p class="admin-lead">Update the visible room title for everyone.</p>
+              <div class="theme-actions admin-actions-row">
+                <input id="roomNameInput" type="text" maxlength="80" placeholder="Room name" value="${esc(roomName || '')}"/>
+                <button id="saveRoomName" class="secondary">Save Name</button>
+              </div>
+              <div id="roomNameStatus" class="status">Admins can update the room name.</div>
+            </section>
+            <section class="settings-section admin-section admin-card admin-card-danger">
+              <h3>Message Retention</h3>
+              <p class="admin-lead">Prune or clear stored messages. These actions cannot be undone.</p>
+              <div id="messageAdminStatus" class="status">Loading message stats...</div>
+              <div class="theme-actions admin-actions-row">
+                <input id="retainCountInput" type="number" min="1" step="1" placeholder="Keep latest count"/>
+                <button id="retainMessages" class="secondary">Keep Latest</button>
+              </div>
+              <div class="theme-actions admin-actions-row">
+                <button id="clearMessages" class="btn-danger">Delete All Messages</button>
+              </div>
+            </section>
+          </div>
         </div>
       </div>
     </section>

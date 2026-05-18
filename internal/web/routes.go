@@ -37,6 +37,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/admin/revoke-unused-invites", s.revokeUnusedInvites)
 	r.Post("/api/admin/purge-used-revoked-invites", s.purgeUsedRevokedInvites)
 	r.Get("/api/admin/messages/stats", s.messageStats)
+	r.Post("/api/admin/room-name", s.updateRoomName)
 	r.Post("/api/admin/messages/clear", s.clearMessages)
 	r.Post("/api/admin/messages/retain", s.retainMessages)
 

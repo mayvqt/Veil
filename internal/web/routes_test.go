@@ -34,6 +34,7 @@ func TestRoutesContainExpectedEndpoints(t *testing.T) {
 		http.MethodPost + " /api/messages/edit":                    false,
 		http.MethodPost + " /api/messages/delete":                  false,
 		http.MethodGet + " /api/admin/users":                       false,
+		http.MethodPost + " /api/admin/room-name":                  false,
 		http.MethodPost + " /api/admin/messages/retain":            false,
 		http.MethodPost + " /api/admin/messages/clear":             false,
 		http.MethodPost + " /api/admin/purge-used-revoked-invites": false,
