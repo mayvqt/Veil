@@ -10,6 +10,9 @@ function bindChatActions(){
   const typingStatus=$('typingStatus');
   const memberToggle=$('memberToggle');
   const memberPopover=$('memberPopover');
+  const searchInput=$('chatSearchInput');
+  const jumpLatestBtn=$('jumpLatest');
+  const pinnedBar=$('pinnedBar');
   const emojiToggle=$('emojiToggle');
   const emojiPicker=$('emojiPicker');
   const attachToggle=$('attachToggle');
@@ -35,6 +38,8 @@ function bindChatActions(){
       memberPopover.classList.remove('open');
     }, {capture:true});
   }
+  if(searchInput) searchInput.addEventListener('input', applyChatSearch);
+  if(jumpLatestBtn) jumpLatestBtn.onclick=()=>scrollChatToBottom();
 
   const updateReplyPreview=()=>{
     if(!replyPreview) return;
@@ -47,6 +52,37 @@ function bindChatActions(){
     const label=source ? `Replying to ${source.display_name}: ${String(source.preview||'').slice(0,80)}` : 'Replying to earlier message';
     replyPreview.style.display='block';
     replyPreview.textContent=label;
+  };
+  const applyChatSearch=()=>{
+    if(!messages) return;
+    const q=String((searchInput && searchInput.value) || '').trim().toLowerCase();
+    messages.querySelectorAll('.line[data-msg-id]').forEach((row)=>{
+      if(!q){
+        row.style.display='';
+        return;
+      }
+      row.style.display=row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+  };
+  const renderPinnedBar=()=>{
+    if(!pinnedBar || !messages) return;
+    const ids=[...pinnedMessageIDs];
+    if(ids.length===0){
+      pinnedBar.textContent='';
+      return;
+    }
+    pinnedBar.innerHTML = ids.slice(0,4).map((id)=>{
+      const source=knownMessages.get(id);
+      const preview=source ? `${source.display_name}: ${String(source.preview||'').slice(0,48)}` : `Pinned ${id.slice(0,8)}`;
+      return `<button class="tiny-action" data-jump-msg="${esc(id)}">${esc(preview)}</button>`;
+    }).join('');
+    pinnedBar.querySelectorAll('button[data-jump-msg]').forEach((btn)=>{
+      btn.addEventListener('click',()=>{
+        const id=btn.getAttribute('data-jump-msg') || '';
+        const row=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
+        if(row) row.scrollIntoView({block:'center', behavior:'smooth'});
+      });
+    });
   };
 
   const closeEmojiPicker=()=>{
@@ -338,6 +374,36 @@ function bindChatActions(){
         const id=delBtn.getAttribute('data-delete-msg') || '';
         if(!confirm('Delete this message?')) return;
         await api('/api/messages/delete',{method:'POST',body:JSON.stringify({message_id:id})});
+        return;
+      }
+      const reactBtn=target.closest('button[data-react-msg]');
+      if(reactBtn){
+        const id=reactBtn.getAttribute('data-react-msg') || '';
+        const emoji=prompt('React with emoji (example: 👍):','👍');
+        if(!emoji || !emoji.trim()) return;
+        await api('/api/messages/react',{method:'POST',body:JSON.stringify({message_id:id,emoji:emoji.trim()})});
+        return;
+      }
+      const reactChip=target.closest('button[data-react-toggle]');
+      if(reactChip){
+        const id=reactChip.getAttribute('data-react-toggle') || '';
+        const emoji=reactChip.getAttribute('data-react-emoji') || '';
+        if(!id || !emoji) return;
+        await api('/api/messages/react',{method:'POST',body:JSON.stringify({message_id:id,emoji})});
+        return;
+      }
+      const pinBtn=target.closest('button[data-pin-msg]');
+      if(pinBtn){
+        const id=pinBtn.getAttribute('data-pin-msg') || '';
+        const pin = pinBtn.textContent.trim().toLowerCase() === 'pin';
+        const r=await api('/api/admin/pin-message',{method:'POST',body:JSON.stringify({message_id:id,pin})});
+        if(r.ok){
+          if(pin) pinnedMessageIDs.add(id);
+          else pinnedMessageIDs.delete(id);
+          renderPinnedBar();
+          await loadHistory();
+        }
+        return;
       }
     });
     messages.addEventListener('dragover',(e)=>{
@@ -443,6 +509,7 @@ function bindChatActions(){
     closeMentionPicker();
   },{capture:true});
   updateReplyPreview();
+  renderPinnedBar();
   refreshMembers();
 }
 
@@ -1038,9 +1105,11 @@ function bindControlActions(){
   const inviteList=$('inviteList');
   const revokeUnusedBtn=$('revokeUnusedInvites');
   const purgeUsedRevokedBtn=$('purgeUsedRevokedInvites');
-    const roomNameInput = $('roomNameInput');
-    const saveRoomNameBtn = $('saveRoomName');
-    const roomNameStatus = $('roomNameStatus');
+  const roomNameInput = $('roomNameInput');
+  const saveRoomNameBtn = $('saveRoomName');
+  const roomNameStatus = $('roomNameStatus');
+  const auditStatus = $('auditStatus');
+  const auditList = $('auditList');
   const messageStatus=$('messageAdminStatus');
   const retainCountInput=$('retainCountInput');
   const retainMessagesBtn=$('retainMessages');
@@ -1095,6 +1164,25 @@ function bindControlActions(){
     }
     messageStatus.textContent = `Stored messages: ${r.data.count} · policy days: ${r.data.retain_days || 'off'} · policy count: ${r.data.retain_count || 'off'}`;
     messageStatus.className = 'status';
+  };
+  const refreshAuditLog=async()=>{
+    if(!auditList || !auditStatus) return;
+    const r=await api('/api/admin/audit');
+    if(!r.ok){
+      auditStatus.textContent = r.data.error || 'failed to load audit log';
+      auditStatus.className = 'status err';
+      return;
+    }
+    const items=Array.isArray(r.data.items) ? r.data.items : [];
+    if(items.length===0){
+      auditStatus.textContent='No audit events yet.';
+      auditStatus.className='status';
+      auditList.innerHTML='';
+      return;
+    }
+    auditStatus.textContent=`Showing ${items.length} recent events.`;
+    auditStatus.className='status';
+    auditList.innerHTML=items.map((item)=>`<div class="admin-user"><div><strong>${esc(item.action || 'action')}</strong><div class="admin-role">${esc(item.actor_name || item.actor_id || 'system')} · ${esc(item.created_at || '')}${item.target ? ` · ${esc(item.target)}` : ''}</div></div><div class="muted">${esc(item.details || '')}</div></div>`).join('');
   };
 
   if(inviteBtn){
@@ -1206,6 +1294,7 @@ function bindControlActions(){
   renderAdminUsers();
   refreshInvites();
   refreshMessageStats();
+  refreshAuditLog();
 }
 
 function renderPanelHTML(){

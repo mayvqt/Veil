@@ -31,12 +31,14 @@ function chatPanelHTML(){
           </div>
         </div>
         <div class="top-actions">
+          <input id="chatSearchInput" class="chat-search" type="search" placeholder="Search loaded messages" aria-label="Search loaded messages"/>
+          <button id="jumpLatest" class="secondary member-toggle" type="button" aria-label="Jump to latest message">Latest</button>
           <button id="memberToggle" class="secondary member-toggle" type="button" aria-label="Open online members list">Online Members <span id="memberCount">0</span></button>
           <div class="profile-chip">${profilePreview}<span>${esc(currentDisplayName||'member')}</span></div>
         </div>
       </header>
       <div id="memberPopover" class="member-popover"><div id="memberList" class="member-list"></div></div>
-      <div class="panel chat-panel"><div id="messages" class="chat-log"></div></div>
+      <div class="panel chat-panel"><div id="pinnedBar" class="status"></div><div id="messages" class="chat-log"></div></div>
       <div id="composer" class="composer">
         <div id="replyPreview" class="status" style="display:none;"></div>
         <div id="typingStatus" class="muted"></div>
@@ -334,6 +336,12 @@ function controlPanelHTML(){
                 <button id="clearMessages" class="btn-danger">Delete All Messages</button>
               </div>
             </section>
+            <section class="settings-section admin-section admin-card">
+              <h3>Admin Audit Log</h3>
+              <p class="admin-lead">Recent admin actions for accountability.</p>
+              <div id="auditStatus" class="status">Loading audit log...</div>
+              <div id="auditList" class="admin-users"></div>
+            </section>
           </div>
         </div>
       </div>
@@ -480,6 +488,22 @@ async function loadHistory({appendOlder=false}={}){
   if(seq !== historyLoadSeq) return;
   if(!history.ok) return;
   const list = Array.isArray(history.data.messages) ? history.data.messages : [];
+  const reactionPayload = history.data.reactions || {};
+  const myReactionPayload = history.data.my_reactions || {};
+  const pinnedPayload = Array.isArray(history.data.pinned_ids) ? history.data.pinned_ids : [];
+  if(!appendOlder){
+    messageReactions = new Map();
+    myReactions = new Map();
+    pinnedMessageIDs = new Set(pinnedPayload.map((x)=>String(x)));
+  }
+  for(const [msgID, counts] of Object.entries(reactionPayload)){
+    messageReactions.set(String(msgID), counts || {});
+  }
+  for(const [msgID, arr] of Object.entries(myReactionPayload)){
+    const m = {};
+    for(const emoji of (arr || [])) m[String(emoji)] = true;
+    myReactions.set(String(msgID), m);
+  }
   const renderList = appendOlder ? list : [...list].reverse();
   const data = history.data || {};
   if(typeof data.my_user_id==='string' && data.my_user_id) myUserID = data.my_user_id;
@@ -511,6 +535,8 @@ async function loadHistory({appendOlder=false}={}){
     knownMessages = new Map();
     messages.innerHTML='';
     oldestLoadedRowID = 0;
+    const myLastSeenRowID = Number((data.receipts && data.receipts[myUserID]) || 0);
+    unreadDividerRowID = myLastSeenRowID;
   }
   for(const m of renderList){
     if(appendOlder) await appendMessageRecord(messages, m, {prepend:true});
@@ -524,12 +550,48 @@ async function loadHistory({appendOlder=false}={}){
   if(appendOlder){
     historyLoadingMore=false;
   }else{
+    renderUnreadDivider();
+    renderPinnedBarFromState();
     scrollChatToBottom();
   }
   bindMessageImageScroll();
   updatePresenceCount();
   await sendReadReceiptForVisible();
   refreshAllMessageMeta();
+}
+
+function renderUnreadDivider(){
+  const messages=$('messages');
+  if(!messages || unreadDividerRowID<=0) return;
+  const rows=[...messages.querySelectorAll('.line[data-row-id]')];
+  const target=rows.find((row)=>Number(row.getAttribute('data-row-id')||0) > unreadDividerRowID);
+  if(!target) return;
+  const existing=messages.querySelector('.unread-divider');
+  if(existing) existing.remove();
+  target.insertAdjacentHTML('beforebegin', `<div class="unread-divider">Unread Messages</div>`);
+}
+
+function renderPinnedBarFromState(){
+  const bar=$('pinnedBar');
+  const messages=$('messages');
+  if(!bar || !messages) return;
+  const ids=[...pinnedMessageIDs];
+  if(ids.length===0){
+    bar.textContent='';
+    return;
+  }
+  bar.innerHTML = ids.slice(0,4).map((id)=>{
+    const source=knownMessages.get(id);
+    const preview=source ? `${source.display_name}: ${String(source.preview||'').slice(0,48)}` : `Pinned ${id.slice(0,8)}`;
+    return `<button class="tiny-action" data-jump-msg="${esc(id)}">${esc(preview)}</button>`;
+  }).join('');
+  bar.querySelectorAll('button[data-jump-msg]').forEach((btn)=>{
+    btn.addEventListener('click',()=>{
+      const id=btn.getAttribute('data-jump-msg') || '';
+      const row=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
+      if(row) row.scrollIntoView({block:'center', behavior:'smooth'});
+    });
+  });
 }
 
 async function appendMessageRecord(messagesEl, record, {prepend=false}={}){

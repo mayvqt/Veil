@@ -26,11 +26,45 @@ async function handleMessageUpdate(data, messages){
   const id=String(data.id||'');
   if(!id) return;
   const existing=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
+  const anchor = existing ? existing.nextSibling : null;
+  const nearBottom = (messages.scrollHeight - messages.clientHeight - messages.scrollTop) < 140;
+  const prevTop = messages.scrollTop;
+  const prevHeight = messages.scrollHeight;
   if(existing) existing.remove();
   seenMessageIDs.delete(id);
   await appendMessageRecord(messages, data);
+  if(existing){
+    const next=messages.querySelector(`.line[data-msg-id="${cssEscape(id)}"]`);
+    if(next && anchor) {
+      anchor.before(next);
+    }
+    if(!nearBottom){
+      const delta = messages.scrollHeight - prevHeight;
+      messages.scrollTop = prevTop + delta;
+    }
+  }
   await sendReadReceiptForVisible();
   refreshAllMessageMeta();
+}
+
+function handleReactionUpdate(data){
+  const messageID=String(data.message_id||'');
+  const emoji=String(data.emoji||'');
+  const count=Number(data.count||0);
+  const userID=String(data.user_id||'');
+  if(!messageID || !emoji) return;
+  const counts=messageReactions.get(messageID) || {};
+  if(count<=0) delete counts[emoji];
+  else counts[emoji]=count;
+  messageReactions.set(messageID, counts);
+  if(userID===String(myUserID||'')){
+    const mine=myReactions.get(messageID) || {};
+    if(String(data.active||'')==='1') mine[emoji]=true;
+    else delete mine[emoji];
+    myReactions.set(messageID, mine);
+  }
+  const holder=document.querySelector(`[data-reactions-msg="${cssEscape(messageID)}"]`);
+  if(holder) holder.outerHTML=renderReactionsHTML(messageID);
 }
 
 function handleReceipt(data){
@@ -74,6 +108,7 @@ const socketEventHandlers = {
   message: async(data, messages)=>handleIncomingMessage(data, messages),
   message_update: async(data, messages)=>handleMessageUpdate(data, messages),
   receipt: async(data)=>{ handleReceipt(data); },
+  reaction_update: async(data)=>{ handleReactionUpdate(data); },
   typing: async(data)=>{ handleTyping(data); },
   presence: async(data)=>{ handlePresence(data); },
 };

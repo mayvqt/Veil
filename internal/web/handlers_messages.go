@@ -31,10 +31,29 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	receipts, _ := s.Store.ListReadReceipts()
+	messageIDs := make([]string, 0, len(msgs))
+	for _, m := range msgs {
+		if id := strings.TrimSpace(m["id"]); id != "" {
+			messageIDs = append(messageIDs, id)
+		}
+	}
+	reactionCounts, myReactionSet, _ := s.Store.ListMessageReactions(messageIDs, u.ID)
+	myReactions := map[string][]string{}
+	for messageID, emojis := range myReactionSet {
+		arr := make([]string, 0, len(emojis))
+		for emoji := range emojis {
+			arr = append(arr, emoji)
+		}
+		myReactions[messageID] = arr
+	}
+	pinnedIDs, _ := s.Store.ListPinnedMessageIDs(100)
 	writeJSON(w, 200, map[string]any{
 		"messages":              msgs,
 		"has_more":              len(msgs) >= limit,
 		"receipts":              receipts,
+		"reactions":             reactionCounts,
+		"my_reactions":          myReactions,
+		"pinned_ids":            pinnedIDs,
 		"my_user_id":            u.ID,
 		"my_chat_color":         u.ChatColor,
 		"my_avatar_ring_color":  u.AvatarRingColor,
@@ -127,6 +146,61 @@ func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Hub.Broadcast(chat.Outbound{Type: "message_update", Data: outboundMessageData(msg, "")})
 	writeJSON(w, 200, map[string]any{"ok": true})
+}
+
+func (s *Server) reactMessage(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		MessageID string `json:"message_id"`
+		Emoji     string `json:"emoji"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	req.MessageID = cleanInput(req.MessageID, maxMessageIDLen)
+	req.Emoji = cleanInput(req.Emoji, 32)
+	if req.MessageID == "" || req.Emoji == "" {
+		writeJSON(w, 400, map[string]string{"error": "message_id and emoji required"})
+		return
+	}
+	exists, err := s.Store.MessageExists(req.MessageID)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to process reaction"})
+		return
+	}
+	if !exists {
+		writeJSON(w, 404, map[string]string{"error": "message not found"})
+		return
+	}
+	count, active, err := s.Store.ToggleMessageReaction(req.MessageID, u.ID, req.Emoji)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to process reaction"})
+		return
+	}
+	s.Hub.Broadcast(chat.Outbound{Type: "reaction_update", Data: map[string]string{
+		"message_id": req.MessageID,
+		"user_id":    u.ID,
+		"emoji":      req.Emoji,
+		"count":      strconv.Itoa(count),
+		"active":     boolToFlag(active),
+	}})
+	writeJSON(w, 200, map[string]any{"ok": true, "message_id": req.MessageID, "emoji": req.Emoji, "count": count, "active": active})
+}
+
+func (s *Server) pinnedMessages(w http.ResponseWriter, r *http.Request) {
+	if _, ok := s.requireAPIUser(w, r); !ok {
+		return
+	}
+	ids, err := s.Store.ListPinnedMessageIDs(100)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to load pinned messages"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"pinned_ids": ids})
 }
 
 func (s *Server) roomInfo(w http.ResponseWriter, r *http.Request) {

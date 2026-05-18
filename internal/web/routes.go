@@ -26,6 +26,8 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/messages/read", s.markMessagesRead)
 	r.Post("/api/messages/edit", s.editMessage)
 	r.Post("/api/messages/delete", s.deleteMessage)
+	r.Post("/api/messages/react", s.reactMessage)
+	r.Get("/api/messages/pins", s.pinnedMessages)
 	r.Get("/api/members", s.listMembers)
 	r.Get("/api/room", s.roomInfo)
 
@@ -36,6 +38,8 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/admin/revoke-invite", s.revokeInvite)
 	r.Post("/api/admin/revoke-unused-invites", s.revokeUnusedInvites)
 	r.Post("/api/admin/purge-used-revoked-invites", s.purgeUsedRevokedInvites)
+	r.Get("/api/admin/audit", s.listAdminAudit)
+	r.Post("/api/admin/pin-message", s.pinMessage)
 	r.Get("/api/admin/messages/stats", s.messageStats)
 	r.Post("/api/admin/room-name", s.updateRoomName)
 	r.Post("/api/admin/messages/clear", s.clearMessages)

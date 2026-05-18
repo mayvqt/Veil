@@ -80,6 +80,34 @@ CREATE TABLE IF NOT EXISTS message_receipts (
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS message_reactions (
+  message_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (message_id, user_id, emoji),
+  FOREIGN KEY(message_id) REFERENCES messages(id),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS pinned_messages (
+  message_id TEXT PRIMARY KEY,
+  pinned_by TEXT NOT NULL,
+  pinned_at TEXT NOT NULL,
+  FOREIGN KEY(message_id) REFERENCES messages(id),
+  FOREIGN KEY(pinned_by) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS admin_audit (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  actor_id TEXT NOT NULL,
+  actor_name TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target TEXT NOT NULL DEFAULT '',
+  details TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS invites (
   id TEXT PRIMARY KEY,
   token_hash TEXT NOT NULL,
@@ -93,6 +121,9 @@ CREATE TABLE IF NOT EXISTS invites (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_devices_credential_id ON devices(credential_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_message_reactions_message_id ON message_reactions(message_id);
+CREATE INDEX IF NOT EXISTS idx_message_reactions_user_id ON message_reactions(user_id);
+CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);
 CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_at);
 `)

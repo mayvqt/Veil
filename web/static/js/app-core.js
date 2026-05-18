@@ -96,6 +96,10 @@ let roomMembers = [];
 let replyToMessageID = '';
 let reconnectNeedsCatchup = false;
 let typingTimer = null;
+let messageReactions = new Map();
+let myReactions = new Map();
+let pinnedMessageIDs = new Set();
+let unreadDividerRowID = 0;
 const NOTIFY_SOUND_KEY = 'veil.notifySound';
 const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
 const SHOW_AVATARS_KEY = 'veil.showAvatars';
@@ -601,25 +605,37 @@ function drawMessage(record, text){
   const edited = !deleted && String(record.edited_at || '').trim() !== '';
   const status = isMine ? messageDeliveryLabel(rowID, messageID, senderID) : '';
   const statusHTML = `<span class="line-meta" data-meta-msg="${esc(messageID)}">${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>`;
+  const editedTitle = edited ? ` title="edited ${esc(new Date(record.edited_at).toLocaleString())}"` : '';
   const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
-  const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}<button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
+  const reactionHTML = renderReactionsHTML(messageID);
+  const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}">${pinnedMessageIDs.has(messageID) ? 'Unpin' : 'Pin'}</button>` : '';
+  const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}${pinBtn}<button class="tiny-action" data-react-msg="${esc(messageID)}">React</button><button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
   const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
   const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '', record) : '';
+  const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
   if(deleted){
-    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${actions}</div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${reactionHTML}${actions}</div>`;
   }
   if(payload.type==='file'){
     const src=`data:${payload.mime};base64,${payload.data}`;
     const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${pinBadge}${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}<span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>${reactionHTML}${actions}</span></div>`;
   }
   if(payload.type!=='image'){
     const textValue = payload.type === 'text' ? payload.text : text;
-    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<span class="line-text">${renderRichText(textValue)}</span>${statusHTML}${actions}</span></div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${pinBadge}${replyHTML}<span class="line-text">${renderRichText(textValue)}</span><span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>${reactionHTML}${actions}</span></div>`;
   }
   const src=`data:${payload.mime};base64,${payload.data}`;
   const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-  return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}${statusHTML}${actions}</span></div>`;
+  return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${pinBadge}${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}<span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>${reactionHTML}${actions}</span></div>`;
+}
+
+function renderReactionsHTML(messageID){
+  const key=String(messageID||'');
+  const counts=messageReactions.get(key) || {};
+  const mine=myReactions.get(key) || {};
+  const chips=Object.entries(counts).filter(([,count])=>Number(count)>0).slice(0,8).map(([emoji,count])=>`<button class="reaction-chip${mine[emoji]?' mine':''}" data-react-toggle="${esc(key)}" data-react-emoji="${esc(emoji)}">${esc(emoji)} ${esc(String(count))}</button>`).join('');
+  return `<span class="reactions" data-reactions-msg="${esc(key)}">${chips}</span>`;
 }
 function latestOwnMessageRowID(){
   let maxRow = 0;

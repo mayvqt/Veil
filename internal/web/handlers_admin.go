@@ -3,6 +3,7 @@ package web
 import (
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"veil/internal/db"
@@ -65,6 +66,7 @@ func (s *Server) changeRole(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": "failed to update role"})
 		return
 	}
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "role_change", target.ID, "role="+nextRole)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -114,6 +116,7 @@ func (s *Server) removeUser(w http.ResponseWriter, r *http.Request) {
 	_ = s.Store.ClearUserAvatarURL(target.ID)
 	removeAvatarFileIfLocal(s.AvatarDir, avatarURL)
 	s.pruneUnusedAvatarFiles()
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "remove_user", target.ID, "role="+target.Role)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -160,6 +163,7 @@ func (s *Server) revokeInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("invite_revoked by=%s invite_id=%s", u.ID, req.InviteID)
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "invite_revoke", req.InviteID, "")
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -178,6 +182,7 @@ func (s *Server) revokeUnusedInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("invite_revoke_unused by=%s revoked=%d", u.ID, n)
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "invite_revoke_unused", "", "count="+strconv.FormatInt(n, 10))
 	writeJSON(w, 200, map[string]any{"ok": true, "revoked": n})
 }
 
@@ -196,6 +201,7 @@ func (s *Server) purgeUsedRevokedInvites(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	log.Printf("invite_purge_used_revoked by=%s purged=%d", u.ID, n)
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "invite_purge_used_revoked", "", "count="+strconv.FormatInt(n, 10))
 	writeJSON(w, 200, map[string]any{"ok": true, "purged": n})
 }
 
@@ -241,7 +247,64 @@ func (s *Server) updateRoomName(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": "failed to update room name"})
 		return
 	}
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "room_rename", "", req.RoomName)
 	writeJSON(w, 200, map[string]any{"ok": true, "room_name": req.RoomName})
+}
+
+func (s *Server) pinMessage(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	var req struct {
+		MessageID string `json:"message_id"`
+		Pin       bool   `json:"pin"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	req.MessageID = cleanInput(req.MessageID, maxMessageIDLen)
+	if req.MessageID == "" {
+		writeJSON(w, 400, map[string]string{"error": "message_id required"})
+		return
+	}
+	exists, err := s.Store.MessageExists(req.MessageID)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update pin"})
+		return
+	}
+	if !exists {
+		writeJSON(w, 404, map[string]string{"error": "message not found"})
+		return
+	}
+	if err := s.Store.SetMessagePinned(req.MessageID, u.ID, req.Pin); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update pin"})
+		return
+	}
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "message_pin", req.MessageID, "pin="+boolToFlag(req.Pin))
+	writeJSON(w, 200, map[string]any{"ok": true, "message_id": req.MessageID, "pin": req.Pin})
+}
+
+func (s *Server) listAdminAudit(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	items, err := s.Store.ListAdminAudit(120)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to load audit log"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"items": items})
 }
 
 func (s *Server) clearMessages(w http.ResponseWriter, r *http.Request) {
@@ -259,6 +322,7 @@ func (s *Server) clearMessages(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Printf("messages_cleared by=%s deleted=%d", u.ID, n)
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "messages_clear", "", "deleted="+strconv.FormatInt(n, 10))
 	writeJSON(w, 200, map[string]any{"ok": true, "deleted": n})
 }
 
@@ -288,6 +352,7 @@ func (s *Server) retainMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	count, _ := s.Store.MessageCount()
 	log.Printf("messages_pruned by=%s keep_latest=%d remaining=%d", u.ID, req.KeepLatest, count)
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "messages_retain", "", "keep="+strconv.Itoa(req.KeepLatest)+",remaining="+strconv.Itoa(count))
 	writeJSON(w, 200, map[string]any{"ok": true, "remaining": count})
 }
 
