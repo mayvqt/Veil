@@ -5,45 +5,51 @@ Veil is a private, browser-based realtime room chat app with end-to-end encrypte
 ## Features
 
 - End-to-end AES-GCM encryption in the browser (room-key model)
-- Realtime chat over WebSocket with automatic reconnect and history re-sync
-- Image sharing support:
-  - PNG, JPEG, WebP, GIF
-  - Paste image from clipboard
-  - Drag-and-drop image upload (input, composer, and chat area)
-  - Inline image rendering with click-to-expand lightbox
-- File attachment support with inline download links
-- GIF support for users in chat (including animated GIF rendering)
-- Emoji support:
-  - Emoji picker
-  - Emoticon-to-emoji conversion while typing
-- Mentions (`@name`) with autocomplete:
-  - Type `@` to open suggestions
-  - Keyboard navigation (`↑/↓`, `Enter`/`Tab`, `Esc`)
-  - Mention highlighting in message rendering
-- User display-name color selection (global per profile)
-- Invite-based onboarding
-- Admin and root-admin control center
-- Local key export/import and device sync code flow
-- Theme studio with presets and custom color tokens (local browser preference)
+- Realtime chat over WebSocket with reconnect + history catch-up
+- Messages:
+  - Text, emoji, mentions (`@name`) with autocomplete
+  - Image attachments (PNG, JPEG, WebP, GIF)
+  - File attachments with download links
+  - Reply, edit, delete
+  - Read receipts (`sent` / `seen`) for your latest outgoing message
+- Presence + members:
+  - Online members button with live count
+  - Member list popover with online/offline state
+- Profile + identity:
+  - Display-name color
+  - Profile picture upload (visible to all users)
+  - Profile picture clear/replace
+- Theme + display preferences (local to each browser):
+  - Presets + custom theme tokens
+  - Show/hide avatars
+  - Timestamp mode (`Always` / `On Hover`)
+- Notifications:
+  - Sound on/off
+  - Volume slider with boost range
+- Admin / root-admin controls:
+  - Invite management
+  - Role management
+  - User removal
+  - Message retention controls
+- Key management:
+  - Encrypted key export/import
+  - Device sync code flow
 
 ## What Is Stored Where
 
-- Server stores encrypted message ciphertext + nonce only
-- Decryption keys remain client-side
-- Theme choices are stored in browser local storage
-- Chat display-name color is stored server-side per user profile
+- Server stores encrypted message ciphertext + nonce.
+- Decryption keys stay client-side.
+- Browser local storage keeps local preferences (theme/display/sound settings).
+- Server stores profile attributes such as chat color and profile picture URL.
+- Profile pictures are stored as files on disk and served by URL.
 
 ## Quick Start (Local)
-
-1. Start the server:
 
 ```bash
 go run ./cmd/server
 ```
 
-2. Open:
-
-`http://localhost:3847`
+Open: `http://localhost:3847`
 
 ## Docker Compose
 
@@ -51,15 +57,12 @@ go run ./cmd/server
 docker compose up --build
 ```
 
-Then open `http://localhost:3847`.
+Open: `http://localhost:3847`
 
-By default, data persists in `./data` (mapped to `/config` in container).  
-For Unraid, set `VEIL_CONFIG_PATH` to an appdata path (for example `/mnt/user/appdata/veil`), which maps to `/config` in the container.
-
-Unraid-safe defaults in this repo:
-- `DATABASE_PATH=/config/veil.db`
-- `VEIL_DATA_DIR=/config`
-- `AVATAR_DIR=/config/avatars`
+By default:
+- Host `./data` maps to container `/config`
+- Database: `/config/veil.db`
+- Avatars: `/config/avatars`
 
 ## Environment Variables
 
@@ -67,43 +70,40 @@ Unraid-safe defaults in this repo:
 
 - `APP_BIND_ADDR` (default `:3847`)
 - `DATABASE_PATH` (default `./veil.db`, container default `/config/veil.db`)
-- `SESSION_SECRET` (default `dev-secret-change-me`)
-- `COOKIE_SECURE` (default `false`)
+- `SESSION_SECRET` (required for production)
+- `COOKIE_SECURE` (default `false`; set `true` behind HTTPS)
 - `SESSION_MAX_AGE_HOURS` (default `720`)
-- `PUBLIC_ORIGIN` (optional, comma-separated allowed origins for WebSocket origin checks)
+- `PUBLIC_ORIGIN` (optional comma-separated origins for WebSocket origin checks)
+
+### Avatar Storage
+
+- `VEIL_DATA_DIR` (container default `/config`)
+- `AVATAR_DIR` (default `${VEIL_DATA_DIR}/avatars`; e.g. `/config/avatars`)
+- `AVATAR_URL_BASE` (default `/avatars`)
+
+Veil serves uploaded avatar files via:
+- `GET /avatars/*`
 
 ### Security Behavior
 
 - `APP_ENV`:
-  - `dev` / `development` / `local` allow default dev secret
+  - `dev` / `development` / `local` allow default dev secret behavior
 - `ALLOW_INSECURE_DEFAULT_SECRET=true`:
-  - explicit override to allow default secret in non-dev
+  - explicit override to allow default secret outside dev
 
 In non-dev deployments, Veil refuses startup if `SESSION_SECRET` is still default unless override is set.
 
-### Message Retention Policy
+### Message Retention
 
-- `MESSAGE_RETENTION_DAYS`: optional auto-prune by age
-- `MESSAGE_RETENTION_COUNT`: optional auto-prune to newest N messages
+- `MESSAGE_RETENTION_DAYS` (optional auto-prune by age)
+- `MESSAGE_RETENTION_COUNT` (optional auto-prune to newest N)
 
-### Container-Focused
+### Container-focused
 
-- `PUID` default `99`
-- `PGID` default `100`
-- `TZ` default `UTC`
-- `UMASK` default `022`
-- `VEIL_DATA_DIR` default `/config`
-- `AVATAR_DIR` default `/config/avatars`
-- `AVATAR_URL_BASE` default `/avatars`
-
-### Unraid Mapping Example
-
-- Host path: `/mnt/user/appdata/veil`
-- Container path: `/config`
-- Recommended env:
-  - `DATABASE_PATH=/config/veil.db`
-  - `VEIL_DATA_DIR=/config`
-  - `AVATAR_DIR=/config/avatars`
+- `PUID` (default `99`)
+- `PGID` (default `100`)
+- `TZ` (default `UTC`)
+- `UMASK` (default `022`)
 
 ## Reverse Proxy / HTTPS
 
@@ -112,47 +112,54 @@ For TLS-terminated deployments (Nginx/Caddy/Traefik):
 1. Set `COOKIE_SECURE=true`
 2. Keep WebSocket upgrades enabled for `/ws`
 3. Set `PUBLIC_ORIGIN` to your public origin (for example `https://veil.example.com`)
-4. Keep Veil private behind your proxy/auth boundaries where possible
+4. Keep Veil private behind your normal auth/network boundaries
 
 ## Roles and Admin Capabilities
 
 ### Admin + Root Admin
 
-- Create invites
-- List invites
-- Revoke individual invites
-- Revoke all unused invites
+- Create/list/revoke invites
+- Revoke unused invites
 - Purge used/revoked invites
 - Manage user roles (`member` / `admin`)
-- Revoke user access
+- Remove users
 
 ### Root Admin Only
 
 - Delete all messages
-- Keep only latest N messages
+- Retain latest N messages
 
-### Invite UX Note
+## Avatar Behavior
 
-- Creating an invite auto-copies the invite URL to clipboard when browser permissions allow it.
+- Accepted image types: PNG, JPEG, WebP, GIF
+- Max image size: 4MB
+- On avatar replace:
+  - new file is written
+  - DB URL updated
+  - previous file cleaned up
+- On avatar clear or user removal:
+  - avatar file is cleaned up
+- Unused local avatar files are pruned automatically during avatar mutation/removal flows.
 
 ## Security Notes
 
-- Message encryption happens client-side before send
-- Anyone with room-key material and ciphertext history can decrypt that history
-- Rotate room keys when trust boundaries change (for example after account/device removals)
+- Message encryption happens client-side before send.
+- Anyone with room-key material and ciphertext history can decrypt that history.
+- Rotate room keys when trust boundaries change (for example after user/device removals).
 
 ## Health Check
 
-`GET /health` returns service health and initialization state.
+- `GET /health` returns service health and initialization status.
 
 ## Deploy Checklist
 
-1. Set a strong `SESSION_SECRET`
+1. Set strong `SESSION_SECRET`
 2. Set `COOKIE_SECURE=true` behind HTTPS
 3. Set `PUBLIC_ORIGIN`
 4. Put `DATABASE_PATH` on persistent storage
-5. Configure retention policy (`MESSAGE_RETENTION_DAYS`/`MESSAGE_RETENTION_COUNT`)
-6. Verify WebSocket proxying for `/ws`
+5. Ensure `AVATAR_DIR` is writable and persistent
+6. Configure retention policy (`MESSAGE_RETENTION_DAYS` / `MESSAGE_RETENTION_COUNT`)
+7. Verify WebSocket proxying for `/ws`
 
 ## License
 
