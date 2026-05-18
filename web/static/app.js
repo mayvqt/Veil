@@ -53,7 +53,7 @@ const VEIL_THEME = {
   accent:'#6fb4ff',
   accent2:'#72e5c2',
   danger:'#ff8c9c',
-  mentionSelf:'#4a1020'
+  mentionSelf:'#4bffa8'
 };
 const DEFAULT_THEME = {
   bg:'#130f12',
@@ -65,18 +65,19 @@ const DEFAULT_THEME = {
   accent:'#ff9d66',
   accent2:'#ff78b2',
   danger:'#ff7f9b',
-  mentionSelf:'#4a1020'
+  mentionSelf:'#4bffa8'
 };
 const THEME_PRESETS = {
   veil: VEIL_THEME,
   ember: DEFAULT_THEME,
-  midnight: {bg:'#08101c',bg2:'#111d33',panel:'#162640',surface:'#0e1a2f',ink:'#e8f1ff',muted:'#98aecf',accent:'#67b6ff',accent2:'#60e3d0',danger:'#ff8ea8',mentionSelf:'#4f1223'},
-  graphite: {bg:'#101214',bg2:'#191d23',panel:'#21262f',surface:'#171b22',ink:'#eef0f4',muted:'#a2acbc',accent:'#8ab4ff',accent2:'#88e0c4',danger:'#ff9aa4',mentionSelf:'#4a1020'}
+  midnight: {bg:'#08101c',bg2:'#111d33',panel:'#162640',surface:'#0e1a2f',ink:'#e8f1ff',muted:'#98aecf',accent:'#67b6ff',accent2:'#60e3d0',danger:'#ff8ea8',mentionSelf:'#4bffa8'},
+  graphite: {bg:'#101214',bg2:'#191d23',panel:'#21262f',surface:'#171b22',ink:'#eef0f4',muted:'#a2acbc',accent:'#8ab4ff',accent2:'#88e0c4',danger:'#ff9aa4',mentionSelf:'#4bffa8'}
 };
 
 const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const hashName = (n) => { let h=0; for(let i=0;i<n.length;i++) h=((h<<5)-h)+n.charCodeAt(i); return Math.abs(h); };
 let customUserColors = loadUserColors();
+let historyLoadSeq = 0;
 const userColor = (n) => customUserColors[n] || PASTELS[hashName(n) % PASTELS.length];
 const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
 
@@ -769,17 +770,19 @@ async function inviteView(token){
 }
 
 async function loadHistory(){
+  const seq = ++historyLoadSeq;
   const messages = $('messages');
   if(!messages) return;
   const history = await api('/api/messages');
+  if(seq !== historyLoadSeq) return;
   if(!history.ok) return;
   seenMessageIDs = new Set();
   messages.innerHTML='';
-  for(const m of history.data.messages.reverse()){
+  for(const m of history.data.messages){
     await appendMessageRecord(messages, m);
   }
   bindMessageImageScroll();
-  scrollChatToBottom();
+  messages.scrollTop = 0;
 }
 
 async function appendMessageRecord(messagesEl, record){
@@ -824,9 +827,6 @@ function ensureSocket(){
 
     socket.onopen=()=>{
       wsReconnectAttempts=0;
-      if(currentView===VIEW_CHAT){
-        loadHistory();
-      }
       finish(socket);
     };
     socket.onerror=()=>finish(null);
@@ -1604,7 +1604,6 @@ async function renderMain(){
 async function chatView(){
   await refreshAdminIdentity();
   await refreshRoomName();
-  ensureSocket();
   await renderMain();
 }
 
