@@ -35,13 +35,19 @@ function bindReactionPickerHandlers() {
       if (!pick) return;
       const emoji = pick.getAttribute("data-reaction-emoji") || "";
       if (!reactionPickerMessageID || !emoji) return;
-      await api("/api/messages/react", {
-        method: "POST",
-        body: JSON.stringify({ message_id: reactionPickerMessageID, emoji }),
-      });
-      closeReactionPicker();
+      try {
+        await api("/api/messages/react", {
+          method: "POST",
+          body: JSON.stringify({ message_id: reactionPickerMessageID, emoji }),
+        });
+      } finally {
+        closeReactionPicker();
+      }
     });
   }
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeReactionPicker();
+  });
   document.addEventListener(
     "click",
     (e) => {
@@ -63,6 +69,10 @@ function bindReactionPickerHandlers() {
 function openReactionPicker(anchorBtn, messageID) {
   const picker = ensureReactionPicker();
   bindReactionPickerHandlers();
+  if (!picker.hidden && reactionPickerMessageID === messageID) {
+    closeReactionPicker();
+    return;
+  }
   reactionPickerMessageID = messageID;
   const rect = anchorBtn.getBoundingClientRect();
   picker.style.left = `${Math.max(12, Math.round(rect.left))}px`;
