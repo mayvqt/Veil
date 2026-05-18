@@ -270,15 +270,9 @@ function bindChatActions(){
     });
   }
   if(messages){
-    messages.addEventListener('mousemove',(e)=>{
-      const target=e.target;
-      if(!(target instanceof HTMLElement)) return;
-      if(target.closest('.line-actions')) return;
-      const media=target.closest('.line-media');
-      if(!(media instanceof HTMLElement)) return;
+    const placeActionsNearPointer=(media,e)=>{
       const actions=media.querySelector('.line-actions');
       if(!(actions instanceof HTMLElement)) return;
-      if(actions.matches(':hover')) return;
       const rect=media.getBoundingClientRect();
       const w=actions.offsetWidth || 0;
       const h=actions.offsetHeight || 0;
@@ -290,6 +284,14 @@ function bindChatActions(){
       const top=Math.max(2, Math.min(y, maxY));
       actions.style.left=`${left}px`;
       actions.style.top=`${top}px`;
+    };
+    messages.addEventListener('pointerover',(e)=>{
+      const target=e.target;
+      if(!(target instanceof HTMLElement)) return;
+      if(target.closest('.line-actions')) return;
+      const media=target.closest('.line-media');
+      if(!(media instanceof HTMLElement)) return;
+      placeActionsNearPointer(media,e);
     });
     messages.addEventListener('scroll',()=>{
       if(messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
