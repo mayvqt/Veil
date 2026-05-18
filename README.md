@@ -51,6 +51,23 @@ go run ./cmd/server
 
 Open: `http://localhost:3847`
 
+## Build Binaries
+
+Build server binaries into `bin/` for all configured platforms:
+
+```bash
+./scripts/build-all.sh
+```
+
+Build only your current platform:
+
+```bash
+./scripts/build-all.sh --host-only
+```
+
+Notes:
+- The script continues building other artifacts and reports failed targets at the end.
+
 ## Docker Compose
 
 ```bash

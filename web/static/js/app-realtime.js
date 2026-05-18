@@ -144,8 +144,31 @@ async function refreshMembers(){
     const selfColor=normalizeHexColor(me.chat_color || '');
     if(selfColor) currentUserChatColor=selfColor;
   }
+  refreshTopProfileChip();
+  refreshProfilePreviewAvatar();
   updatePresenceCount();
   renderMembersList();
+}
+
+function refreshTopProfileChip(){
+  const chip=document.querySelector('.profile-chip');
+  if(!chip) return;
+  const member=roomMembers.find((m)=>String(m.id||'')===String(myUserID||'')) || {};
+  const preview=showAvatars ? avatarMarkup(currentDisplayName || 'member', member.avatar_url || '', member) : '';
+  chip.innerHTML=`${preview}<span>${esc(currentDisplayName||'member')}</span>`;
+}
+
+function refreshProfilePreviewAvatar(){
+  const preview=document.getElementById('profilePreview');
+  if(!preview) return;
+  const member=roomMembers.find((m)=>String(m.id||'')===String(myUserID||'')) || {};
+  const avatar=preview.querySelector('.avatar-ring');
+  if(!avatar) return;
+  const next=avatarMarkup(currentDisplayName || 'member', member.avatar_url || '', member);
+  const tmp=document.createElement('div');
+  tmp.innerHTML=next;
+  const nextAvatar=tmp.firstElementChild;
+  if(nextAvatar) avatar.replaceWith(nextAvatar);
 }
 
 function renderMembersList(){

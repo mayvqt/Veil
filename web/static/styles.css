@@ -980,6 +980,31 @@
       font-size: .82rem;
       margin-top: 2px;
     }
+    .avatar-cropper {
+      display: grid;
+      gap: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+    }
+    .avatar-cropper-preview-wrap {
+      display: grid;
+      place-items: center;
+      padding: 6px;
+    }
+    .avatar-cropper canvas {
+      width: min(220px, 100%);
+      height: auto;
+      border-radius: 50%;
+      border: 1px solid var(--line-2);
+      background: color-mix(in srgb, var(--panel) 72%, transparent);
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
+    }
+    .avatar-cropper-controls {
+      display: grid;
+      gap: 8px;
+    }
     .ring-settings {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -186,6 +186,29 @@ function profilePanelHTML(){
             <label for="profile-avatar-file">Profile Picture<span>PNG, JPEG, WebP, or GIF</span></label>
             <input id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
           </div>
+          <div id="avatarCropper" class="avatar-cropper" style="display:none;">
+            <div class="avatar-cropper-preview-wrap">
+              <canvas id="avatarCropCanvas" width="220" height="220" aria-label="Avatar crop preview"></canvas>
+            </div>
+            <div class="avatar-cropper-controls">
+              <div class="theme-row wide-control">
+                <label for="avatarCropZoom">Zoom<span id="avatarCropZoomLabel">100%</span></label>
+                <input id="avatarCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="avatarCropX">Horizontal<span id="avatarCropXLabel">0%</span></label>
+                <input id="avatarCropX" type="range" min="-100" max="100" step="1" value="0"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="avatarCropY">Vertical<span id="avatarCropYLabel">0%</span></label>
+                <input id="avatarCropY" type="range" min="-100" max="100" step="1" value="0"/>
+              </div>
+            </div>
+            <div class="theme-actions settings-footer">
+              <button id="avatarCropSave">Save Cropped Picture</button>
+              <button id="avatarCropCancel" class="secondary">Cancel</button>
+            </div>
+          </div>
           <div class="theme-actions settings-footer">
             <button id="profileAvatarClear" class="secondary">Clear Picture</button>
           </div>

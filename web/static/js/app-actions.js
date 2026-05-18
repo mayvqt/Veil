@@ -591,6 +591,16 @@ function bindProfileActions(){
   const status=$('profileStatus');
   const avatarFileInput=$('profile-avatar-file');
   const avatarClearBtn=$('profileAvatarClear');
+  const avatarCropper=$('avatarCropper');
+  const avatarCropCanvas=$('avatarCropCanvas');
+  const avatarCropZoom=$('avatarCropZoom');
+  const avatarCropX=$('avatarCropX');
+  const avatarCropY=$('avatarCropY');
+  const avatarCropZoomLabel=$('avatarCropZoomLabel');
+  const avatarCropXLabel=$('avatarCropXLabel');
+  const avatarCropYLabel=$('avatarCropYLabel');
+  const avatarCropSaveBtn=$('avatarCropSave');
+  const avatarCropCancelBtn=$('avatarCropCancel');
   const avatarRingColorInput=$('profile-avatar-ring-color');
   const avatarRingColor2Input=$('profile-avatar-ring-color2');
   const avatarRingColor3Input=$('profile-avatar-ring-color3');
@@ -629,6 +639,103 @@ function bindProfileActions(){
   };
   const readAvatarDataURL=(file)=>readProfileImageDataURL(file, 4*1024*1024);
   const readBackgroundDataURL=(file)=>readProfileImageDataURL(file, 2*1024*1024);
+  const avatarCropState = {image:null, zoom:100, x:0, y:0};
+  const updateCropLabels=()=>{
+    if(avatarCropZoomLabel) avatarCropZoomLabel.textContent=`${avatarCropState.zoom}%`;
+    if(avatarCropXLabel) avatarCropXLabel.textContent=`${avatarCropState.x}%`;
+    if(avatarCropYLabel) avatarCropYLabel.textContent=`${avatarCropState.y}%`;
+  };
+  const cropRectForSize=(size)=>{
+    const img=avatarCropState.image;
+    if(!img) return null;
+    const baseScale=Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const scale=baseScale * (avatarCropState.zoom / 100);
+    const drawW=img.naturalWidth * scale;
+    const drawH=img.naturalHeight * scale;
+    const maxX=Math.max(0, (drawW - size) / 2);
+    const maxY=Math.max(0, (drawH - size) / 2);
+    const shiftX=(avatarCropState.x / 100) * maxX;
+    const shiftY=(avatarCropState.y / 100) * maxY;
+    const dx=((size - drawW) / 2) - shiftX;
+    const dy=((size - drawH) / 2) - shiftY;
+    return {dx, dy, drawW, drawH};
+  };
+  const drawCropPreview=()=>{
+    if(!avatarCropCanvas || !avatarCropState.image) return;
+    const ctx=avatarCropCanvas.getContext('2d');
+    if(!ctx) return;
+    const size=avatarCropCanvas.width;
+    const rect=cropRectForSize(size);
+    if(!rect) return;
+    ctx.clearRect(0,0,size,size);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, (size/2)-2, 0, Math.PI*2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatarCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
+    ctx.restore();
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, (size/2)-2, 0, Math.PI*2);
+    ctx.strokeStyle='rgba(255,255,255,0.85)';
+    ctx.lineWidth=2;
+    ctx.stroke();
+    updateCropLabels();
+  };
+  const resetAvatarCropper=()=>{
+    avatarCropState.image=null;
+    avatarCropState.zoom=100;
+    avatarCropState.x=0;
+    avatarCropState.y=0;
+    if(avatarCropZoom) avatarCropZoom.value='100';
+    if(avatarCropX) avatarCropX.value='0';
+    if(avatarCropY) avatarCropY.value='0';
+    updateCropLabels();
+    if(avatarCropCanvas){
+      const ctx=avatarCropCanvas.getContext('2d');
+      if(ctx) ctx.clearRect(0,0,avatarCropCanvas.width,avatarCropCanvas.height);
+    }
+    if(avatarCropper) avatarCropper.style.display='none';
+  };
+  const openAvatarCropper=async(file)=>{
+    const raw=await readAvatarDataURL(file);
+    const img=new Image();
+    await new Promise((resolve,reject)=>{
+      img.onload=()=>resolve();
+      img.onerror=()=>reject(new Error('Could not decode image.'));
+      img.src=raw;
+    });
+    avatarCropState.image=img;
+    avatarCropState.zoom=100;
+    avatarCropState.x=0;
+    avatarCropState.y=0;
+    if(avatarCropZoom) avatarCropZoom.value='100';
+    if(avatarCropX) avatarCropX.value='0';
+    if(avatarCropY) avatarCropY.value='0';
+    if(avatarCropper) avatarCropper.style.display='grid';
+    drawCropPreview();
+  };
+  const buildCroppedAvatarDataURL=()=>{
+    if(!avatarCropState.image) throw new Error('Select an image first.');
+    const out=document.createElement('canvas');
+    const size=256;
+    out.width=size;
+    out.height=size;
+    const rect=cropRectForSize(size);
+    if(!rect) throw new Error('Could not crop image.');
+    const ctx=out.getContext('2d');
+    if(!ctx) throw new Error('Could not process image.');
+    ctx.clearRect(0,0,size,size);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(size/2, size/2, size/2, 0, Math.PI*2);
+    ctx.closePath();
+    ctx.clip();
+    ctx.drawImage(avatarCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
+    ctx.restore();
+    return out.toDataURL('image/png');
+  };
+
   const readRingDraft=()=>{
     if(!avatarRingColorInput || !avatarRingColor2Input || !avatarRingColor3Input || !avatarRingColor4Input || !avatarRingAlphaInput || !avatarRingAlpha2Input || !avatarRingAlpha3Input || !avatarRingAlpha4Input || !avatarRingModeInput) return null;
     return {
@@ -662,16 +769,16 @@ function bindProfileActions(){
     ring.style.setProperty('--avatar-ring-4', draft.color4 || '#9d7bff');
   };
 
-  const uploadAvatar=async()=>{
+  const uploadAvatar=async(avatarURL)=>{
     try{
-      const file=avatarFileInput && avatarFileInput.files && avatarFileInput.files[0];
-      const avatarURL=await readAvatarDataURL(file);
       const r=await api('/api/profile/avatar',{method:'POST',body:JSON.stringify({avatar_url:avatarURL})});
       if(!r.ok){
         setStatus(status, r.data.error || 'Failed to upload profile picture.', 'err');
         return;
       }
       setStatus(status, 'Profile picture saved for everyone.', 'ok');
+      resetAvatarCropper();
+      if(avatarFileInput) avatarFileInput.value='';
       await refreshMembers();
       if(currentView===VIEW_CHAT) await loadHistory();
     }catch(e){
@@ -738,7 +845,51 @@ function bindProfileActions(){
   };
 
   if(avatarFileInput){
-    avatarFileInput.addEventListener('change', uploadAvatar);
+    avatarFileInput.addEventListener('change', async()=>{
+      try{
+        const file=avatarFileInput.files && avatarFileInput.files[0];
+        if(!file) return;
+        await openAvatarCropper(file);
+        setStatus(status, 'Adjust crop and save your profile picture.', 'ok');
+      }catch(e){
+        setStatus(status, e.message || 'Failed to process profile picture.', 'err');
+      }
+    });
+  }
+  if(avatarCropZoom){
+    avatarCropZoom.addEventListener('input', ()=>{
+      avatarCropState.zoom=Number(avatarCropZoom.value || 100);
+      drawCropPreview();
+    });
+  }
+  if(avatarCropX){
+    avatarCropX.addEventListener('input', ()=>{
+      avatarCropState.x=Number(avatarCropX.value || 0);
+      drawCropPreview();
+    });
+  }
+  if(avatarCropY){
+    avatarCropY.addEventListener('input', ()=>{
+      avatarCropState.y=Number(avatarCropY.value || 0);
+      drawCropPreview();
+    });
+  }
+  if(avatarCropCancelBtn){
+    avatarCropCancelBtn.onclick=()=>{
+      resetAvatarCropper();
+      if(avatarFileInput) avatarFileInput.value='';
+      setStatus(status, 'Profile picture selection canceled.');
+    };
+  }
+  if(avatarCropSaveBtn){
+    avatarCropSaveBtn.onclick=async()=>{
+      try{
+        const avatarURL=buildCroppedAvatarDataURL();
+        await uploadAvatar(avatarURL);
+      }catch(e){
+        setStatus(status, e.message || 'Failed to crop profile picture.', 'err');
+      }
+    };
   }
   if(avatarRingColorInput && avatarRingColor2Input && avatarRingColor3Input && avatarRingColor4Input && avatarRingAlphaInput && avatarRingAlpha2Input && avatarRingAlpha3Input && avatarRingAlpha4Input && avatarRingModeInput){
     [avatarRingColorInput, avatarRingColor2Input, avatarRingColor3Input, avatarRingColor4Input, avatarRingAlphaInput, avatarRingAlpha2Input, avatarRingAlpha3Input, avatarRingAlpha4Input, avatarRingModeInput].forEach((input)=>{
@@ -768,6 +919,7 @@ function bindProfileActions(){
         setStatus(status, r.data.error || 'Failed to clear profile picture.', 'err');
         return;
       }
+      resetAvatarCropper();
       if(avatarFileInput) avatarFileInput.value='';
       setStatus(status, 'Profile picture cleared.', 'ok');
       await refreshMembers();
@@ -817,6 +969,8 @@ function bindProfileActions(){
     chatColorInput.addEventListener('input',()=>{
       setUserColor(currentDisplayName || '', chatColorInput.value);
       refreshRenderedUserColor(currentDisplayName || '');
+      refreshTopProfileChip();
+      refreshProfilePreviewAvatar();
       setStatus(status, 'Previewing chat name color.');
     });
     chatColorInput.addEventListener('change', async()=>{
@@ -833,6 +987,8 @@ function bindProfileActions(){
         return;
       }
       currentUserChatColor=nextColor;
+      refreshTopProfileChip();
+      refreshProfilePreviewAvatar();
       setStatus(status, 'Chat name color saved for everyone.', 'ok');
     });
   }
