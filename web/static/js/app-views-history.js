@@ -114,13 +114,13 @@ function themePanelHTML(){
           <h3>Display</h3>
           <div class="theme-actions">
             <button id="themeAvatarToggle" class="secondary">${showAvatars ? 'Show Avatars: On' : 'Show Avatars: Off'}</button>
+            <button id="themeAvatarRingToggle" class="secondary">${showAvatarRings ? 'Avatar Rings: On' : 'Avatar Rings: Off'}</button>
             <button id="themeTimestampToggle" class="secondary">${timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always'}</button>
           </div>
           <div class="theme-actions">
-            <button id="saveTheme">Save Theme</button>
             <button id="resetTheme" class="secondary">Reset</button>
           </div>
-          <div id="themeStatus" class="status">Unsaved changes preview immediately.</div>
+          <div id="themeStatus" class="status">Theme changes save immediately.</div>
           <div class="status-note">Theme changes are stored per-browser on this device only.</div>
         </section>
       </div>
@@ -140,8 +140,63 @@ function profilePanelHTML(){
             <input id="profile-avatar-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
           </div>
           <div class="theme-actions">
-            <button id="profileAvatarUpload" class="secondary">Upload Picture</button>
             <button id="profileAvatarClear" class="secondary">Clear Picture</button>
+          </div>
+          <div class="theme-row">
+            <label for="profile-avatar-ring-color">Picture Ring Color<span>Shown to everyone around your profile picture</span></label>
+            <input id="profile-avatar-ring-color" type="color" value="${esc(hexColorBase(currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName||''), '#ff9d66'))}"/>
+          </div>
+          <div class="theme-row wide-control">
+            <label for="profile-avatar-ring-alpha">Picture Ring Opacity<span>0 is transparent. 100 is solid.</span></label>
+            <input id="profile-avatar-ring-alpha" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor)))}"/>
+          </div>
+          <div class="theme-row">
+            <label for="profile-avatar-ring-color2">Second Ring Color<span>Used by glow and rainbow-style rings</span></label>
+            <input id="profile-avatar-ring-color2" type="color" value="${esc(hexColorBase(currentAvatarRingColor2 || currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName||''), '#ff78b2'))}"/>
+          </div>
+          <div class="theme-row wide-control">
+            <label for="profile-avatar-ring-alpha2">Second Ring Opacity<span>Used by glow and rainbow-style rings</span></label>
+            <input id="profile-avatar-ring-alpha2" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor2)))}"/>
+          </div>
+          <div class="theme-row">
+            <label for="profile-avatar-ring-color3">Rainbow Color 3<span>Used when the ring animation is Rainbow</span></label>
+            <input id="profile-avatar-ring-color3" type="color" value="${esc(hexColorBase(currentAvatarRingColor3 || '#57db84', '#57db84'))}"/>
+          </div>
+          <div class="theme-row wide-control">
+            <label for="profile-avatar-ring-alpha3">Rainbow Color 3 Opacity<span>Used when the ring animation is Rainbow</span></label>
+            <input id="profile-avatar-ring-alpha3" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor3)))}"/>
+          </div>
+          <div class="theme-row">
+            <label for="profile-avatar-ring-color4">Rainbow Color 4<span>Used when the ring animation is Rainbow</span></label>
+            <input id="profile-avatar-ring-color4" type="color" value="${esc(hexColorBase(currentAvatarRingColor4 || '#9d7bff', '#9d7bff'))}"/>
+          </div>
+          <div class="theme-row wide-control">
+            <label for="profile-avatar-ring-alpha4">Rainbow Color 4 Opacity<span>Used when the ring animation is Rainbow</span></label>
+            <input id="profile-avatar-ring-alpha4" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor4)))}"/>
+          </div>
+          <div class="theme-row wide-control">
+            <label for="profile-avatar-ring-mode">Picture Ring Animation<span>Applies to your avatar in chat and member lists</span></label>
+            <select id="profile-avatar-ring-mode">
+              <option value="none" ${currentAvatarRingMode==='none'?'selected':''}>Still</option>
+              <option value="pulse" ${currentAvatarRingMode==='pulse'?'selected':''}>Pulse</option>
+              <option value="glow" ${currentAvatarRingMode==='glow'?'selected':''}>Glow</option>
+              <option value="rainbow" ${currentAvatarRingMode==='rainbow'?'selected':''}>Rainbow</option>
+            </select>
+          </div>
+          <div class="theme-actions">
+            <button id="profileAvatarRingClear" class="secondary">Clear Ring</button>
+          </div>
+          <h3>Local Background</h3>
+          <div class="theme-row">
+            <label for="profile-background-file">Background Image<span>Shown only in this browser</span></label>
+            <input id="profile-background-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+          </div>
+          <div class="theme-actions">
+            <button id="profileBackgroundClear" class="secondary">Clear Background</button>
+          </div>
+          <div class="theme-row wide-control">
+            <label for="profile-background-strength">Background Strength<span>Lower is softer on the eyes. Stored in this browser.</span></label>
+            <input id="profile-background-strength" type="range" min="0" max="100" step="1" value="${esc(String(localBackgroundStrength()))}"/>
           </div>
           <div class="theme-row">
             <label for="profile-chat-color">Name Color<span>Used for your display name for everyone in this room</span></label>
@@ -292,6 +347,21 @@ async function loadHistory({appendOlder=false}={}){
       setUserColor(currentDisplayName || '', selfColor);
     }
   }
+  if(history.data && typeof history.data.my_avatar_ring_color==='string'){
+    currentAvatarRingColor=normalizeHexColorAlpha(history.data.my_avatar_ring_color);
+  }
+  if(history.data && typeof history.data.my_avatar_ring_color2==='string'){
+    currentAvatarRingColor2=normalizeHexColorAlpha(history.data.my_avatar_ring_color2);
+  }
+  if(history.data && typeof history.data.my_avatar_ring_color3==='string'){
+    currentAvatarRingColor3=normalizeHexColorAlpha(history.data.my_avatar_ring_color3);
+  }
+  if(history.data && typeof history.data.my_avatar_ring_color4==='string'){
+    currentAvatarRingColor4=normalizeHexColorAlpha(history.data.my_avatar_ring_color4);
+  }
+  if(history.data && typeof history.data.my_avatar_ring_mode==='string'){
+    currentAvatarRingMode=normalizeAvatarRingMode(history.data.my_avatar_ring_mode);
+  }
   hasMoreHistory = !!history.data.has_more;
   if(!appendOlder){
     seenMessageIDs = new Set();
@@ -331,6 +401,13 @@ async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepe
   if(recordColor && record.display_name){
     setUserColor(record.display_name, recordColor);
     if(myUserID && String(record.sender_id||'')===String(myUserID)) currentUserChatColor=recordColor;
+  }
+  if(myUserID && String(record.sender_id||'')===String(myUserID)){
+    currentAvatarRingColor=normalizeHexColorAlpha(record.avatar_ring_color || '');
+    currentAvatarRingColor2=normalizeHexColorAlpha(record.avatar_ring_color2 || '');
+    currentAvatarRingColor3=normalizeHexColorAlpha(record.avatar_ring_color3 || '');
+    currentAvatarRingColor4=normalizeHexColorAlpha(record.avatar_ring_color4 || '');
+    currentAvatarRingMode=normalizeAvatarRingMode(record.avatar_ring_mode || '');
   }
   let plain='[decrypt failed]';
   const deleted = String(record.deleted_at||'').trim() !== '';

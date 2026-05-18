@@ -156,6 +156,39 @@ func TestProfileColorEndpointPersistsColor(t *testing.T) {
 	}
 }
 
+func TestProfileAvatarRingEndpointPersistsRing(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "u1", "alice", "member")
+	token := sessionToken(srv.Secret, "u1")
+
+	rr := doReq(t, h, http.MethodPost, "/api/profile/avatar-ring", token, map[string]any{
+		"avatar_ring_color":  "#78B2FF80",
+		"avatar_ring_color2": "#FF78B2",
+		"avatar_ring_color3": "#57DB84",
+		"avatar_ring_color4": "#9D7BFF",
+		"avatar_ring_mode":   "rainbow",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile avatar ring status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var color, color2, color3, color4, mode string
+	if err := srv.Store.DB.QueryRow("SELECT avatar_ring_color, avatar_ring_color2, avatar_ring_color3, avatar_ring_color4, avatar_ring_mode FROM users WHERE id='u1'").Scan(&color, &color2, &color3, &color4, &mode); err != nil {
+		t.Fatal(err)
+	}
+	if color != "#78b2ff80" || color2 != "#ff78b2" || color3 != "#57db84" || color4 != "#9d7bff" || mode != "rainbow" {
+		t.Fatalf("expected persisted rainbow ring colors, got %q/%q/%q/%q/%q", color, color2, color3, color4, mode)
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/avatar-ring", token, map[string]any{
+		"avatar_ring_color": "#78b2ff",
+		"avatar_ring_mode":  "spin",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid ring mode 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestProfileAvatarEndpointPersistsAvatar(t *testing.T) {
 	srv, h := testServer(t)
 	srv.AvatarDir = t.TempDir()
@@ -356,18 +389,23 @@ func TestMembersEndpointListsPresence(t *testing.T) {
 		t.Fatalf("expected 2 members, got %#v", body["members"])
 	}
 	onlineByID := map[string]bool{}
+	ringByID := map[string]string{}
 	for _, m := range members {
 		item, ok := m.(map[string]any)
 		if !ok {
 			continue
 		}
 		onlineByID[item["id"].(string)] = item["online"] == true
+		ringByID[item["id"].(string)] = item["avatar_ring_mode"].(string)
 	}
 	if onlineByID["u1"] {
 		t.Fatal("u1 should be offline in this test")
 	}
 	if !onlineByID["u2"] {
 		t.Fatal("u2 should be online in this test")
+	}
+	if ringByID["u1"] != "none" {
+		t.Fatalf("expected default ring mode none, got %q", ringByID["u1"])
 	}
 }
 

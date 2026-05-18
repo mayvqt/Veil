@@ -20,6 +20,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/session/from-credential", s.sessionFromCredential)
 	r.Post("/api/profile/color", s.updateProfileColor)
 	r.Post("/api/profile/avatar", s.updateProfileAvatar)
+	r.Post("/api/profile/avatar-ring", s.updateProfileAvatarRing)
 
 	r.Get("/api/messages", s.listMessages)
 	r.Post("/api/messages/read", s.markMessagesRead)

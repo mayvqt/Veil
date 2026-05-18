@@ -82,11 +82,11 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 
 func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT u.id, u.display_name, u.role, u.chat_color, COALESCE(u.avatar_url,'')
+SELECT u.id, u.display_name, u.role, u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -96,7 +96,7 @@ WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 }
 
 func (s *Store) ListUsers() ([]User, error) {
-	rows, err := s.DB.Query("SELECT id, display_name, role, chat_color, COALESCE(avatar_url,'') FROM users WHERE active=1 ORDER BY created_at ASC")
+	rows, err := s.DB.Query("SELECT id, display_name, role, chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none') FROM users WHERE active=1 ORDER BY created_at ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +105,7 @@ func (s *Store) ListUsers() ([]User, error) {
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL); err != nil {
+		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -154,6 +154,11 @@ func (s *Store) SetUserChatColor(userID, chatColor string) error {
 
 func (s *Store) SetUserAvatarURL(userID, avatarURL string) error {
 	_, err := s.DB.Exec("UPDATE users SET avatar_url=? WHERE id=? AND active=1", avatarURL, userID)
+	return err
+}
+
+func (s *Store) SetUserAvatarRing(userID, ringColor, ringColor2, ringColor3, ringColor4, ringMode string) error {
+	_, err := s.DB.Exec("UPDATE users SET avatar_ring_color=?, avatar_ring_color2=?, avatar_ring_color3=?, avatar_ring_color4=?, avatar_ring_mode=? WHERE id=? AND active=1", ringColor, ringColor2, ringColor3, ringColor4, ringMode, userID)
 	return err
 }
 

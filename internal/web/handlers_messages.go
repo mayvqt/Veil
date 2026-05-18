@@ -32,11 +32,16 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 	}
 	receipts, _ := s.Store.ListReadReceipts()
 	writeJSON(w, 200, map[string]any{
-		"messages":   msgs,
-		"has_more":   len(msgs) >= limit,
-		"receipts":   receipts,
-		"my_user_id": u.ID,
-		"my_chat_color": u.ChatColor,
+		"messages":              msgs,
+		"has_more":              len(msgs) >= limit,
+		"receipts":              receipts,
+		"my_user_id":            u.ID,
+		"my_chat_color":         u.ChatColor,
+		"my_avatar_ring_color":  u.AvatarRingColor,
+		"my_avatar_ring_color2": u.AvatarRingColor2,
+		"my_avatar_ring_color3": u.AvatarRingColor3,
+		"my_avatar_ring_color4": u.AvatarRingColor4,
+		"my_avatar_ring_mode":   u.AvatarRingMode,
 	})
 }
 

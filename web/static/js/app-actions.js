@@ -523,6 +523,7 @@ function bindThemeActions(){
   const status=$('themeStatus');
   const inputs=[...document.querySelectorAll('input[data-theme-key]')];
   const avatarToggle=$('themeAvatarToggle');
+  const avatarRingToggle=$('themeAvatarRingToggle');
   const timestampToggle=$('themeTimestampToggle');
   const readThemeFromInputs=()=>{
     const theme={};
@@ -536,8 +537,8 @@ function bindThemeActions(){
 
   inputs.forEach((input)=>{
     input.addEventListener('input',()=>{
-      applyTheme(readThemeFromInputs());
-      setStatus(status, 'Previewing unsaved theme.');
+      saveTheme(readThemeFromInputs());
+      setStatus(status, 'Theme saved.', 'ok');
     });
   });
 
@@ -549,14 +550,6 @@ function bindThemeActions(){
       setStatus(status, 'Theme preset saved.', 'ok');
     });
   });
-
-  const saveBtn=$('saveTheme');
-  if(saveBtn){
-    saveBtn.onclick=()=>{
-      saveTheme(readThemeFromInputs());
-      setStatus(status, 'Theme saved.', 'ok');
-    };
-  }
 
   const resetBtn=$('resetTheme');
   if(resetBtn){
@@ -574,6 +567,16 @@ function bindThemeActions(){
       setStatus(status, `Avatars ${showAvatars ? 'enabled' : 'hidden'} for this browser.`, 'ok');
     };
   }
+  if(avatarRingToggle){
+    avatarRingToggle.textContent = showAvatarRings ? 'Avatar Rings: On' : 'Avatar Rings: Off';
+    avatarRingToggle.onclick=async()=>{
+      setShowAvatarRings(!showAvatarRings);
+      avatarRingToggle.textContent = showAvatarRings ? 'Avatar Rings: On' : 'Avatar Rings: Off';
+      renderMembersList();
+      if(currentView===VIEW_CHAT) await loadHistory();
+      setStatus(status, `Avatar rings ${showAvatarRings ? 'enabled' : 'hidden'} for this browser.`, 'ok');
+    };
+  }
   if(timestampToggle){
     timestampToggle.textContent = timestampMode==='hover' ? 'Timestamps: On Hover' : 'Timestamps: Always';
     timestampToggle.onclick=()=>{
@@ -587,20 +590,32 @@ function bindThemeActions(){
 function bindProfileActions(){
   const status=$('profileStatus');
   const avatarFileInput=$('profile-avatar-file');
-  const avatarUploadBtn=$('profileAvatarUpload');
   const avatarClearBtn=$('profileAvatarClear');
+  const avatarRingColorInput=$('profile-avatar-ring-color');
+  const avatarRingColor2Input=$('profile-avatar-ring-color2');
+  const avatarRingColor3Input=$('profile-avatar-ring-color3');
+  const avatarRingColor4Input=$('profile-avatar-ring-color4');
+  const avatarRingAlphaInput=$('profile-avatar-ring-alpha');
+  const avatarRingAlpha2Input=$('profile-avatar-ring-alpha2');
+  const avatarRingAlpha3Input=$('profile-avatar-ring-alpha3');
+  const avatarRingAlpha4Input=$('profile-avatar-ring-alpha4');
+  const avatarRingModeInput=$('profile-avatar-ring-mode');
+  const avatarRingClearBtn=$('profileAvatarRingClear');
+  const backgroundFileInput=$('profile-background-file');
+  const backgroundClearBtn=$('profileBackgroundClear');
+  const backgroundStrengthInput=$('profile-background-strength');
   const chatColorInput=$('profile-chat-color');
   const soundToggle=$('profileSoundToggle');
   const soundVolume=$('profile-notify-volume');
 
-  const readAvatarDataURL=async(file)=>{
+  const readProfileImageDataURL=async(file, maxBytes=4*1024*1024)=>{
     if(!file) throw new Error('Select an image first.');
     const mime=normalizeMime(file.type);
     if(!['image/png','image/jpeg','image/webp','image/gif'].includes(mime)){
       throw new Error('Use png, jpeg, webp, or gif.');
     }
-    if(file.size <= 0 || file.size > 4*1024*1024){
-      throw new Error('Image must be 4MB or smaller.');
+    if(file.size <= 0 || file.size > maxBytes){
+      throw new Error(`Image must be ${formatBytes(maxBytes)} or smaller.`);
     }
     const raw=await new Promise((resolve,reject)=>{
       const r=new FileReader();
@@ -611,25 +626,73 @@ function bindProfileActions(){
     if(!raw.startsWith(`data:${mime};base64,`)) throw new Error('Could not process image.');
     return raw;
   };
+  const readAvatarDataURL=(file)=>readProfileImageDataURL(file, 4*1024*1024);
+  const readBackgroundDataURL=(file)=>readProfileImageDataURL(file, 2*1024*1024);
 
-  if(avatarUploadBtn && avatarFileInput){
-    avatarUploadBtn.onclick=async()=>{
-      try{
-        const file=avatarFileInput.files && avatarFileInput.files[0];
-        const avatarURL=await readAvatarDataURL(file);
-        const r=await api('/api/profile/avatar',{method:'POST',body:JSON.stringify({avatar_url:avatarURL})});
-        if(!r.ok){
-          setStatus(status, r.data.error || 'Failed to upload profile picture.', 'err');
-          return;
-        }
-        setStatus(status, 'Profile picture uploaded. It is now visible to everyone.', 'ok');
-        await refreshMembers();
-        if(currentView===VIEW_CHAT) await loadHistory();
-      }catch(e){
-        setStatus(status, e.message || 'Failed to upload profile picture.', 'err');
+  const uploadAvatar=async()=>{
+    try{
+      const file=avatarFileInput && avatarFileInput.files && avatarFileInput.files[0];
+      const avatarURL=await readAvatarDataURL(file);
+      const r=await api('/api/profile/avatar',{method:'POST',body:JSON.stringify({avatar_url:avatarURL})});
+      if(!r.ok){
+        setStatus(status, r.data.error || 'Failed to upload profile picture.', 'err');
+        return;
       }
-    };
+      setStatus(status, 'Profile picture saved for everyone.', 'ok');
+      await refreshMembers();
+      if(currentView===VIEW_CHAT) await loadHistory();
+    }catch(e){
+      setStatus(status, e.message || 'Failed to upload profile picture.', 'err');
+    }
+  };
+  const saveAvatarRing=async()=>{
+    if(!avatarRingColorInput || !avatarRingColor2Input || !avatarRingColor3Input || !avatarRingColor4Input || !avatarRingAlphaInput || !avatarRingAlpha2Input || !avatarRingAlpha3Input || !avatarRingAlpha4Input || !avatarRingModeInput) return;
+    const ringColor=hexWithAlpha(avatarRingColorInput.value, avatarRingAlphaInput.value);
+    const ringColor2=hexWithAlpha(avatarRingColor2Input.value, avatarRingAlpha2Input.value);
+    const ringColor3=hexWithAlpha(avatarRingColor3Input.value, avatarRingAlpha3Input.value);
+    const ringColor4=hexWithAlpha(avatarRingColor4Input.value, avatarRingAlpha4Input.value);
+    const ringMode=normalizeAvatarRingMode(avatarRingModeInput.value);
+    if(!ringColor){
+      setStatus(status, 'Pick a valid ring color first.', 'err');
+      return;
+    }
+    const r=await api('/api/profile/avatar-ring',{method:'POST',body:JSON.stringify({avatar_ring_color:ringColor,avatar_ring_color2:ringColor2,avatar_ring_color3:ringColor3,avatar_ring_color4:ringColor4,avatar_ring_mode:ringMode})});
+    if(!r.ok){
+      setStatus(status, r.data.error || 'Failed to save picture ring.', 'err');
+      return;
+    }
+    currentAvatarRingColor=ringColor;
+    currentAvatarRingColor2=ringColor2;
+    currentAvatarRingColor3=ringColor3;
+    currentAvatarRingColor4=ringColor4;
+    currentAvatarRingMode=ringMode;
+    setStatus(status, 'Profile picture ring saved for everyone.', 'ok');
+    await refreshMembers();
+    if(currentView===VIEW_CHAT) await loadHistory();
+  };
+  const applyBackground=async()=>{
+    try{
+      const file=backgroundFileInput && backgroundFileInput.files && backgroundFileInput.files[0];
+      const backgroundURL=await readBackgroundDataURL(file);
+      saveLocalBackground(backgroundURL);
+      setStatus(status, 'Background saved locally for this browser.', 'ok');
+    }catch(e){
+      setStatus(status, e.message || 'Failed to apply background.', 'err');
+    }
+  };
+
+  if(avatarFileInput){
+    avatarFileInput.addEventListener('change', uploadAvatar);
   }
+  if(avatarRingColorInput && avatarRingColor2Input && avatarRingColor3Input && avatarRingColor4Input && avatarRingAlphaInput && avatarRingAlpha2Input && avatarRingAlpha3Input && avatarRingAlpha4Input && avatarRingModeInput){
+    [avatarRingColorInput, avatarRingColor2Input, avatarRingColor3Input, avatarRingColor4Input, avatarRingAlphaInput, avatarRingAlpha2Input, avatarRingAlpha3Input, avatarRingAlpha4Input, avatarRingModeInput].forEach((input)=>{
+      input.addEventListener('change', saveAvatarRing);
+    });
+  }
+  if(backgroundFileInput){
+    backgroundFileInput.addEventListener('change', applyBackground);
+  }
+
   if(avatarClearBtn){
     avatarClearBtn.onclick=async()=>{
       const r=await api('/api/profile/avatar',{method:'POST',body:JSON.stringify({avatar_url:''})});
@@ -642,6 +705,38 @@ function bindProfileActions(){
       await refreshMembers();
       if(currentView===VIEW_CHAT) await loadHistory();
     };
+  }
+  if(avatarRingClearBtn){
+    avatarRingClearBtn.onclick=async()=>{
+      const r=await api('/api/profile/avatar-ring',{method:'POST',body:JSON.stringify({avatar_ring_color:'',avatar_ring_color2:'',avatar_ring_color3:'',avatar_ring_color4:'',avatar_ring_mode:'none'})});
+      if(!r.ok){
+        setStatus(status, r.data.error || 'Failed to clear picture ring.', 'err');
+        return;
+      }
+      currentAvatarRingColor='';
+      currentAvatarRingColor2='';
+      currentAvatarRingColor3='';
+      currentAvatarRingColor4='';
+      currentAvatarRingMode='none';
+      if(avatarRingModeInput) avatarRingModeInput.value='none';
+      setStatus(status, 'Profile picture ring cleared.', 'ok');
+      await refreshMembers();
+      if(currentView===VIEW_CHAT) await loadHistory();
+    };
+  }
+  if(backgroundClearBtn){
+    backgroundClearBtn.onclick=()=>{
+      saveLocalBackground('');
+      if(backgroundFileInput) backgroundFileInput.value='';
+      setStatus(status, 'Local background cleared.', 'ok');
+    };
+  }
+  if(backgroundStrengthInput){
+    backgroundStrengthInput.value=String(localBackgroundStrength());
+    backgroundStrengthInput.addEventListener('input',()=>{
+      const value=saveLocalBackgroundStrength(backgroundStrengthInput.value);
+      setStatus(status, `Background strength: ${value}%.`, 'ok');
+    });
   }
 
   if(soundToggle){
