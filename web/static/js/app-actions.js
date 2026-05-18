@@ -594,11 +594,7 @@ function bindProfileActions(){
   const avatarCropper=$('avatarCropper');
   const avatarCropCanvas=$('avatarCropCanvas');
   const avatarCropZoom=$('avatarCropZoom');
-  const avatarCropX=$('avatarCropX');
-  const avatarCropY=$('avatarCropY');
   const avatarCropZoomLabel=$('avatarCropZoomLabel');
-  const avatarCropXLabel=$('avatarCropXLabel');
-  const avatarCropYLabel=$('avatarCropYLabel');
   const avatarCropSaveBtn=$('avatarCropSave');
   const avatarCropCancelBtn=$('avatarCropCancel');
   const avatarRingColorInput=$('profile-avatar-ring-color');
@@ -642,8 +638,19 @@ function bindProfileActions(){
   const avatarCropState = {image:null, zoom:100, x:0, y:0};
   const updateCropLabels=()=>{
     if(avatarCropZoomLabel) avatarCropZoomLabel.textContent=`${avatarCropState.zoom}%`;
-    if(avatarCropXLabel) avatarCropXLabel.textContent=`${avatarCropState.x}%`;
-    if(avatarCropYLabel) avatarCropYLabel.textContent=`${avatarCropState.y}%`;
+  };
+  const clamp=(n,min,max)=>Math.max(min, Math.min(max, n));
+  const cropShiftBoundsForSize=(size)=>{
+    const img=avatarCropState.image;
+    if(!img) return {maxX:0,maxY:0};
+    const baseScale=Math.max(size / img.naturalWidth, size / img.naturalHeight);
+    const scale=baseScale * (avatarCropState.zoom / 100);
+    const drawW=img.naturalWidth * scale;
+    const drawH=img.naturalHeight * scale;
+    return {
+      maxX:Math.max(0, (drawW - size) / 2),
+      maxY:Math.max(0, (drawH - size) / 2),
+    };
   };
   const cropRectForSize=(size)=>{
     const img=avatarCropState.image;
@@ -688,8 +695,6 @@ function bindProfileActions(){
     avatarCropState.x=0;
     avatarCropState.y=0;
     if(avatarCropZoom) avatarCropZoom.value='100';
-    if(avatarCropX) avatarCropX.value='0';
-    if(avatarCropY) avatarCropY.value='0';
     updateCropLabels();
     if(avatarCropCanvas){
       const ctx=avatarCropCanvas.getContext('2d');
@@ -710,8 +715,6 @@ function bindProfileActions(){
     avatarCropState.x=0;
     avatarCropState.y=0;
     if(avatarCropZoom) avatarCropZoom.value='100';
-    if(avatarCropX) avatarCropX.value='0';
-    if(avatarCropY) avatarCropY.value='0';
     if(avatarCropper) avatarCropper.style.display='grid';
     drawCropPreview();
   };
@@ -859,20 +862,55 @@ function bindProfileActions(){
   if(avatarCropZoom){
     avatarCropZoom.addEventListener('input', ()=>{
       avatarCropState.zoom=Number(avatarCropZoom.value || 100);
+      avatarCropState.x=clamp(avatarCropState.x, -100, 100);
+      avatarCropState.y=clamp(avatarCropState.y, -100, 100);
       drawCropPreview();
     });
   }
-  if(avatarCropX){
-    avatarCropX.addEventListener('input', ()=>{
-      avatarCropState.x=Number(avatarCropX.value || 0);
+  if(avatarCropCanvas){
+    let dragStart=null;
+    const stopDrag=()=>{
+      dragStart=null;
+      avatarCropCanvas.classList.remove('dragging');
+    };
+    const startDrag=(ev)=>{
+      if(!avatarCropState.image) return;
+      dragStart={
+        x:ev.clientX,
+        y:ev.clientY,
+        startCropX:avatarCropState.x,
+        startCropY:avatarCropState.y,
+      };
+      avatarCropCanvas.classList.add('dragging');
+    };
+    const moveDrag=(ev)=>{
+      if(!dragStart || !avatarCropState.image) return;
+      const size=avatarCropCanvas.width;
+      const bounds=cropShiftBoundsForSize(size);
+      const deltaX=ev.clientX-dragStart.x;
+      const deltaY=ev.clientY-dragStart.y;
+      const nextX=bounds.maxX > 0 ? dragStart.startCropX - ((deltaX / bounds.maxX) * 100) : 0;
+      const nextY=bounds.maxY > 0 ? dragStart.startCropY - ((deltaY / bounds.maxY) * 100) : 0;
+      avatarCropState.x=clamp(nextX, -100, 100);
+      avatarCropState.y=clamp(nextY, -100, 100);
       drawCropPreview();
+    };
+    avatarCropCanvas.addEventListener('pointerdown', (ev)=>{
+      startDrag(ev);
+      avatarCropCanvas.setPointerCapture(ev.pointerId);
     });
-  }
-  if(avatarCropY){
-    avatarCropY.addEventListener('input', ()=>{
-      avatarCropState.y=Number(avatarCropY.value || 0);
+    avatarCropCanvas.addEventListener('pointermove', moveDrag);
+    avatarCropCanvas.addEventListener('pointerup', stopDrag);
+    avatarCropCanvas.addEventListener('pointercancel', stopDrag);
+    avatarCropCanvas.addEventListener('lostpointercapture', stopDrag);
+    avatarCropCanvas.addEventListener('wheel', (ev)=>{
+      if(!avatarCropState.image) return;
+      ev.preventDefault();
+      const delta=ev.deltaY > 0 ? -5 : 5;
+      avatarCropState.zoom=clamp(avatarCropState.zoom + delta, 100, 300);
+      if(avatarCropZoom) avatarCropZoom.value=String(Math.round(avatarCropState.zoom));
       drawCropPreview();
-    });
+    }, {passive:false});
   }
   if(avatarCropCancelBtn){
     avatarCropCancelBtn.onclick=()=>{

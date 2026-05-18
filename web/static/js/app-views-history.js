@@ -195,14 +195,7 @@ function profilePanelHTML(){
                 <label for="avatarCropZoom">Zoom<span id="avatarCropZoomLabel">100%</span></label>
                 <input id="avatarCropZoom" type="range" min="100" max="300" step="1" value="100"/>
               </div>
-              <div class="theme-row wide-control">
-                <label for="avatarCropX">Horizontal<span id="avatarCropXLabel">0%</span></label>
-                <input id="avatarCropX" type="range" min="-100" max="100" step="1" value="0"/>
-              </div>
-              <div class="theme-row wide-control">
-                <label for="avatarCropY">Vertical<span id="avatarCropYLabel">0%</span></label>
-                <input id="avatarCropY" type="range" min="-100" max="100" step="1" value="0"/>
-              </div>
+              <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
             </div>
             <div class="theme-actions settings-footer">
               <button id="avatarCropSave">Save Cropped Picture</button>
