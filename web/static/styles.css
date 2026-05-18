@@ -236,7 +236,27 @@
       padding: 0;
       display: grid;
       place-items: center;
-      font-size: .92rem;
+    }
+    .icon-search {
+      width: 16px;
+      height: 16px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      opacity: .9;
+      transition: transform .16s ease, opacity .16s ease;
+    }
+    #chatSearchToggle:hover .icon-search {
+      transform: scale(1.06);
+      opacity: 1;
+    }
+    #chatSearchToggle[aria-expanded="true"] {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--active-ink);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 36%, transparent);
     }
     .chat-topbar {
       min-height: 68px;

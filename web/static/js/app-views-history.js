@@ -34,7 +34,12 @@ function chatPanelHTML(){
           <div id="chatSearchWrap" class="chat-search-wrap" hidden>
             <input id="chatSearchInput" class="chat-search" type="search" placeholder="Search loaded messages" aria-label="Search loaded messages"/>
           </div>
-          <button id="chatSearchToggle" class="secondary member-toggle icon-btn" type="button" aria-label="Open message search" title="Search loaded messages">🔎</button>
+          <button id="chatSearchToggle" class="secondary member-toggle icon-btn" type="button" aria-label="Open message search" title="Search loaded messages">
+            <svg class="icon-search" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <circle cx="11" cy="11" r="6.5"></circle>
+              <path d="M16.2 16.2L21 21"></path>
+            </svg>
+          </button>
           <button id="memberToggle" class="secondary member-toggle" type="button" aria-label="Open online members list">Online Members <span id="memberCount">0</span></button>
           <div class="profile-chip">${profilePreview}<span>${esc(currentDisplayName||'member')}</span></div>
         </div>
