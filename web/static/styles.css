@@ -536,6 +536,9 @@
       animation: fadein .14s ease;
       max-width: min(360px, calc(100vw - 22px));
     }
+    .reaction-picker-pop[hidden] {
+      display: none !important;
+    }
     .reaction-choice {
       width: 100%;
       aspect-ratio: 1;
