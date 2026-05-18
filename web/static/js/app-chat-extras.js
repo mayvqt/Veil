@@ -34,15 +34,15 @@ function bindReactionPickerHandlers() {
       const pick = target.closest("button[data-reaction-emoji]");
       if (!pick) return;
       const emoji = pick.getAttribute("data-reaction-emoji") || "";
-      if (!reactionPickerMessageID || !emoji) return;
+      const messageID = reactionPickerMessageID;
+      closeReactionPicker();
+      if (!messageID || !emoji) return;
       try {
         await api("/api/messages/react", {
           method: "POST",
-          body: JSON.stringify({ message_id: reactionPickerMessageID, emoji }),
+          body: JSON.stringify({ message_id: messageID, emoji }),
         });
-      } finally {
-        closeReactionPicker();
-      }
+      } catch {}
     });
   }
   document.addEventListener("keydown", (e) => {
