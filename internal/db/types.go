@@ -4,6 +4,7 @@ type User struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"display_name"`
 	Role        string `json:"role"`
+	ChatColor   string `json:"chat_color"`
 }
 
 type Message struct {
@@ -11,6 +12,7 @@ type Message struct {
 	RowID       int64  `json:"row_id"`
 	SenderID    string `json:"sender_id"`
 	DisplayName string `json:"display_name"`
+	ChatColor   string `json:"chat_color"`
 	Ciphertext  string `json:"ciphertext"`
 	Nonce       string `json:"nonce"`
 	ReplyToID   string `json:"reply_to_id"`

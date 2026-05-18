@@ -36,6 +36,7 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		"has_more":   len(msgs) >= limit,
 		"receipts":   receipts,
 		"my_user_id": u.ID,
+		"my_chat_color": u.ChatColor,
 	})
 }
 

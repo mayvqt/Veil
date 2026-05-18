@@ -94,6 +94,9 @@ func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	if list["has_more"] != true {
 		t.Fatalf("expected has_more=true, got %#v", list["has_more"])
 	}
+	if _, ok := list["my_chat_color"]; !ok {
+		t.Fatalf("expected my_chat_color in list response, got %#v", list)
+	}
 
 	rr = doReq(t, h, http.MethodPost, "/api/messages/read", tokU1, map[string]any{"last_seen_rowid": m1.RowID})
 	if rr.Code != http.StatusOK {
@@ -124,6 +127,30 @@ func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	rr = doReq(t, h, http.MethodPost, "/api/messages/delete", tokU1, map[string]any{"message_id": m1.ID})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("delete status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestProfileColorEndpointPersistsColor(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "u1", "alice", "member")
+	token := sessionToken(srv.Secret, "u1")
+
+	rr := doReq(t, h, http.MethodPost, "/api/profile/color", token, map[string]any{"chat_color": "#4BFFA8"})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile color status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var got string
+	if err := srv.Store.DB.QueryRow("SELECT chat_color FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != "#4bffa8" {
+		t.Fatalf("expected persisted lowercase color #4bffa8, got %q", got)
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/color", token, map[string]any{"chat_color": "bad"})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid color 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 

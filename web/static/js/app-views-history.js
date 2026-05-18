@@ -111,8 +111,8 @@ function themePanelHTML(){
           <div class="divider"></div>
           <h3>Chat Identity</h3>
           <div class="theme-row">
-            <label for="theme-chat-color">Name Color<span>Used for your display name in chat on this browser</span></label>
-            <input id="theme-chat-color" type="color" value="${esc(userColor(currentDisplayName||''))}"/>
+            <label for="theme-chat-color">Name Color<span>Used for your display name for everyone in this room</span></label>
+            <input id="theme-chat-color" type="color" value="${esc(currentUserChatColor || userColor(currentDisplayName||''))}"/>
           </div>
           <div class="theme-actions">
             <button id="saveTheme">Save Theme</button>
@@ -247,6 +247,14 @@ async function loadHistory({appendOlder=false}={}){
   if(seq !== historyLoadSeq) return;
   if(!history.ok) return;
   const list = Array.isArray(history.data.messages) ? history.data.messages : [];
+  if(history.data && typeof history.data.my_user_id==='string' && history.data.my_user_id) myUserID = history.data.my_user_id;
+  if(history.data && typeof history.data.my_chat_color==='string'){
+    const selfColor=normalizeHexColor(history.data.my_chat_color);
+    if(selfColor){
+      currentUserChatColor=selfColor;
+      setUserColor(currentDisplayName || '', selfColor);
+    }
+  }
   hasMoreHistory = !!history.data.has_more;
   if(!appendOlder){
     seenMessageIDs = new Set();
@@ -280,6 +288,11 @@ async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepe
     seenMessageIDs.add(messageID);
   }
   registerDisplayName(record.display_name || '');
+  const recordColor=normalizeHexColor(record.chat_color || '');
+  if(recordColor && record.display_name){
+    setUserColor(record.display_name, recordColor);
+    if(myUserID && String(record.sender_id||'')===String(myUserID)) currentUserChatColor=recordColor;
+  }
   let plain='[decrypt failed]';
   const deleted = String(record.deleted_at||'').trim() !== '';
   if(!deleted){
@@ -294,4 +307,3 @@ async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepe
   else messagesEl.insertAdjacentHTML('beforeend', row);
   return true;
 }
-

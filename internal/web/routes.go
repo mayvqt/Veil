@@ -18,6 +18,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/invite", s.createInvite)
 	r.Post("/api/join", s.joinInvite)
 	r.Post("/api/session/from-credential", s.sessionFromCredential)
+	r.Post("/api/profile/color", s.updateProfileColor)
 
 	r.Get("/api/messages", s.listMessages)
 	r.Post("/api/messages/read", s.markMessagesRead)

@@ -62,9 +62,9 @@ func (s *Server) userFromSignedToken(signed string) (*db.User, error) {
 		return nil, fmt.Errorf("session expired")
 	}
 	id := parts[0]
-	row := s.Store.DB.QueryRow("SELECT id, display_name, role FROM users WHERE id=? AND active=1", id)
+	row := s.Store.DB.QueryRow("SELECT id, display_name, role, chat_color FROM users WHERE id=? AND active=1", id)
 	u := &db.User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor); err != nil {
 		return nil, err
 	}
 	return u, nil

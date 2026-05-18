@@ -19,6 +19,7 @@ const VIEW_THEME = 'theme';
 let currentView = VIEW_CHAT;
 let myRole = 'member';
 let myUserID = '';
+let currentUserChatColor = '';
 const knownDisplayNames = new Set();
 const SIDEBAR_COLLAPSED_KEY = 'veil.sidebarCollapsed';
 let sidebarCollapsed = loadSidebarCollapsed();
@@ -42,7 +43,6 @@ const EMOTICON_MAP = {
 };
 const PBKDF2_ITERS = 600000;
 const THEME_STORAGE_KEY = 'veil.theme';
-const USER_COLOR_STORAGE_KEY = 'veil.userColors';
 const VEIL_THEME = {
   bg:'#0b0f17',
   bg2:'#121827',
@@ -76,7 +76,7 @@ const THEME_PRESETS = {
 
 const esc = (s) => String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
 const hashName = (n) => { let h=0; for(let i=0;i<n.length;i++) h=((h<<5)-h)+n.charCodeAt(i); return Math.abs(h); };
-let customUserColors = loadUserColors();
+let customUserColors = {};
 let historyLoadSeq = 0;
 let oldestLoadedRowID = 0;
 let hasMoreHistory = true;
@@ -112,29 +112,11 @@ function setSidebarCollapsed(next){
 function shouldAutoCollapseSidebarOnNav(){
   return window.matchMedia('(max-width: 980px)').matches;
 }
-function loadUserColors(){
-  try{
-    const raw=JSON.parse(localStorage.getItem(USER_COLOR_STORAGE_KEY)||'{}');
-    const out={};
-    for(const [name,color] of Object.entries(raw||{})){
-      const safeName=String(name||'').trim();
-      const safeColor=normalizeHexColor(color);
-      if(safeName && safeColor) out[safeName]=safeColor;
-    }
-    return out;
-  }catch{
-    return {};
-  }
-}
-function saveUserColors(){
-  localStorage.setItem(USER_COLOR_STORAGE_KEY, JSON.stringify(customUserColors));
-}
 function setUserColor(name,color){
   const safeName=String(name||'').trim();
   const safeColor=normalizeHexColor(color);
   if(!safeName || !safeColor) return;
   customUserColors[safeName]=safeColor;
-  saveUserColors();
 }
 function refreshRenderedUserColor(name){
   const safeName=String(name||'').trim();
@@ -403,7 +385,7 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   if(roomBytes.length!==32) throw new Error('Invalid room key in file');
   return bytesToHex(roomBytes);
 }
-function drawLine(name,text,ts=''){ const c=userColor(name); return `<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span>`; }
+function drawLine(name,text,ts='', color=''){ const c=color || userColor(name); return `<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span>`; }
 function parseMessagePayload(text){
   try{
     const payload=JSON.parse(text);
@@ -446,7 +428,7 @@ function drawMessage(record, text){
   const senderID = String(record.sender_id || '');
   const rowID = Number(record.row_id || 0);
   const isMine = !!myUserID && senderID === myUserID;
-  const c=userColor(name);
+  const c=normalizeHexColor(record.chat_color || '') || userColor(name);
   const payload=parseMessagePayload(text);
   const replyToID = String(record.reply_to_id || payload.replyToID || '');
   const deleted = String(record.deleted_at || '').trim() !== '';
@@ -456,7 +438,7 @@ function drawMessage(record, text){
   const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
   const actions = `<span class="line-actions">${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}">Edit</button><button class="tiny-action danger" data-delete-msg="${esc(messageID)}">Delete</button>` : ''}<button class="tiny-action" data-reply-msg="${esc(messageID)}">Reply</button></span>`;
   if(deleted){
-    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${drawLine(name,'[message deleted]',ts)}${statusHTML}${actions}</div>`;
+    return `<div class="line" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${actions}</div>`;
   }
   if(payload.type==='file'){
     const src=`data:${payload.mime};base64,${payload.data}`;
@@ -635,4 +617,3 @@ async function exportKeys(passphrase){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(()=>URL.revokeObjectURL(url),2000);
 }
-

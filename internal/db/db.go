@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
   role TEXT NOT NULL,
+  chat_color TEXT NOT NULL DEFAULT '',
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
@@ -93,6 +94,12 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 		return err
 	}
 	if err := ensureUsersActiveColumn(db); err != nil {
+		return err
+	}
+	if err := ensureUsersChatColorColumn(db); err != nil {
+		return err
+	}
+	if err := backfillUsersChatColors(db); err != nil {
 		return err
 	}
 	if err := ensureMessagesColumns(db); err != nil {
@@ -175,6 +182,62 @@ func ensureMessagesColumns(db *sql.DB) error {
 	}
 	if !hasDeletedAt {
 		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN deleted_at TEXT"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ensureUsersChatColorColumn(db *sql.DB) error {
+	rows, err := db.Query("PRAGMA table_info(users)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	hasChatColor := false
+	for rows.Next() {
+		var cid int
+		var name, colType string
+		var notNull, pk int
+		var defaultValue any
+		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
+			return err
+		}
+		if name == "chat_color" {
+			hasChatColor = true
+			break
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if hasChatColor {
+		return nil
+	}
+	_, err = db.Exec("ALTER TABLE users ADD COLUMN chat_color TEXT NOT NULL DEFAULT ''")
+	return err
+}
+
+func backfillUsersChatColors(db *sql.DB) error {
+	rows, err := db.Query("SELECT id FROM users WHERE TRIM(chat_color)=''")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	for _, id := range ids {
+		if _, err := db.Exec("UPDATE users SET chat_color=? WHERE id=?", defaultChatColorForUserID(id), id); err != nil {
 			return err
 		}
 	}

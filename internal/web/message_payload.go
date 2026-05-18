@@ -13,6 +13,7 @@ func outboundMessageData(msg *db.Message, clientMsgID string) map[string]string 
 		"sender_id":     msg.SenderID,
 		"created_at":    msg.CreatedAt,
 		"display_name":  msg.DisplayName,
+		"chat_color":    msg.ChatColor,
 		"ciphertext":    msg.Ciphertext,
 		"nonce":         msg.Nonce,
 		"reply_to_id":   msg.ReplyToID,

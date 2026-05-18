@@ -56,15 +56,21 @@ func TestWebSocketTypingAndMessageBroadcast(t *testing.T) {
 	if err := conn.WriteJSON(map[string]any{"type": "typing", "typing": true}); err != nil {
 		t.Fatal(err)
 	}
-	var typing struct {
-		Type string            `json:"type"`
-		Data map[string]string `json:"data"`
-	}
-	if err := conn.ReadJSON(&typing); err != nil {
-		t.Fatal(err)
-	}
-	if typing.Type != "typing" || typing.Data["typing"] != "1" || typing.Data["user_id"] != "u1" {
-		t.Fatalf("unexpected typing event: %#v", typing)
+	for {
+		var typing struct {
+			Type string            `json:"type"`
+			Data map[string]string `json:"data"`
+		}
+		if err := conn.ReadJSON(&typing); err != nil {
+			t.Fatal(err)
+		}
+		if typing.Type != "typing" {
+			continue
+		}
+		if typing.Data["typing"] != "1" || typing.Data["user_id"] != "u1" {
+			t.Fatalf("unexpected typing event: %#v", typing)
+		}
+		break
 	}
 
 	if err := conn.WriteJSON(map[string]any{

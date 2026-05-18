@@ -29,6 +29,12 @@ func TestMessageLifecycleAndPagination(t *testing.T) {
 	s := makeStore(t)
 	insertUser(t, s, "u1", "alice", "member")
 	insertUser(t, s, "u2", "bob", "member")
+	if err := s.SetUserChatColor("u1", "#aa11bb"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetUserChatColor("u2", "#11bbaa"); err != nil {
+		t.Fatal(err)
+	}
 
 	m1, err := s.SaveMessage("u1", "alice", "ct1", "n1", "")
 	if err != nil {
@@ -56,6 +62,9 @@ func TestMessageLifecycleAndPagination(t *testing.T) {
 	if page1[1]["reply_to_id"] != m1.ID {
 		t.Fatalf("expected reply_to_id=%s, got %s", m1.ID, page1[1]["reply_to_id"])
 	}
+	if page1[0]["chat_color"] == "" || page1[1]["chat_color"] == "" {
+		t.Fatalf("expected chat_color on listed messages, got %#v", page1)
+	}
 
 	page2, err := s.ListRecentMessages(2, m2.RowID)
 	if err != nil {
@@ -63,6 +72,17 @@ func TestMessageLifecycleAndPagination(t *testing.T) {
 	}
 	if len(page2) != 1 || page2[0]["id"] != m1.ID {
 		t.Fatalf("unexpected second page: %#v", page2)
+	}
+}
+
+func TestSetUserChatColorValidation(t *testing.T) {
+	s := makeStore(t)
+	insertUser(t, s, "u1", "alice", "member")
+	if err := s.SetUserChatColor("u1", "#123abc"); err != nil {
+		t.Fatalf("expected valid color to persist: %v", err)
+	}
+	if err := s.SetUserChatColor("u1", "nope"); err == nil {
+		t.Fatal("expected invalid color to be rejected")
 	}
 }
 

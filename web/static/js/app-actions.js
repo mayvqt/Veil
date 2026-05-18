@@ -533,6 +533,22 @@ function bindThemeActions(){
       refreshRenderedUserColor(currentDisplayName || '');
       setStatus(status, 'Previewing chat name color.');
     });
+    chatColorInput.addEventListener('change', async()=>{
+      const nextColor=normalizeHexColor(chatColorInput.value);
+      if(!nextColor || !currentDisplayName){
+        setStatus(status, 'Pick a valid chat name color first.', 'err');
+        return;
+      }
+      setUserColor(currentDisplayName, nextColor);
+      refreshRenderedUserColor(currentDisplayName);
+      const r=await api('/api/profile/color',{method:'POST',body:JSON.stringify({chat_color:nextColor})});
+      if(!r.ok){
+        setStatus(status, r.data.error || 'Failed to save chat name color.', 'err');
+        return;
+      }
+      currentUserChatColor=nextColor;
+      setStatus(status, 'Chat name color saved for everyone.', 'ok');
+    });
   }
 }
 
@@ -746,4 +762,3 @@ async function chatView(){
   await refreshRoomName();
   await renderMain();
 }
-
