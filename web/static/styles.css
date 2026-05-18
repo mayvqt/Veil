@@ -45,6 +45,7 @@
       --radius-sm: 8px;
       --radius-md: 12px;
       --radius-lg: 16px;
+      --emoji-inline-size: 3em;
     }
     * { box-sizing: border-box; }
     html, body {
@@ -598,14 +599,14 @@
       margin: 0 auto;
     }
     .reaction-emoji-img {
-      width: 1.1em;
-      height: 1.1em;
+      width: var(--emoji-inline-size);
+      height: var(--emoji-inline-size);
       object-fit: contain;
       vertical-align: -.16em;
     }
     .inline-custom-emoji {
-      width: 1.2em;
-      height: 1.2em;
+      width: var(--emoji-inline-size);
+      height: var(--emoji-inline-size);
       object-fit: contain;
       vertical-align: -.2em;
     }

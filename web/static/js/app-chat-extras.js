@@ -71,9 +71,33 @@ function openReactionPicker(anchorBtn, messageID) {
   }
   reactionPickerMessageID = messageID;
   const rect = anchorBtn.getBoundingClientRect();
-  picker.style.left = `${Math.max(12, Math.round(rect.left))}px`;
-  picker.style.top = `${Math.round(rect.bottom + 8)}px`;
   picker.hidden = false;
+  const margin = 12;
+  const gap = 8;
+  const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+  const pickerW = picker.offsetWidth || 0;
+  const pickerH = picker.offsetHeight || 0;
+
+  let left = Math.round(rect.left);
+  if (pickerW > 0 && viewportW > 0) {
+    left = Math.min(left, viewportW - pickerW - margin);
+  }
+  left = Math.max(margin, left);
+
+  const belowTop = Math.round(rect.bottom + gap);
+  const aboveTop = Math.round(rect.top - pickerH - gap);
+  const fitsBelow = pickerH > 0 ? belowTop + pickerH <= viewportH - margin : false;
+  const fitsAbove = pickerH > 0 ? aboveTop >= margin : false;
+  let top = belowTop;
+  if (!fitsBelow && fitsAbove) {
+    top = aboveTop;
+  } else if (!fitsBelow && !fitsAbove && pickerH > 0 && viewportH > 0) {
+    top = Math.max(margin, viewportH - pickerH - margin);
+  }
+
+  picker.style.left = `${left}px`;
+  picker.style.top = `${top}px`;
 }
 
 function bindSearchPopover(searchWrapEl, searchInputEl, searchToggleEl) {
