@@ -163,6 +163,10 @@ function profilePanelHTML(){
   const member = roomMembers.find((m)=>String(m.id||'')===String(myUserID||'')) || {};
   const avatarURL = String(member.avatar_url || '');
   const ringEnabled = normalizeHexColorAlpha(currentAvatarRingColor || '') !== '';
+  const ringAlpha1 = String(hexColorAlpha(currentAvatarRingColor));
+  const ringAlpha2 = String(hexColorAlpha(currentAvatarRingColor2));
+  const ringAlpha3 = String(hexColorAlpha(currentAvatarRingColor3));
+  const ringAlpha4 = String(hexColorAlpha(currentAvatarRingColor4));
   const profilePreview = avatarMarkup(currentDisplayName || 'member', avatarURL, member);
   return `
     <section class="main utility">
@@ -196,32 +200,32 @@ function profilePanelHTML(){
             <input id="profile-avatar-ring-color" type="color" value="${esc(hexColorBase(currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName||''), '#ff9d66'))}"/>
           </div>
           <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha">Primary Opacity<span>${esc(String(hexColorAlpha(currentAvatarRingColor)))}%</span></label>
-            <input id="profile-avatar-ring-alpha" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor)))}"/>
+            <label for="profile-avatar-ring-alpha">Primary Opacity<span>${esc(ringAlpha1)}%</span></label>
+            <input id="profile-avatar-ring-alpha" type="range" min="0" max="100" step="1" value="${esc(ringAlpha1)}"/>
           </div>
           <div class="theme-row">
             <label for="profile-avatar-ring-color2">Secondary<span>Color</span></label>
             <input id="profile-avatar-ring-color2" type="color" value="${esc(hexColorBase(currentAvatarRingColor2 || currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName||''), '#ff78b2'))}"/>
           </div>
           <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha2">Secondary Opacity<span>${esc(String(hexColorAlpha(currentAvatarRingColor2)))}%</span></label>
-            <input id="profile-avatar-ring-alpha2" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor2)))}"/>
+            <label for="profile-avatar-ring-alpha2">Secondary Opacity<span>${esc(ringAlpha2)}%</span></label>
+            <input id="profile-avatar-ring-alpha2" type="range" min="0" max="100" step="1" value="${esc(ringAlpha2)}"/>
           </div>
           <div class="theme-row">
             <label for="profile-avatar-ring-color3">Rainbow 3<span>Color</span></label>
             <input id="profile-avatar-ring-color3" type="color" value="${esc(hexColorBase(currentAvatarRingColor3 || '#57db84', '#57db84'))}"/>
           </div>
           <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha3">Rainbow 3 Opacity<span>${esc(String(hexColorAlpha(currentAvatarRingColor3)))}%</span></label>
-            <input id="profile-avatar-ring-alpha3" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor3)))}"/>
+            <label for="profile-avatar-ring-alpha3">Rainbow 3 Opacity<span>${esc(ringAlpha3)}%</span></label>
+            <input id="profile-avatar-ring-alpha3" type="range" min="0" max="100" step="1" value="${esc(ringAlpha3)}"/>
           </div>
           <div class="theme-row">
             <label for="profile-avatar-ring-color4">Rainbow 4<span>Color</span></label>
             <input id="profile-avatar-ring-color4" type="color" value="${esc(hexColorBase(currentAvatarRingColor4 || '#9d7bff', '#9d7bff'))}"/>
           </div>
           <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha4">Rainbow 4 Opacity<span>${esc(String(hexColorAlpha(currentAvatarRingColor4)))}%</span></label>
-            <input id="profile-avatar-ring-alpha4" type="range" min="0" max="100" step="1" value="${esc(String(hexColorAlpha(currentAvatarRingColor4)))}"/>
+            <label for="profile-avatar-ring-alpha4">Rainbow 4 Opacity<span>${esc(ringAlpha4)}%</span></label>
+            <input id="profile-avatar-ring-alpha4" type="range" min="0" max="100" step="1" value="${esc(ringAlpha4)}"/>
           </div>
           <div class="theme-row wide-control">
             <label for="profile-avatar-ring-mode">Animation<span>Mode</span></label>
@@ -446,30 +450,31 @@ async function loadHistory({appendOlder=false}={}){
   if(!history.ok) return;
   const list = Array.isArray(history.data.messages) ? history.data.messages : [];
   const renderList = appendOlder ? list : [...list].reverse();
-  if(history.data && typeof history.data.my_user_id==='string' && history.data.my_user_id) myUserID = history.data.my_user_id;
-  if(history.data && typeof history.data.my_chat_color==='string'){
-    const selfColor=normalizeHexColor(history.data.my_chat_color);
+  const data = history.data || {};
+  if(typeof data.my_user_id==='string' && data.my_user_id) myUserID = data.my_user_id;
+  if(typeof data.my_chat_color==='string'){
+    const selfColor=normalizeHexColor(data.my_chat_color);
     if(selfColor){
       currentUserChatColor=selfColor;
       setUserColor(currentDisplayName || '', selfColor);
     }
   }
-  if(history.data && typeof history.data.my_avatar_ring_color==='string'){
-    currentAvatarRingColor=normalizeHexColorAlpha(history.data.my_avatar_ring_color);
+  if(typeof data.my_avatar_ring_color==='string'){
+    currentAvatarRingColor=normalizeHexColorAlpha(data.my_avatar_ring_color);
   }
-  if(history.data && typeof history.data.my_avatar_ring_color2==='string'){
-    currentAvatarRingColor2=normalizeHexColorAlpha(history.data.my_avatar_ring_color2);
+  if(typeof data.my_avatar_ring_color2==='string'){
+    currentAvatarRingColor2=normalizeHexColorAlpha(data.my_avatar_ring_color2);
   }
-  if(history.data && typeof history.data.my_avatar_ring_color3==='string'){
-    currentAvatarRingColor3=normalizeHexColorAlpha(history.data.my_avatar_ring_color3);
+  if(typeof data.my_avatar_ring_color3==='string'){
+    currentAvatarRingColor3=normalizeHexColorAlpha(data.my_avatar_ring_color3);
   }
-  if(history.data && typeof history.data.my_avatar_ring_color4==='string'){
-    currentAvatarRingColor4=normalizeHexColorAlpha(history.data.my_avatar_ring_color4);
+  if(typeof data.my_avatar_ring_color4==='string'){
+    currentAvatarRingColor4=normalizeHexColorAlpha(data.my_avatar_ring_color4);
   }
-  if(history.data && typeof history.data.my_avatar_ring_mode==='string'){
-    currentAvatarRingMode=normalizeAvatarRingMode(history.data.my_avatar_ring_mode);
+  if(typeof data.my_avatar_ring_mode==='string'){
+    currentAvatarRingMode=normalizeAvatarRingMode(data.my_avatar_ring_mode);
   }
-  hasMoreHistory = !!history.data.has_more;
+  hasMoreHistory = !!data.has_more;
   if(!appendOlder){
     seenMessageIDs = new Set();
     knownMessages = new Map();
@@ -482,8 +487,8 @@ async function loadHistory({appendOlder=false}={}){
     const rowID=Number(m.row_id||0);
     if(rowID>0 && (oldestLoadedRowID===0 || rowID<oldestLoadedRowID)) oldestLoadedRowID=rowID;
   }
-  if(history.data && history.data.receipts){
-    for(const [uid,row] of Object.entries(history.data.receipts)) readReceipts.set(uid, Number(row||0));
+  if(data.receipts){
+    for(const [uid,row] of Object.entries(data.receipts)) readReceipts.set(uid, Number(row||0));
   }
   if(appendOlder){
     historyLoadingMore=false;
@@ -496,8 +501,10 @@ async function loadHistory({appendOlder=false}={}){
   refreshAllMessageMeta();
 }
 
-async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepend=false}={}){
+async function appendMessageRecord(messagesEl, record, {prepend=false}={}){
   if(!messagesEl || !record) return false;
+  const myUserIDStr = String(myUserID || '');
+  const senderIDStr = String(record.sender_id || '');
   const messageID = String(record.id || '').trim();
   if(messageID){
     if(seenMessageIDs.has(messageID)) return false;
@@ -507,9 +514,9 @@ async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepe
   const recordColor=normalizeHexColor(record.chat_color || '');
   if(recordColor && record.display_name){
     setUserColor(record.display_name, recordColor);
-    if(myUserID && String(record.sender_id||'')===String(myUserID)) currentUserChatColor=recordColor;
+    if(myUserIDStr && senderIDStr===myUserIDStr) currentUserChatColor=recordColor;
   }
-  if(myUserID && String(record.sender_id||'')===String(myUserID)){
+  if(myUserIDStr && senderIDStr===myUserIDStr){
     currentAvatarRingColor=normalizeHexColorAlpha(record.avatar_ring_color || '');
     currentAvatarRingColor2=normalizeHexColorAlpha(record.avatar_ring_color2 || '');
     currentAvatarRingColor3=normalizeHexColorAlpha(record.avatar_ring_color3 || '');
@@ -523,10 +530,9 @@ async function appendMessageRecord(messagesEl, record, {appendOlder=false, prepe
   }
   const parsed=parseMessagePayload(plain);
   const previewText = parsed.type==='text' ? String(parsed.text||plain) : (parsed.caption || `[${parsed.type}]`);
-  knownMessages.set(messageID, {display_name:record.display_name||'', preview:previewText, row_id:Number(record.row_id||0), sender_id:String(record.sender_id||''), edited_at:String(record.edited_at||'')});
+  knownMessages.set(messageID, {display_name:record.display_name||'', preview:previewText, row_id:Number(record.row_id||0), sender_id:senderIDStr, edited_at:String(record.edited_at||'')});
   const row = drawMessage(record, plain);
   if(prepend) messagesEl.insertAdjacentHTML('afterbegin', row);
-  else if(appendOlder) messagesEl.insertAdjacentHTML('beforeend', row);
   else messagesEl.insertAdjacentHTML('beforeend', row);
   return true;
 }
