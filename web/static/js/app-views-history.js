@@ -134,7 +134,6 @@ function settingsSectionHTML(title, body, extraClass=''){
 
 function themePanelHTML(){
   const t=currentTheme();
-  const canCustomizeRoomStatus = isAdminRole(myRole);
   const fields=[
     ['bg','Background','Page base'],
     ['bg2','Depth','Page gradient'],
@@ -170,10 +169,6 @@ function themePanelHTML(){
             ${switchControlHTML('themeAvatarToggle', 'Show avatars', showAvatars)}
             ${switchControlHTML('themeAvatarRingToggle', 'Show avatar rings', showAvatarRings)}
             ${switchControlHTML('themeTimestampToggle', 'Show timestamps on hover', timestampMode==='hover')}
-            ${canCustomizeRoomStatus ? `<div class="theme-row wide-control">
-              <label for="roomStatusText">Room Status Text<span>Shown under room title</span></label>
-              <input id="roomStatusText" type="text" maxlength="48" value="${esc(roomStatusText)}" placeholder="encrypted room"/>
-            </div>` : ''}
           </div>
           <div class="theme-actions settings-footer">
             <button id="resetTheme" class="secondary">Reset</button>

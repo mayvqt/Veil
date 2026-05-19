@@ -591,7 +591,6 @@ function bindThemeActions(){
   const avatarToggle=$('themeAvatarToggle');
   const avatarRingToggle=$('themeAvatarRingToggle');
   const timestampToggle=$('themeTimestampToggle');
-  const roomStatusTextInput=$('roomStatusText');
   const readThemeFromInputs=()=>{
     const theme={};
     for(const input of inputs) theme[input.dataset.themeKey]=input.value;
@@ -623,10 +622,6 @@ function bindThemeActions(){
     resetBtn.onclick=()=>{
       resetTheme();
       fillInputs(DEFAULT_THEME);
-      if(roomStatusTextInput){
-        roomStatusTextInput.value = 'encrypted room';
-        setRoomStatusText('encrypted room');
-      }
       setStatus(status, 'Theme reset.', 'ok');
     };
   }
@@ -655,13 +650,6 @@ function bindThemeActions(){
       timestampToggle.checked = timestampMode==='hover';
       setStatus(status, `Timestamps set to ${timestampMode==='hover' ? 'on hover' : 'always visible'}.`, 'ok');
     };
-  }
-  if(roomStatusTextInput){
-    roomStatusTextInput.value = roomStatusText;
-    roomStatusTextInput.addEventListener('input',()=>{
-      setRoomStatusText(roomStatusTextInput.value);
-      setStatus(status, 'Room status text updated.', 'ok');
-    });
   }
 }
 
