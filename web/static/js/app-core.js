@@ -103,6 +103,7 @@ let roomMembers = [];
 let replyToMessageID = '';
 let reconnectNeedsCatchup = false;
 let typingTimer = null;
+let activeNotificationAudio = null;
 let messageReactions = new Map();
 let myReactions = new Map();
 let pinnedMessageIDs = new Set();
@@ -111,6 +112,8 @@ let customStickerMap = new Map();
 let unreadDividerRowID = 0;
 const NOTIFY_SOUND_KEY = 'veil.notifySound';
 const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
+const NOTIFY_CUSTOM_NAME_KEY = 'veil.notifyCustomName';
+const NOTIFY_CUSTOM_DATA_KEY = 'veil.notifyCustomDataURL';
 const SHOW_AVATARS_KEY = 'veil.showAvatars';
 const SHOW_AVATAR_RINGS_KEY = 'veil.showAvatarRings';
 const TIMESTAMP_MODE_KEY = 'veil.timestampMode';
@@ -130,6 +133,20 @@ let notifyVolume = (() => {
     if(Number.isFinite(raw)) return Math.max(0, Math.min(2, raw));
   } catch {}
   return 0.25;
+})();
+let customNotificationName = (() => {
+  try {
+    return String(localStorage.getItem(NOTIFY_CUSTOM_NAME_KEY) || '').trim();
+  } catch {
+    return '';
+  }
+})();
+let customNotificationDataURL = (() => {
+  try {
+    return String(localStorage.getItem(NOTIFY_CUSTOM_DATA_KEY) || '').trim();
+  } catch {
+    return '';
+  }
 })();
 let showAvatars = (() => {
   try {
@@ -782,6 +799,30 @@ function setNotifyVolume(next){
     localStorage.setItem(NOTIFY_VOLUME_KEY, String(notifyVolume));
   } catch {}
 }
+function setCustomNotificationSound(name, dataURL){
+  customNotificationName = String(name || '').trim();
+  customNotificationDataURL = String(dataURL || '').trim();
+  try {
+    localStorage.setItem(NOTIFY_CUSTOM_NAME_KEY, customNotificationName);
+    localStorage.setItem(NOTIFY_CUSTOM_DATA_KEY, customNotificationDataURL);
+  } catch (err) {
+    customNotificationName = '';
+    customNotificationDataURL = '';
+    try {
+      localStorage.removeItem(NOTIFY_CUSTOM_NAME_KEY);
+      localStorage.removeItem(NOTIFY_CUSTOM_DATA_KEY);
+    } catch {}
+    throw err;
+  }
+}
+function clearCustomNotificationSound(){
+  customNotificationName = '';
+  customNotificationDataURL = '';
+  try {
+    localStorage.removeItem(NOTIFY_CUSTOM_NAME_KEY);
+    localStorage.removeItem(NOTIFY_CUSTOM_DATA_KEY);
+  } catch {}
+}
 function setShowAvatars(next){
   showAvatars = !!next;
   try {
@@ -825,8 +866,28 @@ function updateRoomConnectionStatus(isOnline){
 function unlockAudio(){
   audioUnlocked = true;
 }
-function playNotificationSound(){
-  if(!notifySoundEnabled || !audioUnlocked) return;
+function playNotificationSound(force=false){
+  if((!force && !notifySoundEnabled) || !audioUnlocked) return;
+  if(customNotificationDataURL){
+    if(activeNotificationAudio){
+      activeNotificationAudio.pause();
+      activeNotificationAudio = null;
+    }
+    const audio = new Audio(customNotificationDataURL);
+    activeNotificationAudio = audio;
+    audio.volume = Math.max(0, Math.min(1, notifyVolume));
+    audio.onended = () => {
+      if(activeNotificationAudio === audio) activeNotificationAudio = null;
+    };
+    audio.play().catch(()=>{
+      if(activeNotificationAudio === audio) activeNotificationAudio = null;
+      playBuiltInNotificationTone();
+    });
+    return;
+  }
+  playBuiltInNotificationTone();
+}
+function playBuiltInNotificationTone(){
   const Ctor = window.AudioContext || window.webkitAudioContext;
   if(!Ctor) return;
   const ctx = new Ctor();
