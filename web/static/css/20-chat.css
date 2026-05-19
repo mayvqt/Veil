@@ -1,0 +1,4 @@
+/* Deprecated compatibility shim. Prefer loading the focused chat modules directly. */
+@import url('/static/css/20-chat-shell.css');
+@import url('/static/css/21-message.css');
+@import url('/static/css/22-composer.css');

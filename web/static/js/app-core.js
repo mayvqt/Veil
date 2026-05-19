@@ -35,6 +35,11 @@ let sidebarCollapsed = loadSidebarCollapsed();
 const PASTELS = ['#8bd8bd','#ffd166','#f4978e','#90dbf4','#c1d37f','#ffb86b','#b8f2e6','#f7aef8'];
 const PASSPHRASE_WORDS = ['amber','atlas','birch','bloom','cinder','cobalt','comet','copper','coral','dawn','drift','ember','fern','flint','frost','glow','grove','harbor','hazel','ivory','jade','lilac','lumen','maple','meadow','mist','moss','night','nova','oak','onyx','opal','pearl','pine','plum','quartz','rain','raven','reef','ridge','river','rose','sage','shade','shore','sky','slate','snow','stone','storm','sun','thistle','timber','topaz','vale','velvet','violet','wave','willow','wind'];
 const EMOJI_CHOICES = ['😀','😃','😄','😁','😆','😂','🤣','🙂','😊','😇','😉','😍','🥰','😘','😎','🤩','🥳','🤗','😭','😢','😅','😐','🙃','🤔','🫡','🙌','👏','👍','👎','🙏','💪','✌️','🤝','🔥','✨','💯','❤️','🧡','💛','💚','💙','💜','🤍','🖤','👀','✅','❌','⚠️','🔒','🎉','🚀','⭐','🎯','😴','🤯','😤','😬','🥲','🤖','👋','💬','📌','📎','🛡️','🌈'];
+const ICON_REACT = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/><path d="M8.7 14.3c.9 1.3 2 2 3.3 2s2.4-.7 3.3-2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`;
+const ICON_REPLY = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7 4.5 12 10 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h8.2c3.4 0 6.3 1.7 6.3 5.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
+const ICON_EDIT = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.8V20h3.2L17 10.2l-3.2-3.2L4 16.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m12.9 7.8 3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+const ICON_PIN = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8l-2.1 4.6v3.2l2.8 2.7H7.3l2.8-2.7V8.6L8 4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.5V20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+const ICON_DELETE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.2 7.2V5.8h5.6v1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.2 7.2 9 18.3h6l.8-11.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
 const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 const IMAGE_TYPES = new Set(['image/png','image/jpeg','image/webp','image/gif']);
 const ATTACHMENT_MAX_BYTES = 8 * 1024 * 1024;
@@ -607,7 +612,11 @@ async function unwrapRoomKeyWithPassphrase(cfg,passphrase){
   if(roomBytes.length!==32) throw new Error('Invalid room key in file');
   return bytesToHex(roomBytes);
 }
-function drawLine(name,text,ts='', color=''){ const c=color || userColor(name); return `<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-text">${renderRichText(text)}</span>`; }
+function messageHeaderHTML(name, ts='', color=''){
+  const c=color || userColor(name);
+  return `<span class="line-header"><span class="line-user" data-user-name="${esc(name)}" style="color:${esc(c)}">${esc(name)}</span><span class="line-time">${esc(fmtTime(ts))}</span></span>`;
+}
+function drawLine(name,text,ts='', color=''){ return `${messageHeaderHTML(name,ts,color)}<span class="line-text">${renderRichText(text)}</span>`; }
 function avatarMarkup(name, avatarURL='', record={}){
   const clean = String(name || '').trim();
   const initial = clean ? clean.slice(0, 1).toUpperCase() : '?';
@@ -676,15 +685,11 @@ function drawMessage(record, text){
   const replyHTML = replyToID ? renderReplySnippet(replyToID) : '';
   const reactionHTML = renderReactionsHTML(messageID);
   const canDelete = isMine || isAdminRole(myRole);
-  const iconReact = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="9" cy="10" r="1.1" fill="currentColor"/><circle cx="15" cy="10" r="1.1" fill="currentColor"/><path d="M8.7 14.3c.9 1.3 2 2 3.3 2s2.4-.7 3.3-2" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`;
-  const iconReply = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 7 4.5 12 10 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 12h8.2c3.4 0 6.3 1.7 6.3 5.4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
-  const iconEdit = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16.8V20h3.2L17 10.2l-3.2-3.2L4 16.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m12.9 7.8 3.2 3.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
-  const iconPin = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4h8l-2.1 4.6v3.2l2.8 2.7H7.3l2.8-2.7V8.6L8 4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 14.5V20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
-  const iconDelete = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.8 7.2h12.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M9.2 7.2V5.8h5.6v1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8.2 7.2 9 18.3h6l.8-11.1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`;
-  const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}" title="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}" aria-label="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}">${iconPin}</button>` : '';
-  const actions = `<span class="line-actions"><button class="tiny-action" data-react-msg="${esc(messageID)}" title="Add reaction" aria-label="Add reaction">${iconReact}</button><button class="tiny-action" data-reply-msg="${esc(messageID)}" title="Reply" aria-label="Reply">${iconReply}</button>${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}" title="Edit message" aria-label="Edit message">${iconEdit}</button>` : ''}${pinBtn}${canDelete ? `<button class="tiny-action danger" data-delete-msg="${esc(messageID)}" title="Delete message" aria-label="Delete message">${iconDelete}</button>` : ''}</span>`;
+  const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}" title="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}" aria-label="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}">${ICON_PIN}</button>` : '';
+  const actions = `<span class="line-actions"><button class="tiny-action" data-react-msg="${esc(messageID)}" title="Add reaction" aria-label="Add reaction">${ICON_REACT}</button><button class="tiny-action" data-reply-msg="${esc(messageID)}" title="Reply" aria-label="Reply">${ICON_REPLY}</button>${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}" title="Edit message" aria-label="Edit message">${ICON_EDIT}</button>` : ''}${pinBtn}${canDelete ? `<button class="tiny-action danger" data-delete-msg="${esc(messageID)}" title="Delete message" aria-label="Delete message">${ICON_DELETE}</button>` : ''}</span>`;
   const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
   const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '', record) : '';
+  const headerHTML = messageHeaderHTML(name, ts, c);
   const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
   if(deleted){
     return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name,'[message deleted]',ts,c)}${statusHTML}${reactionHTML}${actions}</div>`;
@@ -692,15 +697,15 @@ function drawMessage(record, text){
   if(payload.type==='file'){
     const src=`data:${payload.mime};base64,${payload.data}`;
     const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${pinBadge}${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}<span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>${reactionHTML}${actions}</span></div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${headerHTML}<span class="line-media">${pinBadge}${replyHTML}<a class="file-link" href="${esc(src)}" download="${esc(payload.name)}">${esc(payload.name)}</a><span class="image-meta">${esc(payload.mime)} · ${esc(formatBytes(payload.size))}</span>${caption}<span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span></span>${reactionHTML}${actions}</div>`;
   }
   if(payload.type!=='image'){
     const textValue = payload.type === 'text' ? payload.text : text;
-    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${pinBadge}${replyHTML}<span class="line-text">${renderRichText(textValue)}</span><span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>${reactionHTML}${actions}</span></div>`;
+    return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${headerHTML}<span class="line-media">${pinBadge}${replyHTML}<span class="line-text">${renderRichText(textValue)}</span><span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span></span>${reactionHTML}${actions}</div>`;
   }
   const src=`data:${payload.mime};base64,${payload.data}`;
   const caption=payload.caption ? `<span class="line-text">${renderRichText(payload.caption)}</span>` : '';
-  return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}<span class="line-time">${esc(fmtTime(ts))}</span><span class="line-user" data-user-name="${esc(name)}" style="color:${c}">${esc(name)}:</span><span class="line-media">${pinBadge}${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}<span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span>${reactionHTML}${actions}</span></div>`;
+  return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${headerHTML}<span class="line-media">${pinBadge}${replyHTML}<img class="chat-image" src="${esc(src)}" alt="${esc(payload.name)}" data-full-image="${esc(src)}"/><span class="image-meta">${esc(payload.name)} · ${esc(formatBytes(payload.size))}</span>${caption}<span class="line-meta" data-meta-msg="${esc(messageID)}"${editedTitle}>${edited ? 'edited' : ''}${edited && status ? ' · ' : ''}${status}</span></span>${reactionHTML}${actions}</div>`;
 }
 
 function renderReactionsHTML(messageID){

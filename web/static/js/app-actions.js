@@ -225,6 +225,24 @@ function bindChatActions(){
     const clearBtn=$('clearAttachment');
     if(clearBtn) clearBtn.onclick=clearAttachment;
   };
+  const bindImageDropTarget=(targetEl,{focusAfterDrop=false}={})=>{
+    if(!targetEl) return;
+    targetEl.addEventListener('dragover',(e)=>{
+      if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
+        e.preventDefault();
+        input.classList.add('drop-ready');
+      }
+    });
+    targetEl.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
+    targetEl.addEventListener('drop',(e)=>{
+      input.classList.remove('drop-ready');
+      const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
+      if(!file) return;
+      e.preventDefault();
+      attachFile(file).catch(()=>alert('Image drop failed.'));
+      if(focusAfterDrop) input.focus();
+    });
+  };
   const attachFile=async(file)=>{
     if(!file) return;
     const mime=normalizeMime(file.type) || 'application/octet-stream';
@@ -350,36 +368,9 @@ function bindChatActions(){
     e.preventDefault();
     attachFile(file).catch(()=>alert('Image paste failed.'));
   });
-
-  input.addEventListener('dragover',(e)=>{
-    if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
-      e.preventDefault();
-      input.classList.add('drop-ready');
-    }
-  });
-  input.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
-  input.addEventListener('drop',(e)=>{
-    input.classList.remove('drop-ready');
-    const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
-    if(!file) return;
-    e.preventDefault();
-    attachFile(file).catch(()=>alert('Image drop failed.'));
-  });
+  bindImageDropTarget(input);
   if(composer){
-    composer.addEventListener('dragover',(e)=>{
-      if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
-        e.preventDefault();
-        input.classList.add('drop-ready');
-      }
-    });
-    composer.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
-    composer.addEventListener('drop',(e)=>{
-      input.classList.remove('drop-ready');
-      const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
-      if(!file) return;
-      e.preventDefault();
-      attachFile(file).catch(()=>alert('Image drop failed.'));
-    });
+    bindImageDropTarget(composer);
   }
   if(messages){
     messages.addEventListener('scroll',()=>{
@@ -387,7 +378,7 @@ function bindChatActions(){
       if(messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
       historyLoadingMore=true;
       loadHistory({appendOlder:true});
-    });
+    }, {passive:true});
     messages.addEventListener('click', async(e)=>{
       const target=e.target;
       if(!(target instanceof Element)) return;
@@ -421,21 +412,7 @@ function bindChatActions(){
         return;
       }
     });
-    messages.addEventListener('dragover',(e)=>{
-      if([...(e.dataTransfer?.items || [])].some((it)=>it.kind==='file' && IMAGE_TYPES.has(it.type))){
-        e.preventDefault();
-        input.classList.add('drop-ready');
-      }
-    });
-    messages.addEventListener('dragleave',()=>input.classList.remove('drop-ready'));
-    messages.addEventListener('drop',(e)=>{
-      input.classList.remove('drop-ready');
-      const file=[...(e.dataTransfer?.files || [])].find((f)=>IMAGE_TYPES.has(f.type));
-      if(!file) return;
-      e.preventDefault();
-      attachFile(file).catch(()=>alert('Image drop failed.'));
-      input.focus();
-    });
+    bindImageDropTarget(messages, {focusAfterDrop:true});
   }
 
   sendBtn.onclick=async()=>{

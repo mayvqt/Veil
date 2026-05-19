@@ -1,0 +1,107 @@
+    :root {
+      --bg: #130f12;
+      --bg-2: #20141c;
+      --ink: #f9edf5;
+      --muted: #c3a6b9;
+      --quiet: #9a7d8f;
+      --panel: #2b1b27;
+      --panel-2: #3a2534;
+      --surface: #1f141c;
+      --surface-2: #2a1b26;
+      --line: #533244;
+      --line-2: #6a4157;
+      --accent: #ff9d66;
+      --accent-2: #ff78b2;
+      --accent-soft: rgba(255,157,102,.14);
+      --focus-ring: rgba(255,157,102,.24);
+      --accent-grid: rgba(255,157,102,.09);
+      --app-shell: rgba(19,15,18,.94);
+      --sidebar-a: rgba(43,27,39,.98);
+      --sidebar-b: rgba(28,19,26,.98);
+      --topbar-bg: rgba(31,20,28,.74);
+      --composer-bg: rgba(31,20,28,.86);
+      --panel-grad-a: rgba(55,34,49,.88);
+      --panel-grad-b: rgba(31,20,28,.95);
+      --chat-grad-a: rgba(43,27,39,.92);
+      --chat-grad-b: rgba(28,19,26,.98);
+      --button-a: #d17346;
+      --button-b: #af5e35;
+      --button-hover-a: #ea8757;
+      --button-hover-b: #ca6f42;
+      --placeholder: #9e8093;
+      --active-ink: #fff4fb;
+      --danger: #ff7f9b;
+      --mention-self: #4bffa8;
+      --ok: #ff78b2;
+      --local-bg-image: none;
+      --local-bg-app-a: .57;
+      --local-bg-app-b: .68;
+      --local-bg-main-a: .54;
+      --local-bg-main-b: .64;
+      --local-bg-chat-a: .52;
+      --local-bg-chat-b: .62;
+      --local-bg-bar: .61;
+      --shadow: 0 20px 56px rgba(0, 0, 0, .38);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --control-h: 40px;
+      --floating-shadow: 0 14px 30px rgba(0,0,0,.3);
+      --elevated-shadow: 0 10px 22px rgba(0,0,0,.24);
+      --message-actions-offset-y: -10px;
+      --overlay-13: rgba(0,0,0,.13);
+      --overlay-14: rgba(0,0,0,.14);
+      --overlay-20: rgba(0,0,0,.2);
+      --overlay-36: rgba(0,0,0,.36);
+      --overlay-78: rgba(0,0,0,.78);
+      --emoji-inline-size: 3em;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      min-height: 100%;
+      width: 100%;
+      background-color: var(--bg);
+      background:
+        linear-gradient(135deg, var(--accent-grid) 0 1px, transparent 1px 16px),
+        linear-gradient(180deg, var(--bg-2), var(--bg));
+      color: var(--ink);
+      font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
+    }
+    body {
+      min-height: 100vh;
+      min-height: 100svh;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
+      overflow-x: hidden;
+      overflow-y: hidden;
+      overscroll-behavior: none;
+    }
+    .app {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100vh;
+      height: 100svh;
+      height: 100dvh;
+      height: -webkit-fill-available;
+      min-height: 100vh;
+      min-height: 100svh;
+      min-height: 100dvh;
+      min-height: -webkit-fill-available;
+      display: grid;
+      background: var(--app-shell);
+      overflow: hidden;
+    }
+    .has-local-bg .app {
+      background:
+        linear-gradient(180deg, rgba(0,0,0,var(--local-bg-app-a)), rgba(0,0,0,var(--local-bg-app-b))),
+        var(--local-bg-image) center / cover no-repeat fixed,
+        var(--app-shell);
+    }
