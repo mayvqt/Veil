@@ -1,90 +1,134 @@
-    .boot-wrap {
-      min-height: 100vh;
-      min-height: 100svh;
-      min-height: 100dvh;
-      display: grid;
-      place-items: center;
-      padding: 18px;
-      overflow: auto;
-      background:
-        radial-gradient(circle at 12% 18%, var(--accent-soft), transparent 260px),
-        linear-gradient(135deg, var(--accent-grid) 0 1px, transparent 1px 16px),
-        linear-gradient(180deg, var(--bg-2), var(--bg));
-    }
-    .boot-card {
-      width: min(760px, 100%);
-      border: 1px solid var(--line);
-      background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow);
-      padding: 26px;
-      display: grid;
-      gap: 16px;
-    }
-    .setup-card {
-      width: min(520px, 100%);
-    }
-    .boot-header {
-      display: grid;
-      gap: 6px;
-    }
-    .boot-grid { display: grid; gap: 10px; }
-    .boot-form {
-      grid-template-columns: 1fr;
-    }
-    .boot-title { font-size: 1.45rem; font-weight: 750; }
-    .split-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-    .access-pane { display: grid; gap: 12px; align-content: start; }
-    .access-pane h3 { margin: 0; font-size: 1rem; }
-    .divider { height: 1px; background: var(--line); margin: 2px 0; }
-    .auth-shell { width: min(780px, 100%); }
-    .invite-shell { width: min(520px, 100%); }
-    .auth-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-    .auth-card {
-      border: 1px solid var(--line);
-      border-radius: var(--radius-sm);
-      background: color-mix(in srgb, var(--surface) 72%, transparent);
-      padding: 18px;
-      display: grid;
-      gap: 12px;
-      align-content: start;
-    }
-    .auth-card h3 {
-      margin: 0;
-      font-size: 1.02rem;
-    }
-    .auth-copy {
-      color: var(--muted);
-      font-size: .9rem;
-      line-height: 1.45;
-    }
-    .auth-actions {
-      display: grid;
-      gap: 10px;
-      grid-template-columns: minmax(0, 1fr);
-      margin-top: 4px;
-    }
-    .status-note {
-      font-size: .82rem;
-      color: var(--quiet);
-      line-height: 1.4;
-    }
+.boot-wrap {
+    min-height: 100vh;
+    min-height: 100svh;
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    overflow: auto;
+    background: radial-gradient(circle at 12% 18%, var(--accent-soft), transparent 260px),
+    linear-gradient(135deg, var(--accent-grid) 0 1px, transparent 1px 16px),
+    linear-gradient(180deg, var(--bg-2), var(--bg));
+}
 
-    @media (max-width: 980px) {
-      .chat-shell {
+.boot-card {
+    width: min(760px, 100%);
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    padding: 26px;
+    display: grid;
+    gap: 16px;
+}
+
+.setup-card {
+    width: min(520px, 100%);
+}
+
+.boot-header {
+    display: grid;
+    gap: 6px;
+}
+
+.boot-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.boot-form {
+    grid-template-columns: 1fr;
+}
+
+.boot-title {
+    font-size: 1.45rem;
+    font-weight: 750;
+}
+
+.split-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.access-pane {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+}
+
+.access-pane h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.divider {
+    height: 1px;
+    background: var(--line);
+    margin: 2px 0;
+}
+
+.auth-shell {
+    width: min(780px, 100%);
+}
+
+.invite-shell {
+    width: min(520px, 100%);
+}
+
+.auth-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.auth-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    padding: 18px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+}
+
+.auth-card h3 {
+    margin: 0;
+    font-size: 1.02rem;
+}
+
+.auth-copy {
+    color: var(--muted);
+    font-size: .9rem;
+    line-height: 1.45;
+}
+
+.auth-actions {
+    display: grid;
+    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    margin-top: 4px;
+}
+
+.status-note {
+    font-size: .82rem;
+    color: var(--quiet);
+    line-height: 1.4;
+}
+
+@media (max-width: 980px) {
+    .chat-shell {
         grid-template-columns: minmax(0, 1fr);
         overflow: auto;
         min-height: 100%;
         padding-bottom: env(safe-area-inset-bottom);
-      }
-      .chat-shell.sidebar-collapsed {
+    }
+
+    .chat-shell.sidebar-collapsed {
         grid-template-columns: minmax(0, 1fr);
-      }
-      .sidebar-backdrop {
+    }
+
+    .sidebar-backdrop {
         display: block;
         position: absolute;
         inset: 0;
@@ -93,12 +137,14 @@
         pointer-events: none;
         z-index: 11;
         transition: opacity .2s ease;
-      }
-      .sidebar-backdrop.open {
+    }
+
+    .sidebar-backdrop.open {
         opacity: 1;
         pointer-events: auto;
-      }
-      .sidebar {
+    }
+
+    .sidebar {
         position: absolute;
         inset: 0 auto 0 0;
         width: min(82vw, 300px);
@@ -107,125 +153,248 @@
         border-right: 1px solid var(--line);
         border-bottom: 0;
         padding: 14px;
-      }
-      .chat-shell.sidebar-collapsed .sidebar {
+    }
+
+    .chat-shell.sidebar-collapsed .sidebar {
         transform: translateX(-110%);
         opacity: 0;
         pointer-events: none;
-      }
-      .chat-shell:not(.sidebar-collapsed) .sidebar {
+    }
+
+    .chat-shell:not(.sidebar-collapsed) .sidebar {
         transform: translateX(0);
         opacity: 1;
         pointer-events: auto;
-      }
-      .chat-shell:not(.sidebar-collapsed) .main {
+    }
+
+    .chat-shell:not(.sidebar-collapsed) .main {
         pointer-events: none;
-      }
-      .nav { grid-template-columns: 1fr; }
-      .whoami { display: none; }
-      .admin-grid { grid-template-columns: 1fr; }
-      .admin-layout { grid-template-columns: 1fr; }
-      .admin-column { gap: 12px; }
-      .theme-grid { grid-template-columns: 1fr; }
-      .auth-grid { grid-template-columns: 1fr; }
-      .settings-stack,
-      .admin-stack,
-      .ring-settings {
+    }
+
+    .nav {
         grid-template-columns: 1fr;
-      }
-      .split-grid { grid-template-columns: 1fr; }
-      .composer {
+    }
+
+    .whoami {
+        display: none;
+    }
+
+    .admin-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-column {
+        gap: 12px;
+    }
+
+    .theme-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-stack,
+    .admin-stack,
+    .ring-settings {
+        grid-template-columns: 1fr;
+    }
+
+    .split-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .composer {
         grid-template-columns: minmax(0, 1fr) 48px 48px 48px 104px;
         grid-template-areas:
           "typing typing typing typing typing"
           "reply reply reply reply reply"
           "attachpreview attachpreview attachpreview attachpreview attachpreview"
           "input attach emoji sticker send";
-      }
-      .mention-picker { left: 12px; right: 12px; }
-      .attachment-preview { grid-template-columns: 76px minmax(0, 1fr); }
-      .attachment-preview button { grid-column: 1 / -1; }
-      .attachment-file-icon { width: 76px; }
     }
-    @media (max-width: 680px) {
-      .app { padding-top: env(safe-area-inset-top); }
-      .topbar { padding: 12px 14px; }
-      .top-actions { gap: 6px; }
-      .chat-search-wrap {
+
+    .mention-picker {
+        left: 12px;
+        right: 12px;
+    }
+
+    .attachment-preview {
+        grid-template-columns: 76px minmax(0, 1fr);
+    }
+
+    .attachment-preview button {
+        grid-column: 1 / -1;
+    }
+
+    .attachment-file-icon {
+        width: 76px;
+    }
+}
+
+@media (max-width: 680px) {
+    .app {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .topbar {
+        padding: 12px 14px;
+    }
+
+    .top-actions {
+        gap: 6px;
+    }
+
+    .chat-search-wrap {
         right: 0;
         top: calc(100% + 8px);
         transform: scale(.98);
-      }
-      .chat-search-wrap.open {
+    }
+
+    .chat-search-wrap.open {
         transform: scale(1);
-      }
-      .chat-search { min-width: min(70vw, 220px); max-width: min(70vw, 220px); }
-      .profile-chip {
+    }
+
+    .chat-search {
+        min-width: min(70vw, 220px);
+        max-width: min(70vw, 220px);
+    }
+
+    .profile-chip {
         max-width: 44px;
         padding-right: 5px;
-      }
-      .profile-chip span:last-child {
+    }
+
+    .profile-chip span:last-child {
         display: none;
-      }
-      .room-title strong {
+    }
+
+    .room-title strong {
         max-width: 42vw;
-      }
-      .member-popover {
+    }
+
+    .member-popover {
         right: 10px;
         top: 52px;
-      }
-      .pin-popover {
+    }
+
+    .pin-popover {
         right: 10px;
         top: 112px;
         width: min(92vw, 360px);
-      }
-      .panel { padding: 0; }
-      .settings-section { border-left: 0; border-right: 0; border-radius: 0; }
-      .theme-row,
-      .theme-row.wide-control,
-      .theme-row.file-row {
+    }
+
+    .panel {
+        padding: 0;
+    }
+
+    .settings-section {
+        border-left: 0;
+        border-right: 0;
+        border-radius: 0;
+    }
+
+    .theme-row,
+    .theme-row.wide-control,
+    .theme-row.file-row {
         grid-template-columns: 1fr;
-      }
-      .composer {
+    }
+
+    .composer {
         padding: 10px 12px;
         gap: 8px;
         grid-template-columns: minmax(0, 1fr) 44px 44px 44px 94px;
-      }
-      #m { min-height: 48px; }
-      .emoji-btn { width: 44px; height: 48px; }
-      #send { min-height: 48px; }
-      .chat-log { padding: 10px; font-size: .84rem; }
-      .line {
-        column-gap: 8px;
-        row-gap: 0;
-      }
-      .line-time { font-size: .72rem; }
-      .chat-image { max-width: 100%; max-height: 280px; }
-      .boot-wrap { padding: 10px; }
-      .boot-card { padding: 16px; gap: 12px; }
-      .boot-title { font-size: 1.2rem; }
     }
 
-    @keyframes fadein {
-      from { opacity: 0; transform: translateY(6px); }
-      to { opacity: 1; transform: translateY(0); }
+    #m {
+        min-height: 48px;
     }
-    @keyframes line-in {
-      0% { opacity: 0; transform: translateX(24px) translateY(5px) scale(.985); filter: blur(1.8px); }
-      55% { opacity: .75; }
-      100% { opacity: 1; transform: translateX(0) translateY(0) scale(1); filter: blur(0); }
+
+    .emoji-btn {
+        width: 44px;
+        height: 48px;
     }
-    @media (prefers-reduced-motion: reduce) {
-      .line,
-      .line-media,
-      .line-actions,
-      .reaction-chip,
-      .admin-card,
-      .topbar,
-      button {
+
+    #send {
+        min-height: 48px;
+    }
+
+    .chat-log {
+        padding: 10px;
+        font-size: .84rem;
+    }
+
+    .line {
+        column-gap: 8px;
+        row-gap: 0;
+    }
+
+    .line-time {
+        font-size: .72rem;
+    }
+
+    .chat-image {
+        max-width: 100%;
+        max-height: 280px;
+    }
+
+    .boot-wrap {
+        padding: 10px;
+    }
+
+    .boot-card {
+        padding: 16px;
+        gap: 12px;
+    }
+
+    .boot-title {
+        font-size: 1.2rem;
+    }
+}
+
+@keyframes fadein {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes line-in {
+    0% {
+        opacity: 0;
+        transform: translateX(24px) translateY(5px) scale(.985);
+        filter: blur(1.8px);
+    }
+    55% {
+        opacity: .75;
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0) translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .line,
+    .line-media,
+    .line-actions,
+    .reaction-chip,
+    .admin-card,
+    .topbar,
+    button {
         transition: none !important;
-      }
-      .line-enter {
-        animation: none !important;
-      }
     }
+
+    .line-enter {
+        animation: none !important;
+    }
+}

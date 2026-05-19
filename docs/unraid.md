@@ -90,8 +90,8 @@ After starting container:
 ## Troubleshooting
 
 - Startup fails with secret warning:
-  - Set `SESSION_SECRET` to a strong non-default value.
+    - Set `SESSION_SECRET` to a strong non-default value.
 - Can load UI but sessions/cookies seem wrong behind proxy:
-  - Set `COOKIE_SECURE=true` and `PUBLIC_ORIGIN=https://your-domain`.
+    - Set `COOKIE_SECURE=true` and `PUBLIC_ORIGIN=https://your-domain`.
 - Data not persisting:
-  - Confirm host path is `/mnt/user/appdata/veil` -> container `/config`.
+    - Confirm host path is `/mnt/user/appdata/veil` -> container `/config`.

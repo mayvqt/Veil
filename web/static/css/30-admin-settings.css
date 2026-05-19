@@ -1,389 +1,495 @@
-    .admin-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-      align-content: start;
-    }
-    .admin-layout {
-      display: grid;
-      grid-template-columns: minmax(0, 1.45fr) minmax(280px, .95fr);
-      gap: 14px;
-      align-content: start;
-    }
-    .admin-column {
-      display: grid;
-      gap: 14px;
-      align-content: start;
-      min-width: 0;
-    }
-    .admin-card {
-      border-color: color-mix(in srgb, var(--line) 78%, var(--accent) 22%);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, var(--panel)), color-mix(in srgb, var(--surface) 85%, black));
-      box-shadow:
-        0 12px 24px rgba(0,0,0,.2),
-        inset 0 1px 0 color-mix(in srgb, var(--ink) 7%, transparent);
-      gap: 10px;
-      transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
-    }
-    .admin-card:hover {
-      transform: translateY(-2px);
-      box-shadow:
-        0 18px 34px rgba(0,0,0,.24),
-        inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
-    }
-    .admin-card-danger {
-      border-color: color-mix(in srgb, var(--line) 70%, var(--danger) 30%);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface) 72%, var(--danger) 28%), color-mix(in srgb, var(--surface) 87%, var(--bg)));
-    }
-    .admin-card h3 {
-      font-size: 1.02rem;
-      letter-spacing: .01em;
-    }
-    .admin-lead {
-      margin: 0;
-      color: var(--muted);
-      font-size: .86rem;
-      line-height: 1.42;
-    }
-    .admin-actions-row {
-      max-width: none;
-    }
-    .admin-actions-row input[type="text"],
-    .admin-actions-row input[type="number"] {
-      min-width: 0;
-      flex: 1 1 220px;
-    }
-    .card {
-      border: 0;
-      border-bottom: 1px solid var(--line);
-      background: transparent;
-      border-radius: 0;
-      padding: 18px 22px;
-      display: grid;
-      gap: 12px;
-      align-content: start;
-      box-shadow: none;
-    }
-    .card:last-child { border-bottom: 0; }
-    .card h3 { margin: 0; font-size: 1rem; }
-    .invite-out {
-      min-height: 56px;
-      max-height: 132px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      background: color-mix(in srgb, var(--panel) 56%, transparent);
-      padding: 10px;
-      border-radius: var(--radius-sm);
-      color: var(--ink);
-      font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
-      font-size: .82rem;
-      word-break: break-all;
-    }
-    .admin-users {
-      display: grid;
-      gap: 8px;
-      max-height: 340px;
-      overflow: auto;
-      border: 1px solid var(--line);
-      background: color-mix(in srgb, var(--surface-2) 45%, transparent);
-      padding: 10px;
-      border-radius: var(--radius-sm);
-    }
-    .admin-user {
-      display: grid;
-      grid-template-columns: minmax(0,1fr) auto;
-      gap: 8px;
-      align-items: center;
-      border: 1px solid var(--line);
-      padding: 10px;
-      border-radius: var(--radius-sm);
-      background: var(--panel);
-    }
-    .admin-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .btn-danger {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 58%, var(--surface)), color-mix(in srgb, var(--danger) 42%, var(--bg)));
-      border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
-    }
-    .admin-user strong { display: block; }
-    .admin-role { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; }
-    .status { font-size: .86rem; color: var(--muted); min-height: 20px; }
-    .status.ok { color: var(--ok); }
-    .status.err { color: var(--danger); }
+.admin-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-content: start;
+}
 
-    .settings-stack {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-      align-content: start;
-    }
-    .settings-section {
-      display: grid;
-      gap: 12px;
-      align-content: start;
-      border: 1px solid var(--line);
-      border-radius: var(--radius-md);
-      background: color-mix(in srgb, var(--surface) 68%, transparent);
-      padding: 16px;
-    }
-    .settings-section h3 {
-      margin: 0;
-      font-size: .95rem;
-    }
-    .settings-stack > .status {
-      grid-column: 1 / -1;
-    }
-    .settings-list {
-      display: grid;
-      gap: 8px;
-    }
-    .settings-footer {
-      padding-top: 2px;
-    }
-    .profile-settings .settings-section:first-child,
-    .profile-settings .settings-section:nth-child(2),
-    .admin-section {
-      grid-column: 1 / -1;
-    }
-    .admin-stack {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-    .admin-stack .admin-section:last-child {
-      grid-column: 1 / -1;
-    }
-    .profile-summary {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      min-height: 48px;
-    }
-    .profile-summary > .avatar-ring {
-      width: 46px;
-      height: 46px;
-      flex: 0 0 auto;
-    }
-    .profile-summary .line-avatar,
-    .profile-summary .line-avatar-img {
-      width: 42px;
-      height: 42px;
-    }
-    .profile-summary strong,
-    .profile-summary span {
-      display: block;
-    }
-    .profile-summary span {
-      color: var(--muted);
-      font-size: .82rem;
-      margin-top: 2px;
-    }
-    .avatar-cropper {
-      display: grid;
-      gap: 12px;
-      border: 1px solid var(--line);
-      background:
-        linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, var(--panel)), color-mix(in srgb, var(--surface) 92%, black));
-      border-radius: var(--radius-md);
-      padding: 12px;
-      box-shadow:
-        0 12px 30px rgba(0,0,0,.25),
-        inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
-    }
-    .avatar-cropper-preview-wrap {
-      display: grid;
-      place-items: center;
-      padding: 10px;
-      border-radius: 999px;
-      background:
-        radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 65%),
-        color-mix(in srgb, var(--panel) 78%, transparent);
-      border: 1px solid color-mix(in srgb, var(--line) 70%, var(--accent) 30%);
-    }
-    .avatar-cropper canvas {
-      width: min(220px, 100%);
-      height: auto;
-      border-radius: 50%;
-      border: 1px solid var(--line-2);
-      background: color-mix(in srgb, var(--panel) 72%, transparent);
-      box-shadow:
-        0 0 0 5px color-mix(in srgb, var(--accent) 12%, transparent),
-        0 14px 24px rgba(0,0,0,.28),
-        inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
-      cursor: grab;
-      touch-action: none;
-      user-select: none;
-      transition: box-shadow .16s ease, transform .16s ease;
-    }
-    .avatar-cropper canvas:hover { transform: translateY(-1px); }
-    .avatar-cropper canvas.dragging { cursor: grabbing; }
-    .avatar-cropper-controls {
-      display: grid;
-      gap: 8px;
-    }
-    .avatar-crop-hint {
-      font-size: .82rem;
-      color: var(--muted);
-      text-align: center;
-      border: 1px dashed color-mix(in srgb, var(--line) 60%, var(--accent) 40%);
-      background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
-      border-radius: var(--radius-sm);
-      padding: 8px 10px;
-    }
-    .ring-settings {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 10px;
-    }
-    .switch-control {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      gap: 12px;
-      align-items: center;
-      min-height: 44px;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      border-radius: var(--radius-sm);
-      padding: 8px 10px;
-      cursor: pointer;
-      font-weight: 650;
-    }
-    .switch-control input {
-      position: absolute;
-      inline-size: 1px;
-      block-size: 1px;
-      opacity: 0;
-      pointer-events: none;
-    }
-    .switch-track {
-      position: relative;
-      width: 44px;
-      height: 24px;
-      border-radius: 999px;
-      border: 1px solid var(--line-2);
-      background: var(--panel);
-      transition: background .18s ease, border-color .18s ease;
-    }
-    .switch-track::after {
-      content: "";
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      top: 2px;
-      left: 3px;
-      border-radius: 50%;
-      background: var(--muted);
-      transition: transform .18s ease, background .18s ease;
-    }
-    .switch-control input:checked + .switch-track {
-      border-color: var(--accent);
-      background: color-mix(in srgb, var(--accent) 28%, var(--panel));
-    }
-    .switch-control input:checked + .switch-track::after {
-      transform: translateX(18px);
-      background: var(--accent);
-    }
-    .switch-control:focus-within {
-      outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
-      outline-offset: 2px;
-    }
+.admin-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .95fr);
+    gap: 14px;
+    align-content: start;
+}
 
-    .theme-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-    .theme-row {
-      display: grid;
-      grid-template-columns: 1fr 52px;
-      gap: 10px;
-      align-items: center;
-      border: 1px solid var(--line);
-      background: var(--surface);
-      border-radius: var(--radius-sm);
-      padding: 10px;
-    }
-    .theme-row.wide-control {
-      grid-template-columns: 1fr minmax(160px, 260px);
-    }
-    .theme-row.file-row {
-      grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
-    }
-    .theme-row label { display: grid; gap: 3px; font-weight: 650; }
-    .theme-row span { color: var(--muted); font-size: .78rem; font-weight: 400; }
-    input[type="color"] {
-      width: 52px;
-      height: 40px;
-      padding: 4px;
-      cursor: pointer;
-    }
-    .theme-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--space-2);
-      max-width: 760px;
-    }
+.admin-column {
+    display: grid;
+    gap: 14px;
+    align-content: start;
+    min-width: 0;
+}
 
-    button, input, select, textarea {
-      border: 1px solid var(--line-2);
-      border-radius: var(--radius-sm);
-      background: var(--surface);
-      color: var(--ink);
-      font: inherit;
-      padding: 10px 12px;
-    }
-    textarea {
-      resize: vertical;
-      min-height: 112px;
-    }
-    button {
-      background: linear-gradient(180deg, var(--button-a), var(--button-b));
-      font-weight: 600;
-      min-height: var(--control-h);
-      cursor: pointer;
-      transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, border-color .16s ease, background .16s ease;
-    }
-    button:hover { background: linear-gradient(180deg, var(--button-hover-a), var(--button-hover-b)); transform: translateY(-1px); box-shadow: var(--elevated-shadow); }
-    button:active { transform: translateY(0); }
-    button.secondary {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 88%, transparent), color-mix(in srgb, var(--surface) 92%, transparent));
-      border-color: color-mix(in srgb, var(--line) 72%, var(--accent) 28%);
-      color: color-mix(in srgb, var(--ink) 90%, var(--muted));
-      box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
-    }
-    button.secondary:hover {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 68%, var(--accent-soft)), color-mix(in srgb, var(--surface) 84%, var(--accent-soft)));
-      border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
-    }
-    button.ghost {
-      background: color-mix(in srgb, var(--surface) 65%, transparent);
-      border-color: color-mix(in srgb, var(--line) 78%, transparent);
-      box-shadow: none;
-    }
-    button.ghost:hover {
-      background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface));
-      border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
-    }
-    button:disabled { opacity: .55; cursor: default; }
-    button.btn-danger {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 58%, var(--surface)), color-mix(in srgb, var(--danger) 42%, var(--bg)));
-      border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
-      color: color-mix(in srgb, var(--active-ink) 92%, var(--danger));
-    }
-    button.btn-danger:hover {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 66%, var(--surface)), color-mix(in srgb, var(--danger) 48%, var(--bg)));
-      border-color: color-mix(in srgb, var(--danger) 65%, var(--line));
-    }
-    input::placeholder, textarea::placeholder { color: var(--placeholder); }
-    input:focus, select:focus, textarea:focus, button:focus-visible {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--focus-ring);
-    }
-    button:focus-visible {
-      box-shadow: 0 0 0 3px var(--focus-ring), var(--elevated-shadow);
-    }
+.admin-card {
+    border-color: color-mix(in srgb, var(--line) 78%, var(--accent) 22%);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, var(--panel)), color-mix(in srgb, var(--surface) 85%, black));
+    box-shadow: 0 12px 24px rgba(0, 0, 0, .2),
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 7%, transparent);
+    gap: 10px;
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+}
+
+.admin-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 34px rgba(0, 0, 0, .24),
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.admin-card-danger {
+    border-color: color-mix(in srgb, var(--line) 70%, var(--danger) 30%);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 72%, var(--danger) 28%), color-mix(in srgb, var(--surface) 87%, var(--bg)));
+}
+
+.admin-card h3 {
+    font-size: 1.02rem;
+    letter-spacing: .01em;
+}
+
+.admin-lead {
+    margin: 0;
+    color: var(--muted);
+    font-size: .86rem;
+    line-height: 1.42;
+}
+
+.admin-actions-row {
+    max-width: none;
+}
+
+.admin-actions-row input[type="text"],
+.admin-actions-row input[type="number"] {
+    min-width: 0;
+    flex: 1 1 220px;
+}
+
+.card {
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    border-radius: 0;
+    padding: 18px 22px;
+    display: grid;
+    gap: 12px;
+    align-content: start;
+    box-shadow: none;
+}
+
+.card:last-child {
+    border-bottom: 0;
+}
+
+.card h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.invite-out {
+    min-height: 56px;
+    max-height: 132px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--panel) 56%, transparent);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    color: var(--ink);
+    font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
+    font-size: .82rem;
+    word-break: break-all;
+}
+
+.admin-users {
+    display: grid;
+    gap: 8px;
+    max-height: 340px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--surface-2) 45%, transparent);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+}
+
+.admin-user {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: center;
+    border: 1px solid var(--line);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+}
+
+.admin-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-danger {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 58%, var(--surface)), color-mix(in srgb, var(--danger) 42%, var(--bg)));
+    border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+}
+
+.admin-user strong {
+    display: block;
+}
+
+.admin-role {
+    font-size: .8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .4px;
+}
+
+.status {
+    font-size: .86rem;
+    color: var(--muted);
+    min-height: 20px;
+}
+
+.status.ok {
+    color: var(--ok);
+}
+
+.status.err {
+    color: var(--danger);
+}
+
+.settings-stack {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    align-content: start;
+}
+
+.settings-section {
+    display: grid;
+    gap: 12px;
+    align-content: start;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--surface) 68%, transparent);
+    padding: 16px;
+}
+
+.settings-section h3 {
+    margin: 0;
+    font-size: .95rem;
+}
+
+.settings-stack > .status {
+    grid-column: 1 / -1;
+}
+
+.settings-list {
+    display: grid;
+    gap: 8px;
+}
+
+.settings-footer {
+    padding-top: 2px;
+}
+
+.profile-settings .settings-section:first-child,
+.profile-settings .settings-section:nth-child(2),
+.admin-section {
+    grid-column: 1 / -1;
+}
+
+.admin-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.admin-stack .admin-section:last-child {
+    grid-column: 1 / -1;
+}
+
+.profile-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 48px;
+}
+
+.profile-summary > .avatar-ring {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 auto;
+}
+
+.profile-summary .line-avatar,
+.profile-summary .line-avatar-img {
+    width: 42px;
+    height: 42px;
+}
+
+.profile-summary strong,
+.profile-summary span {
+    display: block;
+}
+
+.profile-summary span {
+    color: var(--muted);
+    font-size: .82rem;
+    margin-top: 2px;
+}
+
+.avatar-cropper {
+    display: grid;
+    gap: 12px;
+    border: 1px solid var(--line);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 80%, var(--panel)), color-mix(in srgb, var(--surface) 92%, black));
+    border-radius: var(--radius-md);
+    padding: 12px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .25),
+    inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+.avatar-cropper-preview-wrap {
+    display: grid;
+    place-items: center;
+    padding: 10px;
+    border-radius: 999px;
+    background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 65%),
+    color-mix(in srgb, var(--panel) 78%, transparent);
+    border: 1px solid color-mix(in srgb, var(--line) 70%, var(--accent) 30%);
+}
+
+.avatar-cropper canvas {
+    width: min(220px, 100%);
+    height: auto;
+    border-radius: 50%;
+    border: 1px solid var(--line-2);
+    background: color-mix(in srgb, var(--panel) 72%, transparent);
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 14px 24px rgba(0, 0, 0, .28),
+    inset 0 0 0 1px color-mix(in srgb, var(--ink) 10%, transparent);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    transition: box-shadow .16s ease, transform .16s ease;
+}
+
+.avatar-cropper canvas:hover {
+    transform: translateY(-1px);
+}
+
+.avatar-cropper canvas.dragging {
+    cursor: grabbing;
+}
+
+.avatar-cropper-controls {
+    display: grid;
+    gap: 8px;
+}
+
+.avatar-crop-hint {
+    font-size: .82rem;
+    color: var(--muted);
+    text-align: center;
+    border: 1px dashed color-mix(in srgb, var(--line) 60%, var(--accent) 40%);
+    background: color-mix(in srgb, var(--accent-soft) 60%, transparent);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+}
+
+.ring-settings {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.switch-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    min-height: 44px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    cursor: pointer;
+    font-weight: 650;
+}
+
+.switch-control input {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.switch-track {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    border: 1px solid var(--line-2);
+    background: var(--panel);
+    transition: background .18s ease, border-color .18s ease;
+}
+
+.switch-track::after {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    top: 2px;
+    left: 3px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: transform .18s ease, background .18s ease;
+}
+
+.switch-control input:checked + .switch-track {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 28%, var(--panel));
+}
+
+.switch-control input:checked + .switch-track::after {
+    transform: translateX(18px);
+    background: var(--accent);
+}
+
+.switch-control:focus-within {
+    outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+    outline-offset: 2px;
+}
+
+.theme-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.theme-row {
+    display: grid;
+    grid-template-columns: 1fr 52px;
+    gap: 10px;
+    align-items: center;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+}
+
+.theme-row.wide-control {
+    grid-template-columns: 1fr minmax(160px, 260px);
+}
+
+.theme-row.file-row {
+    grid-template-columns: minmax(0, 1fr) minmax(220px, 320px);
+}
+
+.theme-row label {
+    display: grid;
+    gap: 3px;
+    font-weight: 650;
+}
+
+.theme-row span {
+    color: var(--muted);
+    font-size: .78rem;
+    font-weight: 400;
+}
+
+input[type="color"] {
+    width: 52px;
+    height: 40px;
+    padding: 4px;
+    cursor: pointer;
+}
+
+.theme-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    max-width: 760px;
+}
+
+button, input, select, textarea {
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--ink);
+    font: inherit;
+    padding: 10px 12px;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 112px;
+}
+
+button {
+    background: linear-gradient(180deg, var(--button-a), var(--button-b));
+    font-weight: 600;
+    min-height: var(--control-h);
+    cursor: pointer;
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease, border-color .16s ease, background .16s ease;
+}
+
+button:hover {
+    background: linear-gradient(180deg, var(--button-hover-a), var(--button-hover-b));
+    transform: translateY(-1px);
+    box-shadow: var(--elevated-shadow);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button.secondary {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 88%, transparent), color-mix(in srgb, var(--surface) 92%, transparent));
+    border-color: color-mix(in srgb, var(--line) 72%, var(--accent) 28%);
+    color: color-mix(in srgb, var(--ink) 90%, var(--muted));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 8%, transparent);
+}
+
+button.secondary:hover {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--surface-2) 68%, var(--accent-soft)), color-mix(in srgb, var(--surface) 84%, var(--accent-soft)));
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
+}
+
+button.ghost {
+    background: color-mix(in srgb, var(--surface) 65%, transparent);
+    border-color: color-mix(in srgb, var(--line) 78%, transparent);
+    box-shadow: none;
+}
+
+button.ghost:hover {
+    background: color-mix(in srgb, var(--accent-soft) 70%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--line));
+}
+
+button:disabled {
+    opacity: .55;
+    cursor: default;
+}
+
+button.btn-danger {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 58%, var(--surface)), color-mix(in srgb, var(--danger) 42%, var(--bg)));
+    border-color: color-mix(in srgb, var(--danger) 50%, var(--line));
+    color: color-mix(in srgb, var(--active-ink) 92%, var(--danger));
+}
+
+button.btn-danger:hover {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--danger) 66%, var(--surface)), color-mix(in srgb, var(--danger) 48%, var(--bg)));
+    border-color: color-mix(in srgb, var(--danger) 65%, var(--line));
+}
+
+input::placeholder, textarea::placeholder {
+    color: var(--placeholder);
+}
+
+input:focus, select:focus, textarea:focus, button:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+button:focus-visible {
+    box-shadow: 0 0 0 3px var(--focus-ring), var(--elevated-shadow);
+}
 
