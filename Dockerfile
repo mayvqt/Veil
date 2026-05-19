@@ -6,7 +6,10 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 
-COPY . .
+COPY cmd ./cmd
+COPY internal ./internal
+COPY web ./web
+
 RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o /out/veil-server ./cmd/server
 
 FROM debian:bookworm-slim AS runtime

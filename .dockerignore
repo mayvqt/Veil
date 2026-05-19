@@ -3,6 +3,11 @@
 .agents
 .codex
 
+# Documentation and local-only project notes
+*.md
+!README.md
+docs/
+
 # Build outputs / local artifacts
 bin/
 dist/
@@ -21,6 +26,10 @@ coverage.out
 .env
 .env.*
 !.env.example
+.envrc
+*.local
+*.secret
+*.secrets
 *.pem
 *.key
 *.p12

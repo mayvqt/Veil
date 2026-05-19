@@ -15,6 +15,10 @@ coverage.out
 .env
 .env.*
 !.env.example
+.envrc
+*.local
+*.secret
+*.secrets
 
 # Local app data
 data/
