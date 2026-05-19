@@ -160,6 +160,22 @@ func TestMessageReactionsPinsAndAuditEndpoints(t *testing.T) {
 	if _, ok := list["reactions"]; !ok {
 		t.Fatalf("expected reactions in list response, got %#v", list)
 	}
+	authors, ok := list["reaction_authors"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected reaction_authors in list response, got %#v", list)
+	}
+	byEmoji, ok := authors[msg.ID].(map[string]any)
+	if !ok {
+		t.Fatalf("expected reaction authors for message %s, got %#v", msg.ID, authors)
+	}
+	reactors, ok := byEmoji["👍"].([]any)
+	if !ok || len(reactors) != 1 {
+		t.Fatalf("expected one reaction author for emoji, got %#v", byEmoji["👍"])
+	}
+	reactor, ok := reactors[0].(map[string]any)
+	if !ok || reactor["display_name"] != "alice" || reactor["user_id"] != "u1" {
+		t.Fatalf("expected alice as reaction author, got %#v", reactors[0])
+	}
 
 	rr = doReq(t, h, http.MethodPost, "/api/admin/pin-message", userTok, map[string]any{
 		"message_id": msg.ID,

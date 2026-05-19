@@ -52,11 +52,20 @@ function handleReactionUpdate(data) {
     const emoji = String(data.emoji || '');
     const count = Number(data.count || 0);
     const userID = String(data.user_id || '');
+    const displayName = String(data.display_name || '').trim();
     if (!messageID || !emoji) return;
     const counts = messageReactions.get(messageID) || {};
     if (count <= 0) delete counts[emoji];
     else counts[emoji] = count;
     messageReactions.set(messageID, counts);
+    const authors = reactionAuthors.get(messageID) || {};
+    const list = Array.isArray(authors[emoji]) ? authors[emoji].filter((item) => String(item?.user_id || '') !== userID) : [];
+    if (count <= 0) delete authors[emoji];
+    else {
+        if (String(data.active || '') === '1' && userID && displayName) list.push({user_id: userID, display_name: displayName});
+        authors[emoji] = list;
+    }
+    reactionAuthors.set(messageID, authors);
     if (userID === String(myUserID || '')) {
         const mine = myReactions.get(messageID) || {};
         if (String(data.active || '') === '1') mine[emoji] = true;

@@ -41,13 +41,13 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 			messageIDs = append(messageIDs, id)
 		}
 	}
-	reactionCounts, myReactionSet, err := s.Store.ListMessageReactions(messageIDs, u.ID)
+	reactions, err := s.Store.ListMessageReactions(messageIDs, u.ID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load reactions"})
 		return
 	}
 	myReactions := map[string][]string{}
-	for messageID, emojis := range myReactionSet {
+	for messageID, emojis := range reactions.Mine {
 		arr := make([]string, 0, len(emojis))
 		for emoji := range emojis {
 			arr = append(arr, emoji)
@@ -63,7 +63,8 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		"messages":              msgs,
 		"has_more":              len(msgs) >= limit,
 		"receipts":              receipts,
-		"reactions":             reactionCounts,
+		"reactions":             reactions.Counts,
+		"reaction_authors":      reactions.Authors,
 		"my_reactions":          myReactions,
 		"pinned_ids":            pinnedIDs,
 		"my_user_id":            u.ID,
@@ -194,11 +195,12 @@ func (s *Server) reactMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Hub.Broadcast(chat.Outbound{Type: "reaction_update", Data: map[string]string{
-		"message_id": req.MessageID,
-		"user_id":    u.ID,
-		"emoji":      req.Emoji,
-		"count":      strconv.Itoa(count),
-		"active":     boolToFlag(active),
+		"message_id":   req.MessageID,
+		"user_id":      u.ID,
+		"display_name": u.DisplayName,
+		"emoji":        req.Emoji,
+		"count":        strconv.Itoa(count),
+		"active":       boolToFlag(active),
 	}})
 	writeJSON(w, 200, map[string]any{"ok": true, "message_id": req.MessageID, "emoji": req.Emoji, "count": count, "active": active})
 }
