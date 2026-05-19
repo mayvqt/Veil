@@ -305,6 +305,14 @@ function profilePanelHTML(){
             <label for="profile-notify-volume">Volume<span>${esc(String(Math.round(notifyVolume*100)))}%</span></label>
             <input id="profile-notify-volume" type="range" min="0" max="200" step="1" value="${esc(String(Math.round(notifyVolume*100)))}"/>
           </div>
+          <div class="theme-row file-row">
+            <label for="profile-notify-file">Custom Sound<span>${customNotificationName ? `Local: ${esc(customNotificationName)}` : 'Built-in tone'}</span></label>
+            <input id="profile-notify-file" type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/wave,audio/ogg,audio/webm,audio/mp4,audio/x-m4a"/>
+          </div>
+          <div class="theme-actions settings-footer">
+            <button id="profileNotifyTest" class="secondary">Test Sound</button>
+            <button id="profileNotifyClear" class="secondary">Clear Sound</button>
+          </div>
           `)}
           <div id="profileStatus" class="status">Profile preferences apply immediately.</div>
         </div>

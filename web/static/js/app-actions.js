@@ -692,6 +692,9 @@ function bindProfileActions(){
   const chatColorInput=$('profile-chat-color');
   const soundToggle=$('profileSoundToggle');
   const soundVolume=$('profile-notify-volume');
+  const soundFileInput=$('profile-notify-file');
+  const soundTestBtn=$('profileNotifyTest');
+  const soundClearBtn=$('profileNotifyClear');
 
   const readProfileImageDataURL=async(file, maxBytes=4*1024*1024)=>{
     if(!file) throw new Error('Select an image first.');
@@ -713,6 +716,26 @@ function bindProfileActions(){
   };
   const readAvatarDataURL=(file)=>readProfileImageDataURL(file, 4*1024*1024);
   const readBackgroundDataURL=(file)=>readProfileImageDataURL(file, 2*1024*1024);
+  const readNotificationDataURL=async(file)=>{
+    if(!file) throw new Error('Select an audio file first.');
+    const mime=normalizeMime(file.type);
+    const allowed=['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/wave','audio/ogg','audio/webm','audio/mp4','audio/x-m4a'];
+    if(!allowed.includes(mime)){
+      throw new Error('Use mp3, wav, ogg, webm, or m4a audio.');
+    }
+    const maxBytes=2*1024*1024;
+    if(file.size <= 0 || file.size > maxBytes){
+      throw new Error(`Sound must be ${formatBytes(maxBytes)} or smaller.`);
+    }
+    const raw=await new Promise((resolve,reject)=>{
+      const r=new FileReader();
+      r.onload=()=>resolve(String(r.result||''));
+      r.onerror=()=>reject(r.error || new Error('read failed'));
+      r.readAsDataURL(file);
+    });
+    if(!raw.startsWith(`data:${mime};base64,`)) throw new Error('Could not process audio.');
+    return raw;
+  };
   const avatarCropState = {image:null, zoom:100, x:0, y:0};
   const updateCropLabels=()=>{
     if(avatarCropZoomLabel) avatarCropZoomLabel.textContent=`${avatarCropState.zoom}%`;
@@ -1080,6 +1103,36 @@ function bindProfileActions(){
       unlockAudio();
       playNotificationSound();
     });
+  }
+  if(soundFileInput){
+    soundFileInput.onchange=async()=>{
+      const file=soundFileInput.files && soundFileInput.files[0];
+      if(!file) return;
+      try{
+        const dataURL=await readNotificationDataURL(file);
+        setCustomNotificationSound(file.name || 'custom sound', dataURL);
+        unlockAudio();
+        setStatus(status, `Custom notification sound saved locally: ${customNotificationName}.`, 'ok');
+        playNotificationSound();
+      }catch(e){
+        soundFileInput.value='';
+        setStatus(status, e.message || 'Could not save notification sound.', 'err');
+      }
+    };
+  }
+  if(soundTestBtn){
+    soundTestBtn.onclick=()=>{
+      unlockAudio();
+      playNotificationSound(true);
+      setStatus(status, customNotificationName ? `Playing ${customNotificationName}.` : 'Playing built-in notification tone.', 'ok');
+    };
+  }
+  if(soundClearBtn){
+    soundClearBtn.onclick=()=>{
+      clearCustomNotificationSound();
+      if(soundFileInput) soundFileInput.value='';
+      setStatus(status, 'Custom notification sound cleared.', 'ok');
+    };
   }
   if(chatColorInput){
     chatColorInput.addEventListener('input',()=>{

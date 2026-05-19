@@ -43,8 +43,12 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	if rr.Header().Get("X-Frame-Options") != "DENY" {
 		t.Fatalf("expected DENY frame options, got %q", rr.Header().Get("X-Frame-Options"))
 	}
-	if rr.Header().Get("Content-Security-Policy") == "" {
+	csp := rr.Header().Get("Content-Security-Policy")
+	if csp == "" {
 		t.Fatal("expected CSP header")
+	}
+	if !strings.Contains(csp, "media-src 'self' data: blob:") {
+		t.Fatalf("expected CSP to allow local notification media, got %q", csp)
 	}
 }
 
