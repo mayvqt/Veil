@@ -41,16 +41,16 @@
       position: fixed;
       z-index: 28;
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 6px;
-      padding: 10px;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 5px;
+      padding: 8px;
       border: 1px solid var(--line-2);
       border-radius: 12px;
       background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
       box-shadow: var(--shadow);
       animation: fadein .14s ease;
-      max-width: min(360px, calc(100vw - 22px));
-      max-height: min(340px, 62vh);
+      max-width: min(190px, calc(100vw - 22px));
+      max-height: min(220px, 48vh);
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -59,6 +59,8 @@
     }
     .reaction-choice {
       width: 100%;
+      min-width: 0;
+      min-height: 0;
       aspect-ratio: 1;
       border: 1px solid var(--line);
       border-radius: 9px;

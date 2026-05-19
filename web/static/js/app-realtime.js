@@ -172,6 +172,11 @@ async function refreshMembers(){
   if(!res.ok) return;
   const members = Array.isArray(res.data.members) ? res.data.members : [];
   roomMembers = members;
+  members.forEach((member)=>{
+    registerDisplayName(member.display_name || '');
+    const color = normalizeHexColor(member.chat_color || '');
+    if(color && member.display_name) setUserColor(member.display_name, color);
+  });
   onlineUsers = new Set(members.filter((m)=>!!m.online).map((m)=>String(m.id||'')));
   myUserID = res.data.me || myUserID;
   const me = members.find((m)=>String(m.id||'')===String(myUserID||''));

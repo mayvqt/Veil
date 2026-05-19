@@ -84,7 +84,8 @@
       bottom: calc(100% + 10px);
       width: min(320px, calc(100vw - 44px));
       max-height: min(320px, 62vh);
-      overflow: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
       display: none;
       grid-template-columns: repeat(8, 1fr);
       gap: 6px;
@@ -98,6 +99,8 @@
     .emoji-picker.open { display: grid; }
     .emoji-choice {
       width: 100%;
+      min-width: 0;
+      min-height: 0;
       aspect-ratio: 1;
       padding: 0;
       display: grid;

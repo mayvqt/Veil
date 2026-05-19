@@ -140,13 +140,17 @@
     .icon-btn {
       width: 34px;
       min-width: 34px;
+      height: 34px;
+      min-height: 34px;
       padding: 0;
       display: grid;
       place-items: center;
+      line-height: 1;
     }
     .icon-search {
       width: 16px;
       height: 16px;
+      display: block;
       fill: none;
       stroke: currentColor;
       stroke-width: 2;
@@ -236,6 +240,10 @@
       min-height: 32px;
       padding: 6px 10px;
       font-size: .8rem;
+    }
+    .member-toggle.icon-btn {
+      min-height: 34px;
+      padding: 0;
     }
     #memberCount {
       display: inline-block;

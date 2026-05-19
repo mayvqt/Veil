@@ -74,9 +74,10 @@ function openReactionPicker(anchorBtn, messageID) {
   picker.hidden = false;
   const margin = 12;
   const gap = 8;
-  const cellSize = 38;
-  const gridGap = 6;
-  const padX = 20;
+  const cellSize = 30;
+  const gridGap = 5;
+  const padX = 16;
+  const maxPickerColumns = 5;
   const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
   const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
   const choiceCount = picker.querySelectorAll("button[data-reaction-emoji]").length || 1;
@@ -84,13 +85,13 @@ function openReactionPicker(anchorBtn, messageID) {
   const maxColumnsByViewport =
     viewportW > 0
       ? Math.max(1, Math.floor((viewportW - margin * 2 - padX + gridGap) / (cellSize + gridGap)))
-      : 8;
-  const columns = Math.max(1, Math.min(8, choiceCount, maxColumnsByViewport));
+      : maxPickerColumns;
+  const columns = Math.max(1, Math.min(maxPickerColumns, choiceCount, maxColumnsByViewport));
   const computedWidth = padX + columns * cellSize + (columns - 1) * gridGap;
   picker.style.gridTemplateColumns = `repeat(${columns}, minmax(0, 1fr))`;
   picker.style.width = `${computedWidth}px`;
-  picker.style.maxWidth = `${Math.max(120, viewportW - margin * 2)}px`;
-  picker.style.maxHeight = `${Math.max(180, viewportH - margin * 2)}px`;
+  picker.style.maxWidth = `${Math.max(120, Math.min(190, viewportW - margin * 2))}px`;
+  picker.style.maxHeight = `${Math.max(140, Math.min(220, viewportH - margin * 2))}px`;
 
   const pickerW = picker.offsetWidth || computedWidth;
   const pickerH = picker.offsetHeight || 0;
