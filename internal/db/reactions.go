@@ -42,11 +42,14 @@ func (s *Store) MessageExists(messageID string) (bool, error) {
 	return c > 0, nil
 }
 
-func (s *Store) ListMessageReactions(messageIDs []string, viewerUserID string) (map[string]map[string]int, map[string]map[string]bool, error) {
-	counts := map[string]map[string]int{}
-	mine := map[string]map[string]bool{}
+func (s *Store) ListMessageReactions(messageIDs []string, viewerUserID string) (MessageReactions, error) {
+	reactions := MessageReactions{
+		Counts:  map[string]map[string]int{},
+		Mine:    map[string]map[string]bool{},
+		Authors: map[string]map[string][]ReactionAuthor{},
+	}
 	if len(messageIDs) == 0 {
-		return counts, mine, nil
+		return reactions, nil
 	}
 	placeholders := strings.Repeat("?,", len(messageIDs))
 	placeholders = placeholders[:len(placeholders)-1]
@@ -54,40 +57,31 @@ func (s *Store) ListMessageReactions(messageIDs []string, viewerUserID string) (
 	for _, id := range messageIDs {
 		args = append(args, id)
 	}
-	rows, err := s.DB.Query("SELECT message_id, emoji, COUNT(*) FROM message_reactions WHERE message_id IN ("+placeholders+") GROUP BY message_id, emoji", args...)
+	rows, err := s.DB.Query("SELECT r.message_id, r.emoji, r.user_id, u.display_name FROM message_reactions r JOIN users u ON u.id = r.user_id WHERE r.message_id IN ("+placeholders+") ORDER BY r.created_at ASC, u.display_name COLLATE NOCASE ASC", args...)
 	if err != nil {
-		return nil, nil, err
+		return MessageReactions{}, err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var messageID, emoji string
-		var count int
-		if err := rows.Scan(&messageID, &emoji, &count); err != nil {
-			return nil, nil, err
+		var author ReactionAuthor
+		if err := rows.Scan(&messageID, &emoji, &author.UserID, &author.DisplayName); err != nil {
+			return MessageReactions{}, err
 		}
-		if counts[messageID] == nil {
-			counts[messageID] = map[string]int{}
+		if reactions.Counts[messageID] == nil {
+			reactions.Counts[messageID] = map[string]int{}
 		}
-		counts[messageID][emoji] = count
-	}
-	if err := rows.Err(); err != nil {
-		return nil, nil, err
-	}
-
-	rowsMine, err := s.DB.Query("SELECT message_id, emoji FROM message_reactions WHERE user_id=? AND message_id IN ("+placeholders+")", append([]any{viewerUserID}, args...)...)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rowsMine.Close()
-	for rowsMine.Next() {
-		var messageID, emoji string
-		if err := rowsMine.Scan(&messageID, &emoji); err != nil {
-			return nil, nil, err
+		reactions.Counts[messageID][emoji]++
+		if reactions.Authors[messageID] == nil {
+			reactions.Authors[messageID] = map[string][]ReactionAuthor{}
 		}
-		if mine[messageID] == nil {
-			mine[messageID] = map[string]bool{}
+		reactions.Authors[messageID][emoji] = append(reactions.Authors[messageID][emoji], author)
+		if author.UserID == viewerUserID {
+			if reactions.Mine[messageID] == nil {
+				reactions.Mine[messageID] = map[string]bool{}
+			}
+			reactions.Mine[messageID][emoji] = true
 		}
-		mine[messageID][emoji] = true
 	}
-	return counts, mine, rowsMine.Err()
+	return reactions, rows.Err()
 }

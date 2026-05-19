@@ -19,6 +19,7 @@
 }
 
 .reaction-chip {
+    position: relative;
     display: inline-flex;
     align-items: center;
     gap: 4px;
@@ -39,6 +40,36 @@
     transform: translateY(-1px);
     border-color: var(--accent);
     box-shadow: 0 6px 14px rgba(0, 0, 0, .22);
+}
+
+.reaction-chip[data-reaction-authors]::after {
+    content: attr(data-reaction-authors);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 7px);
+    z-index: 32;
+    width: max-content;
+    max-width: min(260px, 72vw);
+    padding: 6px 8px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface-2) 94%, #000 6%);
+    color: var(--ink);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, .28);
+    font-size: .72rem;
+    line-height: 1.25;
+    white-space: normal;
+    text-align: center;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 2px);
+    transition: opacity .12s ease, transform .12s ease;
+}
+
+.reaction-chip[data-reaction-authors]:hover::after,
+.reaction-chip[data-reaction-authors]:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
 }
 
 .reaction-chip.mine {

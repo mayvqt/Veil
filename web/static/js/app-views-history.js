@@ -575,10 +575,12 @@ async function loadHistory({appendOlder = false} = {}) {
     const list = Array.isArray(history.data.messages) ? history.data.messages : [];
     const reactionPayload = history.data.reactions || {};
     const myReactionPayload = history.data.my_reactions || {};
+    const reactionAuthorPayload = history.data.reaction_authors || {};
     const pinnedPayload = Array.isArray(history.data.pinned_ids) ? history.data.pinned_ids : [];
     if (!appendOlder) {
         messageReactions = new Map();
         myReactions = new Map();
+        reactionAuthors = new Map();
         pinnedMessageIDs = new Set(pinnedPayload.map((x) => String(x)));
     }
     for (const [msgID, counts] of Object.entries(reactionPayload)) {
@@ -588,6 +590,9 @@ async function loadHistory({appendOlder = false} = {}) {
         const m = {};
         for (const emoji of (arr || [])) m[String(emoji)] = true;
         myReactions.set(String(msgID), m);
+    }
+    for (const [msgID, byEmoji] of Object.entries(reactionAuthorPayload)) {
+        reactionAuthors.set(String(msgID), byEmoji || {});
     }
     const renderList = appendOlder ? list : [...list].reverse();
     const data = history.data || {};

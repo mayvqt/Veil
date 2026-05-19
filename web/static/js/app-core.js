@@ -132,6 +132,7 @@ let typingTimer = null;
 let activeNotificationAudio = null;
 let messageReactions = new Map();
 let myReactions = new Map();
+let reactionAuthors = new Map();
 let pinnedMessageIDs = new Set();
 let customEmojiMap = new Map();
 let customStickerMap = new Map();
@@ -868,8 +869,36 @@ function renderReactionsHTML(messageID) {
     const key = String(messageID || '');
     const counts = messageReactions.get(key) || {};
     const mine = myReactions.get(key) || {};
-    const chips = Object.entries(counts).filter(([, count]) => Number(count) > 0).slice(0, 8).map(([emoji, count]) => `<button class="reaction-chip${mine[emoji] ? ' mine' : ''}" data-react-toggle="${esc(key)}" data-react-emoji="${esc(emoji)}">${renderEmojiVisual(emoji)} ${esc(String(count))}</button>`).join('');
+    const authors = reactionAuthors.get(key) || {};
+    const chips = Object.entries(counts).filter(([, count]) => Number(count) > 0).slice(0, 8).map(([emoji, count]) => {
+        const names = reactionAuthorNames(authors[emoji] || []);
+        const label = reactionTooltipText(names, Number(count) || 0);
+        const tooltip = label ? ` data-reaction-authors="${esc(label)}"` : '';
+        const aria = label ? ` aria-label="${esc(label)}"` : '';
+        return `<button class="reaction-chip${mine[emoji] ? ' mine' : ''}" data-react-toggle="${esc(key)}" data-react-emoji="${esc(emoji)}"${tooltip}${aria}>${renderEmojiVisual(emoji)} ${esc(String(count))}</button>`;
+    }).join('');
     return `<span class="reactions" data-reactions-msg="${esc(key)}">${chips}</span>`;
+}
+
+function reactionAuthorNames(items) {
+    const out = [];
+    const seen = new Set();
+    for (const item of (Array.isArray(items) ? items : [])) {
+        const name = String(item?.display_name || '').trim();
+        const id = String(item?.user_id || name).trim();
+        const key = id || name;
+        if (!name || seen.has(key)) continue;
+        seen.add(key);
+        out.push(name);
+    }
+    return out;
+}
+
+function reactionTooltipText(names, count) {
+    if (!names.length) return '';
+    if (names.length <= 4) return `${names.join(', ')} reacted`;
+    const extra = Math.max(0, count - 3);
+    return `${names.slice(0, 3).join(', ')} and ${extra} more reacted`;
 }
 
 function latestOwnMessageRowID() {

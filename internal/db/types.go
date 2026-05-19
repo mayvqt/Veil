@@ -40,6 +40,17 @@ type Message struct {
 	CreatedAt        string `json:"created_at"`
 }
 
+type ReactionAuthor struct {
+	UserID      string `json:"user_id"`
+	DisplayName string `json:"display_name"`
+}
+
+type MessageReactions struct {
+	Counts  map[string]map[string]int              `json:"counts"`
+	Mine    map[string]map[string]bool             `json:"mine"`
+	Authors map[string]map[string][]ReactionAuthor `json:"authors"`
+}
+
 type InviteInfo struct {
 	ID        string `json:"id"`
 	ExpiresAt string `json:"expires_at"`
