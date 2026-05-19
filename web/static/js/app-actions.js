@@ -1462,7 +1462,15 @@ function bindControlActions() {
     if (saveRoomStatusTextAdminBtn) {
         saveRoomStatusTextAdminBtn.onclick = async () => {
             const nextText = String((roomStatusTextAdminInput && roomStatusTextAdminInput.value) || '').trim();
-            setRoomStatusText(nextText || 'encrypted room');
+            const r = await api('/api/admin/room-status-text', {method: 'POST', body: JSON.stringify({room_status_text: nextText})});
+            if (!r.ok) {
+                if (roomStatusTextAdminStatus) {
+                    roomStatusTextAdminStatus.textContent = r.data.error || 'failed';
+                    roomStatusTextAdminStatus.className = 'status err';
+                }
+                return;
+            }
+            setRoomStatusText(String((r.data && r.data.room_status_text) || nextText || DEFAULT_ROOM_STATUS_TEXT));
             if (roomStatusTextAdminInput) roomStatusTextAdminInput.value = roomStatusText;
             if (roomStatusTextAdminStatus) {
                 roomStatusTextAdminStatus.textContent = 'Room status text updated.';

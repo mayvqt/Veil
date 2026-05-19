@@ -49,6 +49,13 @@ CREATE TABLE invites (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, created_by 
 	if !cols["reply_to_id"] || !cols["edited_at"] || !cols["deleted_at"] {
 		t.Fatalf("expected migrated message columns, got %#v", cols)
 	}
+	var statusText string
+	if err := dbRaw.QueryRow("SELECT room_status_text FROM room_state WHERE id=1").Scan(&statusText); err != nil {
+		t.Fatal(err)
+	}
+	if statusText != DefaultRoomStatusText {
+		t.Fatalf("expected migrated room_status_text default %q, got %q", DefaultRoomStatusText, statusText)
+	}
 }
 
 func TestMigrateAddsAndBackfillsUserChatColor(t *testing.T) {

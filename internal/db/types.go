@@ -1,5 +1,12 @@
 package db
 
+const DefaultRoomStatusText = "encrypted room"
+
+type RoomInfo struct {
+	Name       string `json:"room_name"`
+	StatusText string `json:"room_status_text"`
+}
+
 type User struct {
 	ID               string `json:"id"`
 	DisplayName      string `json:"display_name"`

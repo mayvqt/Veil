@@ -32,6 +32,7 @@ func migrate(db *sql.DB) error {
 CREATE TABLE IF NOT EXISTS room_state (
   id INTEGER PRIMARY KEY CHECK (id=1),
   room_name TEXT,
+  room_status_text TEXT NOT NULL DEFAULT 'encrypted room',
   initialized INTEGER NOT NULL DEFAULT 0,
   room_key_enc TEXT,
   created_at TEXT
@@ -143,6 +144,9 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 	if err := ensureUsersAvatarRingColumns(db); err != nil {
 		return err
 	}
+	if err := ensureRoomStateColumns(db); err != nil {
+		return err
+	}
 	if err := backfillUsersChatColors(db); err != nil {
 		return err
 	}
@@ -156,7 +160,7 @@ func now() string { return time.Now().UTC().Format(time.RFC3339) }
 
 func tableColumns(db *sql.DB, table string) (map[string]struct{}, error) {
 	switch table {
-	case "messages", "users":
+	case "messages", "room_state", "users":
 	default:
 		return nil, fmt.Errorf("unsupported table for migration: %s", table)
 	}
@@ -213,6 +217,12 @@ func ensureMessagesColumns(db *sql.DB) error {
 		{name: "reply_to_id", columnDef: "TEXT"},
 		{name: "edited_at", columnDef: "TEXT"},
 		{name: "deleted_at", columnDef: "TEXT"},
+	})
+}
+
+func ensureRoomStateColumns(db *sql.DB) error {
+	return addMissingColumns(db, "room_state", []columnDef{
+		{name: "room_status_text", columnDef: "TEXT NOT NULL DEFAULT 'encrypted room'"},
 	})
 }
 

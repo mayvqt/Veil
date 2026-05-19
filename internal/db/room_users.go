@@ -17,12 +17,29 @@ func (s *Store) IsInitialized() (bool, error) {
 
 func (s *Store) GetRoomName() (string, error) {
 	var roomName string
-	err := s.DB.QueryRow("SELECT room_name FROM room_state WHERE id=1").Scan(&roomName)
+	err := s.DB.QueryRow("SELECT COALESCE(room_name,'') FROM room_state WHERE id=1").Scan(&roomName)
 	return roomName, err
+}
+
+func (s *Store) GetRoomInfo() (RoomInfo, error) {
+	var info RoomInfo
+	err := s.DB.QueryRow("SELECT COALESCE(room_name,''), COALESCE(room_status_text,?) FROM room_state WHERE id=1", DefaultRoomStatusText).Scan(&info.Name, &info.StatusText)
+	return info, err
 }
 
 func (s *Store) SetRoomName(roomName string) error {
 	_, err := s.DB.Exec("UPDATE room_state SET room_name=? WHERE id=1", roomName)
+	return err
+}
+
+func (s *Store) GetRoomStatusText() (string, error) {
+	var statusText string
+	err := s.DB.QueryRow("SELECT COALESCE(room_status_text,?) FROM room_state WHERE id=1", DefaultRoomStatusText).Scan(&statusText)
+	return statusText, err
+}
+
+func (s *Store) SetRoomStatusText(statusText string) error {
+	_, err := s.DB.Exec("UPDATE room_state SET room_status_text=? WHERE id=1", statusText)
 	return err
 }
 

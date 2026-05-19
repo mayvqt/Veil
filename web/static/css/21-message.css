@@ -19,6 +19,9 @@
 }
 
 .reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     min-height: 0;
     height: auto;
     border: 1px solid var(--line-2);
@@ -94,10 +97,13 @@
 }
 
 .reaction-emoji-img {
-    width: var(--emoji-inline-size);
-    height: var(--emoji-inline-size);
+    width: 1.15em;
+    height: 1.15em;
+    max-width: 18px;
+    max-height: 18px;
     object-fit: contain;
-    vertical-align: -.16em;
+    flex: 0 0 auto;
+    vertical-align: -.18em;
 }
 
 .inline-custom-emoji {
