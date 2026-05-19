@@ -219,10 +219,10 @@ func (s *Server) roomInfo(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.requireAPIUser(w, r); !ok {
 		return
 	}
-	roomName, err := s.Store.GetRoomName()
+	info, err := s.Store.GetRoomInfo()
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load room"})
 		return
 	}
-	writeJSON(w, 200, map[string]any{"room_name": roomName})
+	writeJSON(w, 200, info)
 }

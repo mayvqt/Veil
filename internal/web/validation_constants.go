@@ -2,6 +2,7 @@ package web
 
 const (
 	maxRoomNameLen     = 80
+	maxRoomStatusLen   = 48
 	maxDisplayNameLen  = 48
 	maxCredentialIDLen = 128
 	maxPublicKeyLen    = 4096

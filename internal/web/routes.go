@@ -43,6 +43,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/admin/pin-message", s.pinMessage)
 	r.Get("/api/admin/messages/stats", s.messageStats)
 	r.Post("/api/admin/room-name", s.updateRoomName)
+	r.Post("/api/admin/room-status-text", s.updateRoomStatusText)
 	r.Post("/api/admin/messages/clear", s.clearMessages)
 	r.Post("/api/admin/messages/retain", s.retainMessages)
 	r.Post("/api/admin/custom-media", s.uploadCustomMedia)

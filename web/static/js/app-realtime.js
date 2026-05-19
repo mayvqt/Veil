@@ -92,6 +92,23 @@ function handlePresence(data) {
     renderMembersList();
 }
 
+function handleRoomUpdate(data) {
+    const nextName = String(data.room_name || '').trim();
+    const nextStatusText = String(data.room_status_text || '').trim();
+    if (nextName) {
+        roomName = nextName;
+        const roomTitleEl = document.querySelector('.room-title strong');
+        if (roomTitleEl) roomTitleEl.textContent = roomName || 'Room Chat';
+        const roomNameInput = document.getElementById('roomNameInput');
+        if (roomNameInput) roomNameInput.value = roomName;
+    }
+    if (nextStatusText) {
+        setRoomStatusText(nextStatusText);
+        const roomStatusTextAdminInput = document.getElementById('roomStatusTextAdminInput');
+        if (roomStatusTextAdminInput) roomStatusTextAdminInput.value = roomStatusText;
+    }
+}
+
 function setPresenceLikeState(collection, key, on, value) {
     if (on) {
         if (collection instanceof Map) {
@@ -118,6 +135,9 @@ const socketEventHandlers = {
     },
     presence: async (data) => {
         handlePresence(data);
+    },
+    room_update: async (data) => {
+        handleRoomUpdate(data);
     },
 };
 

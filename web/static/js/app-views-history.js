@@ -352,7 +352,7 @@ function controlPanelHTML() {
               </div>
               <p class="admin-lead">Set the status text shown under the room title.</p>
               <div class="theme-actions admin-actions-row">
-                <input id="roomStatusTextAdminInput" type="text" maxlength="48" placeholder="encrypted room" value="${esc(roomStatusText)}"/>
+                <input id="roomStatusTextAdminInput" type="text" maxlength="48" placeholder="${esc(DEFAULT_ROOM_STATUS_TEXT)}" value="${esc(roomStatusText)}"/>
                 <button id="saveRoomStatusTextAdmin" class="secondary">Save Status Text</button>
               </div>
               <div id="roomStatusTextAdminStatus" class="status">Admins can update the room status text.</div>

@@ -40,6 +40,7 @@ func TestRoutesContainExpectedEndpoints(t *testing.T) {
 		http.MethodGet + " /api/admin/audit":                       false,
 		http.MethodPost + " /api/admin/pin-message":                false,
 		http.MethodPost + " /api/admin/room-name":                  false,
+		http.MethodPost + " /api/admin/room-status-text":           false,
 		http.MethodPost + " /api/admin/messages/retain":            false,
 		http.MethodPost + " /api/admin/messages/clear":             false,
 		http.MethodPost + " /api/admin/purge-used-revoked-invites": false,

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"veil/internal/chat"
 	"veil/internal/db"
 )
 
@@ -248,7 +249,41 @@ func (s *Server) updateRoomName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "room_rename", "", req.RoomName)
+	s.Hub.Broadcast(chat.Outbound{Type: "room_update", Data: map[string]string{
+		"room_name": req.RoomName,
+	}})
 	writeJSON(w, 200, map[string]any{"ok": true, "room_name": req.RoomName})
+}
+
+func (s *Server) updateRoomStatusText(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireUser(w, r)
+	if !ok {
+		return
+	}
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+		return
+	}
+	var req struct {
+		RoomStatusText string `json:"room_status_text"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	req.RoomStatusText = cleanInput(req.RoomStatusText, maxRoomStatusLen)
+	if req.RoomStatusText == "" {
+		req.RoomStatusText = db.DefaultRoomStatusText
+	}
+	if err := s.Store.SetRoomStatusText(req.RoomStatusText); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update room status text"})
+		return
+	}
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "room_status_text", "", req.RoomStatusText)
+	s.Hub.Broadcast(chat.Outbound{Type: "room_update", Data: map[string]string{
+		"room_status_text": req.RoomStatusText,
+	}})
+	writeJSON(w, 200, map[string]any{"ok": true, "room_status_text": req.RoomStatusText})
 }
 
 func (s *Server) pinMessage(w http.ResponseWriter, r *http.Request) {

@@ -143,9 +143,9 @@ const NOTIFY_CUSTOM_DATA_KEY = 'veil.notifyCustomDataURL';
 const SHOW_AVATARS_KEY = 'veil.showAvatars';
 const SHOW_AVATAR_RINGS_KEY = 'veil.showAvatarRings';
 const TIMESTAMP_MODE_KEY = 'veil.timestampMode';
-const ROOM_STATUS_TEXT_KEY = 'veil.roomStatusText';
 const LOCAL_BACKGROUND_KEY = 'veil.localBackgroundImage';
 const LOCAL_BACKGROUND_STRENGTH_KEY = 'veil.localBackgroundStrength';
+const DEFAULT_ROOM_STATUS_TEXT = 'encrypted room';
 let notifySoundEnabled = (() => {
     try {
         return localStorage.getItem(NOTIFY_SOUND_KEY) !== '0';
@@ -197,14 +197,7 @@ let timestampMode = (() => {
         return 'always';
     }
 })();
-let roomStatusText = (() => {
-    try {
-        const raw = String(localStorage.getItem(ROOM_STATUS_TEXT_KEY) || '').trim();
-        return raw || 'encrypted room';
-    } catch {
-        return 'encrypted room';
-    }
-})();
+let roomStatusText = DEFAULT_ROOM_STATUS_TEXT;
 let audioUnlocked = false;
 const userColor = (n) => customUserColors[n] || PASTELS[hashName(n) % PASTELS.length];
 const isAdminRole = (role) => role === 'root_admin' || role === 'admin';
@@ -1020,13 +1013,8 @@ function setTimestampMode(next) {
 }
 
 function setRoomStatusText(next) {
-    if (!isAdminRole(myRole)) return;
     const cleaned = String(next || '').trim();
-    roomStatusText = cleaned || 'encrypted room';
-    try {
-        localStorage.setItem(ROOM_STATUS_TEXT_KEY, roomStatusText);
-    } catch {
-    }
+    roomStatusText = cleaned || DEFAULT_ROOM_STATUS_TEXT;
     updateRoomConnectionStatus(!!ws && ws.readyState === WebSocket.OPEN);
 }
 
@@ -1211,6 +1199,7 @@ async function refreshRoomName() {
     const info = await api('/api/room');
     if (!info.ok) return;
     roomName = (info.data && info.data.room_name) ? String(info.data.room_name).trim() : roomName;
+    setRoomStatusText(info.data && info.data.room_status_text ? String(info.data.room_status_text) : roomStatusText);
 }
 
 async function exportKeys(passphrase) {
