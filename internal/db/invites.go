@@ -2,6 +2,7 @@ package db
 
 import (
 	"errors"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -10,7 +11,7 @@ func (s *Store) CreateInvite(tokenHash, createdBy string, ttlHours, maxUses int)
 	id := uuid.NewString()
 	_, err := s.DB.Exec(
 		"INSERT INTO invites (id, token_hash, created_by, expires_at, max_uses, created_at) VALUES (?, ?, ?, datetime('now', ?), ?, ?)",
-		id, tokenHash, createdBy, "+"+itoa(ttlHours)+" hours", maxUses, now(),
+		id, tokenHash, createdBy, "+"+strconv.Itoa(ttlHours)+" hours", maxUses, now(),
 	)
 	return id, err
 }

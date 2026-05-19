@@ -89,7 +89,10 @@ func (s *Server) uploadCustomMedia(w http.ResponseWriter, r *http.Request) {
 	}
 
 	prefix := kind + "_" + name + "_"
-	_, _ = removeCustomMediaByPrefix(s.MediaDir, prefix)
+	if _, err := removeCustomMediaByPrefix(s.MediaDir, prefix); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to replace existing custom media"})
+		return
+	}
 	fileName := fmt.Sprintf("%s%d%s", prefix, time.Now().UnixNano(), ext)
 	fullPath := filepath.Join(s.MediaDir, fileName)
 	if err := os.WriteFile(fullPath, raw, 0o644); err != nil {

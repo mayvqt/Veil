@@ -357,14 +357,16 @@ func (s *Server) retainMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) findActiveUser(userID string) (*db.User, bool, error) {
-	users, err := s.Store.ListUsers()
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return nil, false, nil
+	}
+	user, err := s.Store.GetActiveUser(userID)
 	if err != nil {
 		return nil, false, err
 	}
-	for i := range users {
-		if users[i].ID == userID {
-			return &users[i], true, nil
-		}
+	if user == nil {
+		return nil, false, nil
 	}
-	return nil, false, nil
+	return user, true, nil
 }

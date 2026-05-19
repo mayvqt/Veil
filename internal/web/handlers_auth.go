@@ -60,7 +60,11 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 403, map[string]string{"error": "forbidden"})
 		return
 	}
-	token := randomToken()
+	token, err := randomToken()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "could not create invite"})
+		return
+	}
 	h := invite.HashToken(token)
 	id, err := s.Store.CreateInvite(h, u.ID, 24, 1)
 	if err != nil {

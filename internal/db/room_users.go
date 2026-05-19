@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"regexp"
 
 	"github.com/google/uuid"
@@ -90,6 +89,21 @@ func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 SELECT u.id, u.display_name, u.role, u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
+	u := &User{}
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
+func (s *Store) GetActiveUser(userID string) (*User, error) {
+	row := s.DB.QueryRow(`
+SELECT id, display_name, role, chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none')
+FROM users
+WHERE id=? AND active=1`, userID)
 	u := &User{}
 	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -198,13 +212,24 @@ func (s *Store) ListActiveAvatarURLs() ([]string, error) {
 }
 
 func defaultChatColorForUserID(userID string) string {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(userID))
-	n := h.Sum32()
+	n := fnv32aString(userID)
 	hue := float64(n % 360)
 	sat := 62.0 + float64((n>>8)%18)    // 62-79
 	light := 46.0 + float64((n>>16)%12) // 46-57
 	return hslToHex(hue, sat/100.0, light/100.0)
+}
+
+func fnv32aString(value string) uint32 {
+	const (
+		offset uint32 = 2166136261
+		prime  uint32 = 16777619
+	)
+	hash := offset
+	for i := 0; i < len(value); i++ {
+		hash ^= uint32(value[i])
+		hash *= prime
+	}
+	return hash
 }
 
 func hslToHex(h, s, l float64) string {

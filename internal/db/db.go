@@ -2,6 +2,7 @@ package db
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -153,183 +154,84 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 
 func now() string { return time.Now().UTC().Format(time.RFC3339) }
 
-func ensureUsersActiveColumn(db *sql.DB) error {
-	rows, err := db.Query("PRAGMA table_info(users)")
+func tableColumns(db *sql.DB, table string) (map[string]struct{}, error) {
+	switch table {
+	case "messages", "users":
+	default:
+		return nil, fmt.Errorf("unsupported table for migration: %s", table)
+	}
+	rows, err := db.Query("PRAGMA table_info(" + table + ")")
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer rows.Close()
 
-	hasActive := false
+	columns := make(map[string]struct{})
 	for rows.Next() {
 		var cid int
 		var name, colType string
 		var notNull, pk int
 		var defaultValue any
 		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
-			return err
+			return nil, err
 		}
-		if name == "active" {
-			hasActive = true
-			break
-		}
+		columns[name] = struct{}{}
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
-	if hasActive {
-		return nil
-	}
-	_, err = db.Exec("ALTER TABLE users ADD COLUMN active INTEGER NOT NULL DEFAULT 1")
-	return err
+	return columns, nil
 }
 
-func ensureMessagesColumns(db *sql.DB) error {
-	rows, err := db.Query("PRAGMA table_info(messages)")
+func addMissingColumns(db *sql.DB, table string, requiredColumns []columnDef) error {
+	existing, err := tableColumns(db, table)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
-	hasReplyTo := false
-	hasEditedAt := false
-	hasDeletedAt := false
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var defaultValue any
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
-			return err
+	for _, col := range requiredColumns {
+		if _, ok := existing[col.name]; ok {
+			continue
 		}
-		switch name {
-		case "reply_to_id":
-			hasReplyTo = true
-		case "edited_at":
-			hasEditedAt = true
-		case "deleted_at":
-			hasDeletedAt = true
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	if !hasReplyTo {
-		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN reply_to_id TEXT"); err != nil {
-			return err
-		}
-	}
-	if !hasEditedAt {
-		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN edited_at TEXT"); err != nil {
-			return err
-		}
-	}
-	if !hasDeletedAt {
-		if _, err := db.Exec("ALTER TABLE messages ADD COLUMN deleted_at TEXT"); err != nil {
+		if _, err := db.Exec("ALTER TABLE " + table + " ADD COLUMN " + col.name + " " + col.columnDef); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+type columnDef struct {
+	name      string
+	columnDef string
+}
+
+func ensureUsersActiveColumn(db *sql.DB) error {
+	return addMissingColumns(db, "users", []columnDef{{name: "active", columnDef: "INTEGER NOT NULL DEFAULT 1"}})
+}
+
+func ensureMessagesColumns(db *sql.DB) error {
+	return addMissingColumns(db, "messages", []columnDef{
+		{name: "reply_to_id", columnDef: "TEXT"},
+		{name: "edited_at", columnDef: "TEXT"},
+		{name: "deleted_at", columnDef: "TEXT"},
+	})
+}
+
 func ensureUsersChatColorColumn(db *sql.DB) error {
-	rows, err := db.Query("PRAGMA table_info(users)")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	hasChatColor := false
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var defaultValue any
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
-			return err
-		}
-		if name == "chat_color" {
-			hasChatColor = true
-			break
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	if hasChatColor {
-		return nil
-	}
-	_, err = db.Exec("ALTER TABLE users ADD COLUMN chat_color TEXT NOT NULL DEFAULT ''")
-	return err
+	return addMissingColumns(db, "users", []columnDef{{name: "chat_color", columnDef: "TEXT NOT NULL DEFAULT ''"}})
 }
 
 func ensureUsersAvatarURLColumn(db *sql.DB) error {
-	rows, err := db.Query("PRAGMA table_info(users)")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	hasAvatarURL := false
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var defaultValue any
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
-			return err
-		}
-		if name == "avatar_url" {
-			hasAvatarURL = true
-			break
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	if hasAvatarURL {
-		return nil
-	}
-	_, err = db.Exec("ALTER TABLE users ADD COLUMN avatar_url TEXT NOT NULL DEFAULT ''")
-	return err
+	return addMissingColumns(db, "users", []columnDef{{name: "avatar_url", columnDef: "TEXT NOT NULL DEFAULT ''"}})
 }
 
 func ensureUsersAvatarRingColumns(db *sql.DB) error {
-	rows, err := db.Query("PRAGMA table_info(users)")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	existing := make(map[string]bool, 5)
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var defaultValue any
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &defaultValue, &pk); err != nil {
-			return err
-		}
-		existing[name] = true
-	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	requiredColumns := []struct {
-		name      string
-		columnDef string
-	}{
+	return addMissingColumns(db, "users", []columnDef{
 		{name: "avatar_ring_color", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "avatar_ring_color2", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "avatar_ring_color3", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "avatar_ring_color4", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "avatar_ring_mode", columnDef: "TEXT NOT NULL DEFAULT 'none'"},
-	}
-	for _, col := range requiredColumns {
-		if existing[col.name] {
-			continue
-		}
-		if _, err := db.Exec("ALTER TABLE users ADD COLUMN " + col.name + " " + col.columnDef); err != nil {
-			return err
-		}
-	}
-	return nil
+	})
 }
 
 func backfillUsersChatColors(db *sql.DB) error {

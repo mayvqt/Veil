@@ -30,14 +30,22 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 500, map[string]string{"error": "failed to load messages"})
 		return
 	}
-	receipts, _ := s.Store.ListReadReceipts()
+	receipts, err := s.Store.ListReadReceipts()
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to load read receipts"})
+		return
+	}
 	messageIDs := make([]string, 0, len(msgs))
 	for _, m := range msgs {
 		if id := strings.TrimSpace(m["id"]); id != "" {
 			messageIDs = append(messageIDs, id)
 		}
 	}
-	reactionCounts, myReactionSet, _ := s.Store.ListMessageReactions(messageIDs, u.ID)
+	reactionCounts, myReactionSet, err := s.Store.ListMessageReactions(messageIDs, u.ID)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to load reactions"})
+		return
+	}
 	myReactions := map[string][]string{}
 	for messageID, emojis := range myReactionSet {
 		arr := make([]string, 0, len(emojis))
@@ -46,7 +54,11 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		myReactions[messageID] = arr
 	}
-	pinnedIDs, _ := s.Store.ListPinnedMessageIDs(100)
+	pinnedIDs, err := s.Store.ListPinnedMessageIDs(100)
+	if err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to load pinned messages"})
+		return
+	}
 	writeJSON(w, 200, map[string]any{
 		"messages":              msgs,
 		"has_more":              len(msgs) >= limit,

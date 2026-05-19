@@ -96,8 +96,14 @@ func TestSetSessionCookie(t *testing.T) {
 }
 
 func TestRandomToken(t *testing.T) {
-	a := randomToken()
-	b := randomToken()
+	a, err := randomToken()
+	if err != nil {
+		t.Fatalf("randomToken() error = %v", err)
+	}
+	b, err := randomToken()
+	if err != nil {
+		t.Fatalf("randomToken() error = %v", err)
+	}
 	if len(a) != 36 || len(b) != 36 {
 		t.Fatalf("expected 36-char hex token, got %d and %d", len(a), len(b))
 	}

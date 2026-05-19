@@ -2,8 +2,6 @@ package db
 
 import "strconv"
 
-func itoa(v int) string { return strconv.Itoa(v) }
-
 func (s *Store) PruneMessagesOlderThan(days int) error {
 	if days <= 0 {
 		return nil

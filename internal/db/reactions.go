@@ -3,23 +3,32 @@ package db
 import "strings"
 
 func (s *Store) ToggleMessageReaction(messageID, userID, emoji string) (int, bool, error) {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return 0, false, err
+	}
+	defer tx.Rollback()
+
 	var existing int
-	if err := s.DB.QueryRow("SELECT COUNT(*) FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?", messageID, userID, emoji).Scan(&existing); err != nil {
+	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?", messageID, userID, emoji).Scan(&existing); err != nil {
 		return 0, false, err
 	}
 	active := false
 	if existing > 0 {
-		if _, err := s.DB.Exec("DELETE FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?", messageID, userID, emoji); err != nil {
+		if _, err := tx.Exec("DELETE FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?", messageID, userID, emoji); err != nil {
 			return 0, false, err
 		}
 	} else {
-		if _, err := s.DB.Exec("INSERT INTO message_reactions (message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?)", messageID, userID, emoji, now()); err != nil {
+		if _, err := tx.Exec("INSERT INTO message_reactions (message_id, user_id, emoji, created_at) VALUES (?, ?, ?, ?)", messageID, userID, emoji, now()); err != nil {
 			return 0, false, err
 		}
 		active = true
 	}
 	var count int
-	if err := s.DB.QueryRow("SELECT COUNT(*) FROM message_reactions WHERE message_id=? AND emoji=?", messageID, emoji).Scan(&count); err != nil {
+	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions WHERE message_id=? AND emoji=?", messageID, emoji).Scan(&count); err != nil {
+		return 0, false, err
+	}
+	if err := tx.Commit(); err != nil {
 		return 0, false, err
 	}
 	return count, active, nil
