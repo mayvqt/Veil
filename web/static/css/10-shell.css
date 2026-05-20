@@ -135,6 +135,10 @@
     gap: var(--space-2);
 }
 
+.channel-row.has-channel-actions .nav-btn {
+    padding-right: 42px;
+}
+
 .channel-copy,
 .member-copy {
     display: grid;
@@ -165,38 +169,75 @@
 .channel-delete,
 .channel-pin,
 .channel-move,
-.channel-topic-btn {
+.channel-topic-btn,
+.channel-actions-toggle {
     flex: 0 0 auto;
     opacity: .72;
+}
+
+.channel-actions-toggle {
+    z-index: 2;
+    opacity: 1;
+}
+
+.channel-actions-dock {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    z-index: 3;
+    display: inline-flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: 0;
+    width: 28px;
+    height: 28px;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(-50%);
+    transition: opacity .14s ease;
+}
+
+.channel-row.has-channel-actions:hover .channel-actions-dock,
+.channel-row.has-channel-actions:focus-within .channel-actions-dock,
+.channel-actions-dock:hover,
+.channel-actions-dock:focus-within {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .channel-actions {
     position: absolute;
     top: 50%;
-    right: 4px;
-    z-index: 1;
+    right: 28px;
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    padding: 2px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--surface-2) 88%, transparent);
-    border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
-    box-shadow: 0 10px 22px rgba(0, 0, 0, .24);
+    gap: 1px;
+    padding: 3px;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--line) 62%, transparent);
+    box-shadow: none;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
-    transform: translateY(-50%) translateX(6px);
+    transform: translateY(-50%) translateX(4px);
     transition: opacity .16s ease, visibility .16s ease, transform .16s ease;
 }
 
-.channel-row:hover .channel-actions,
-.channel-row:focus-within .channel-actions,
-.channel-actions:hover {
+.channel-actions .channel-icon-btn {
+    width: 24px;
+    height: 24px;
+    font-size: .86rem;
+}
+
+.channel-actions-toggle:hover + .channel-actions,
+.channel-actions-toggle:focus + .channel-actions,
+.channel-actions:hover,
+.channel-actions-dock:focus-within .channel-actions {
     opacity: 1;
     visibility: visible;
     pointer-events: auto;
-    transform: translateY(-50%);
+    transform: translateY(-50%) translateX(0);
 }
 
 .channel-pin.active {
@@ -219,18 +260,9 @@
 }
 
 @media (hover: none) {
-    .channel-row {
-        align-items: flex-start;
-        flex-wrap: wrap;
-    }
-
-    .channel-actions {
-        position: static;
+    .channel-actions-dock {
         opacity: 1;
-        visibility: visible;
         pointer-events: auto;
-        transform: none;
-        box-shadow: none;
     }
 }
 

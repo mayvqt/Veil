@@ -86,7 +86,7 @@ function channelActionsHTML({roomID, label, topic, pinned, canManage, canDelete}
         }));
     }
 
-    return `<span class="channel-actions">${actions.join('')}</span>`;
+    return `<span class="channel-actions-dock"><button class="channel-icon-btn channel-actions-toggle" type="button" aria-label="${esc(`Channel actions for ${label}`)}" title="Channel actions" aria-haspopup="true">⋯</button><span class="channel-actions">${actions.join('')}</span></span>`;
 }
 
 function roomNavButtonHTML(room) {
@@ -101,7 +101,7 @@ function roomNavButtonHTML(room) {
     const pinned = !!(room && room.pinned);
     const topicHTML = topic && topic !== DEFAULT_ROOM_STATUS_TEXT ? `<span class="channel-topic">${esc(topic)}</span>` : '';
     const actionsHTML = channelActionsHTML({roomID, label, topic, pinned, canManage, canDelete});
-    return `<div class="channel-row"><button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" data-sidebar-unread="${esc(String(unread))}" type="button"><span class="channel-copy"><span class="channel-label">${pinned ? '★ ' : ''}# ${esc(label)}</span>${topicHTML}</span>${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>${actionsHTML}</div>`;
+    return `<div class="channel-row${actionsHTML ? ' has-channel-actions' : ''}"><button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" data-sidebar-unread="${esc(String(unread))}" type="button"><span class="channel-copy"><span class="channel-label">${pinned ? '★ ' : ''}# ${esc(label)}</span>${topicHTML}</span>${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>${actionsHTML}</div>`;
 }
 
 function sidebarToggleHTML() {
@@ -145,7 +145,7 @@ function chatPanelHTML() {
           ${sidebarToggleHTML()}
           <div class="room-title">
             <strong>${esc(title)}</strong>
-            <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span>${isAdminRole(myRole) ? `<button id="roomTopicQuickEdit" class="room-topic-edit" type="button" title="Edit channel topic" aria-label="Edit channel topic">✎</button>` : ''}</small>
+            <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span></small>
           </div>
         </div>
         <div class="top-actions">

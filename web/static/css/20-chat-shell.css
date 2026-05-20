@@ -93,25 +93,6 @@
     margin-top: 4px;
 }
 
-.room-topic-edit {
-    width: 24px;
-    height: 24px;
-    margin-left: 6px;
-    padding: 0;
-    border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
-    border-radius: 7px;
-    background: color-mix(in srgb, var(--surface) 72%, transparent);
-    color: var(--muted);
-    font: inherit;
-    font-size: .78rem;
-    line-height: 1;
-}
-
-.room-topic-edit:hover {
-    color: var(--ink);
-    border-color: color-mix(in srgb, var(--accent-2) 42%, var(--line));
-}
-
 .has-local-bg .chat-log {
     background: linear-gradient(180deg, rgba(0, 0, 0, var(--local-bg-chat-a)), rgba(0, 0, 0, var(--local-bg-chat-b))),
     var(--local-bg-image) center / cover no-repeat;

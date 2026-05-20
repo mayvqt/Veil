@@ -17,7 +17,6 @@ function bindChatActions() {
     const searchWrap = $('chatSearchWrap');
     const searchToggle = $('chatSearchToggle');
     const jumpLatestBtn = $('jumpLatest');
-    const roomTopicQuickEdit = $('roomTopicQuickEdit');
     const pinnedBar = $('pinnedBar');
     const emojiToggle = $('emojiToggle');
     const emojiPicker = $('emojiPicker');
@@ -125,11 +124,6 @@ function bindChatActions() {
         scrollChatToBottom();
         updateJumpLatestVisibility();
     };
-    if (roomTopicQuickEdit) {
-        roomTopicQuickEdit.onclick = async () => {
-            await editChannelTopicByID(activeRoomID, roomStatusText, null);
-        };
-    }
     const toggleEmojiPicker = () => {
         if (!emojiPicker || !emojiToggle) return;
         closeStickerPicker();
