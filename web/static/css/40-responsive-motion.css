@@ -230,11 +230,12 @@
     }
 
     .topbar {
-        padding: 12px 14px;
+        padding: 10px 12px;
+        gap: 8px;
     }
 
     .top-actions {
-        gap: 6px;
+        gap: 5px;
     }
 
     .chat-search-wrap {
@@ -253,8 +254,8 @@
     }
 
     .profile-chip {
-        max-width: 44px;
-        padding-right: 5px;
+        max-width: 42px;
+        padding-right: 4px;
     }
 
     .profile-chip span:last-child {
@@ -293,22 +294,24 @@
     }
 
     .composer {
-        padding: 10px 12px;
-        gap: 8px;
-        grid-template-columns: minmax(0, 1fr) 44px 44px 44px 94px;
+        padding: 8px 10px;
+        gap: 6px;
+        grid-template-columns: minmax(0, 1fr) 42px 42px 42px 90px;
     }
 
     #m {
-        min-height: 48px;
+        min-height: 44px;
+        padding: 9px 10px;
     }
 
     .emoji-btn {
-        width: 44px;
-        height: 48px;
+        width: 42px;
+        height: 44px;
     }
 
     #send {
-        min-height: 48px;
+        min-height: 44px;
+        padding: 9px 10px;
     }
 
     .chat-log {

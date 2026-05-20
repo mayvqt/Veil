@@ -50,6 +50,9 @@
     --space-3: 12px;
     --space-4: 16px;
     --space-5: 20px;
+    --space-6: 24px;
+    --control-h-sm: 34px;
+    --control-h-lg: 48px;
     --control-h: 40px;
     --floating-shadow: 0 14px 30px rgba(0, 0, 0, .3);
     --elevated-shadow: 0 10px 22px rgba(0, 0, 0, .24);
@@ -76,7 +79,11 @@ html, body {
     radial-gradient(circle at 85% -8%, rgba(255, 138, 61, .1), transparent 26%),
     linear-gradient(180deg, var(--bg-2), var(--bg));
     color: var(--ink);
-    font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", "Inter", sans-serif;
+    font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+button, input, select, textarea {
+    font-family: inherit;
 }
 
 body {

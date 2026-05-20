@@ -1,6 +1,6 @@
 .composer {
     border-top: 0;
-    padding: 12px 14px;
+    padding: var(--space-3) 14px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) 48px 48px 48px 120px;
     grid-template-areas:
@@ -10,7 +10,7 @@
         "input attach emoji sticker send";
     grid-auto-flow: row;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     background: var(--composer-bg);
     position: relative;
     border-top: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
@@ -56,10 +56,10 @@
     grid-area: input;
     width: 100%;
     min-width: 0;
-    min-height: 48px;
+    min-height: var(--control-h-lg);
     padding: 11px 12px;
     font-size: .95rem;
-    border-radius: 11px;
+    border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface) 88%, transparent);
 }
 
@@ -89,20 +89,20 @@
 
 #send {
     grid-area: send;
-    min-height: 48px;
+    min-height: var(--control-h-lg);
     width: 100%;
-    border-radius: 11px;
+    border-radius: var(--radius-md);
 }
 
 .emoji-btn {
     width: 44px;
-    height: 48px;
+    height: var(--control-h-lg);
     padding: 0;
     display: grid;
     place-items: center;
     font-size: 1.2rem;
     line-height: 1;
-    border-radius: 11px;
+    border-radius: var(--radius-md);
 }
 
 .emoji-picker {
@@ -118,8 +118,8 @@
     gap: 6px;
     border: 1px solid color-mix(in srgb, var(--line) 84%, transparent);
     border-radius: var(--radius-md);
-    padding: 10px;
-    background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 84%, #0c131b), color-mix(in srgb, var(--surface) 90%, #0b1118));
+    padding: var(--space-3);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--panel) 84%, transparent), color-mix(in srgb, var(--surface) 90%, transparent));
     box-shadow: var(--shadow);
     z-index: 4;
 }
@@ -237,7 +237,7 @@
     bottom: calc(100% + 10px);
     display: none;
     gap: 6px;
-    padding: 10px;
+    padding: var(--space-3);
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     background: linear-gradient(180deg, var(--panel-grad-a), var(--panel-grad-b));
