@@ -54,6 +54,8 @@ const EMOTICON_MAP = {
     '<3': '❤️',
     ':fire:': '🔥', ':lock:': '🔒', ':thumbsup:': '👍', ':100:': '💯'
 };
+const SIDEBAR_OPEN_KEY = 'veil.sidebarOpen';
+const MOBILE_SIDEBAR_QUERY = '(max-width: 980px)';
 const PBKDF2_ITERS = 600000;
 const THEME_STORAGE_KEY = 'veil.theme';
 const VEIL_THEME = {
@@ -116,6 +118,15 @@ const hashName = (n) => {
     return Math.abs(h);
 };
 let customUserColors = {};
+let sidebarOpen = (() => {
+    try {
+        const raw = localStorage.getItem(SIDEBAR_OPEN_KEY);
+        if (raw === null) return true;
+        return raw === '1';
+    } catch {
+        return true;
+    }
+})();
 let historyLoadSeq = 0;
 let oldestLoadedRowID = 0;
 let hasMoreHistory = true;

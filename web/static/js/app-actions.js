@@ -635,12 +635,68 @@ function bindSidebarChannelActions() {
     document.querySelectorAll('button[data-sidebar-room-id]').forEach((btn) => {
         btn.addEventListener('click', async () => {
             await switchActiveRoom(btn.getAttribute('data-sidebar-room-id') || 'main');
+            if (window.matchMedia && window.matchMedia(MOBILE_SIDEBAR_QUERY).matches) {
+                sidebarOpen = false;
+                persistSidebarOpenState();
+                syncSidebarLayoutState();
+            }
             if (currentView !== VIEW_CHAT) {
                 currentView = VIEW_CHAT;
             }
             await renderMain();
         });
     });
+}
+
+function persistSidebarOpenState() {
+    try {
+        localStorage.setItem(SIDEBAR_OPEN_KEY, sidebarOpen ? '1' : '0');
+    } catch {
+    }
+}
+
+function syncSidebarLayoutState() {
+    const shell = document.querySelector('.chat-shell');
+    if (!shell) return;
+    shell.classList.toggle('sidebar-open', sidebarOpen);
+    shell.classList.toggle('sidebar-collapsed', !sidebarOpen);
+    const toggle = document.querySelector('[data-sidebar-toggle]');
+    if (toggle) toggle.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
+}
+
+function bindSidebarToggleActions() {
+    const shell = document.querySelector('.chat-shell');
+    if (!shell) return;
+    const toggle = shell.querySelector('[data-sidebar-toggle]');
+    const backdrop = shell.querySelector('[data-sidebar-backdrop]');
+    const closeSidebar = () => {
+        if (!sidebarOpen) return;
+        sidebarOpen = false;
+        persistSidebarOpenState();
+        syncSidebarLayoutState();
+    };
+    if (toggle) {
+        toggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            sidebarOpen = !sidebarOpen;
+            persistSidebarOpenState();
+            syncSidebarLayoutState();
+        });
+    }
+    if (backdrop) {
+        backdrop.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+        });
+    }
+    if (!window.__veilSidebarGlobalBound) {
+        window.__veilSidebarGlobalBound = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            closeSidebar();
+        });
+    }
+    syncSidebarLayoutState();
 }
 
 function refreshSidebarChannelsInPlace() {
@@ -1734,7 +1790,9 @@ async function renderMain() {
         currentView = VIEW_CHAT;
     }
     await refreshCustomMediaAssets();
-    app.innerHTML = `<section class="chat-shell">${navHTML()}${renderPanelHTML()}</section>`;
+    app.innerHTML = `<section class="chat-shell"><button class="sidebar-backdrop" data-sidebar-backdrop type="button" aria-label="Close sidebar"></button>${navHTML()}${renderPanelHTML()}</section>`;
+    syncSidebarLayoutState();
+    bindSidebarToggleActions();
     bindUserMenuActions();
     bindSidebarChannelActions();
 

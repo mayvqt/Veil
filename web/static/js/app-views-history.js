@@ -13,6 +13,10 @@ function navHTML() {
   `;
 }
 
+function sidebarToggleHTML() {
+    return `<button class="secondary sidebar-toggle" data-sidebar-toggle type="button" aria-label="Toggle sidebar" aria-expanded="${sidebarOpen ? 'true' : 'false'}">☰</button>`;
+}
+
 function userMenuHTML({showLabel = true} = {}) {
     const member = roomMembers.find((m) => String(m.id || '') === String(myUserID || '')) || {};
     const profilePreview = showAvatars ? avatarMarkup(currentDisplayName || 'member', member.avatar_url || '', member) : '';
@@ -47,6 +51,7 @@ function chatPanelHTML() {
     <section class="main">
       <header class="topbar chat-topbar">
         <div class="room-heading">
+          ${sidebarToggleHTML()}
           <div class="room-title">
             <strong>${esc(title)}</strong>
             <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span></small>
@@ -137,7 +142,7 @@ function keysPanelHTML() {
 }
 
 function viewTopbarHTML(title, subtitle, aside = '') {
-    return `<header class="topbar"><div><strong>${esc(title)}</strong><small>${esc(subtitle)}</small></div><div class="top-actions">${aside}${userMenuHTML({showLabel: false})}</div></header>`;
+    return `<header class="topbar"><div>${sidebarToggleHTML()}<strong>${esc(title)}</strong><small>${esc(subtitle)}</small></div><div class="top-actions">${aside}${userMenuHTML({showLabel: false})}</div></header>`;
 }
 
 function switchControlHTML(id, label, checked) {
