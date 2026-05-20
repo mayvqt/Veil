@@ -162,8 +162,8 @@ func (s *Server) removeUser(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if u.Role != "root_admin" {
-		writeJSON(w, 403, map[string]string{"error": "only root admins can remove users"})
+	if !isAdminRole(u.Role) {
+		writeJSON(w, 403, map[string]string{"error": "only admins can remove users"})
 		return
 	}
 	var req struct {
@@ -193,6 +193,10 @@ func (s *Server) removeUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if target.Role == "root_admin" {
 		writeJSON(w, 400, map[string]string{"error": "cannot remove root admin"})
+		return
+	}
+	if u.Role != "root_admin" && target.Role != "member" {
+		writeJSON(w, 403, map[string]string{"error": "only root admins can remove admins"})
 		return
 	}
 	avatarURL, _ := s.Store.GetUserAvatarURL(target.ID)

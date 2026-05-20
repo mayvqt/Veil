@@ -19,12 +19,12 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	presence := s.presenceSnapshot()
 	members := make([]map[string]any, 0, len(users))
 	for _, user := range users {
-		roomRole, _ := s.Store.GetRoomRole(roomID, user.ID)
 		members = append(members, map[string]any{
 			"id":                 user.ID,
 			"display_name":       user.DisplayName,
 			"role":               user.Role,
-			"room_role":          roomRole,
+			"room_role":          user.RoomRole,
+			"status_text":        user.StatusText,
 			"chat_color":         user.ChatColor,
 			"avatar_url":         user.AvatarURL,
 			"avatar_ring_color":  user.AvatarRingColor,

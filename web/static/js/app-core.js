@@ -1,7 +1,10 @@
 const app = document.getElementById('app');
+const APP_VERSION = 'mvp-01';
+let appVersion = APP_VERSION;
 let roomKeyHex = localStorage.getItem('veil.roomKeyHex') || '';
 let currentCredentialId = localStorage.getItem('veil.credentialId') || '';
 let currentDisplayName = localStorage.getItem('veil.displayName') || '';
+let currentStatusText = '';
 let ws;
 let wsReady = null;
 let wsReconnectTimer = null;
@@ -148,6 +151,7 @@ let pinnedMessageIDs = new Set();
 let customEmojiMap = new Map();
 let customStickerMap = new Map();
 let unreadDividerRowID = 0;
+let jumpToUnreadAfterSwitch = false;
 const NOTIFY_SOUND_KEY = 'veil.notifySound';
 const NOTIFY_VOLUME_KEY = 'veil.notifyVolume';
 const NOTIFY_CUSTOM_NAME_KEY = 'veil.notifyCustomName';
@@ -760,6 +764,14 @@ async function unwrapRoomKeyWithPassphrase(cfg, passphrase) {
 function messageHeaderHTML(name, ts = '', color = '') {
     const c = color || userColor(name);
     return `<span class="line-header"><span class="line-user" data-user-name="${esc(name)}" style="color:${esc(c)}">${esc(name)}</span><span class="line-time">${esc(fmtTime(ts))}</span></span>`;
+}
+
+function roleBadgeHTML(role) {
+    const normalized = String(role || '').trim().toLowerCase();
+    if (normalized === 'root_admin') return '<span class="role-badge role-badge-root">Root Admin</span>';
+    if (normalized === 'admin') return '<span class="role-badge role-badge-admin">Admin</span>';
+    if (normalized === 'moderator') return '<span class="role-badge role-badge-mod">Moderator</span>';
+    return '';
 }
 
 function drawLine(name, text, ts = '', color = '') {

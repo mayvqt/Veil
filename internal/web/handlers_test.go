@@ -71,6 +71,19 @@ func decodeBody(t *testing.T, rr *httptest.ResponseRecorder) map[string]any {
 	return out
 }
 
+func TestHealthEndpointIncludesVersion(t *testing.T) {
+	_, h := testServer(t)
+
+	rr := doReq(t, h, http.MethodGet, "/health", "", nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("health status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	body := decodeBody(t, rr)
+	if body["version"] != AppVersion {
+		t.Fatalf("expected version %q, got %#v", AppVersion, body["version"])
+	}
+}
+
 func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	srv, h := testServer(t)
 	addUser(t, srv.Store, "u1", "alice", "member")
@@ -342,11 +355,19 @@ func TestRoomsCreateAndJoinFlow(t *testing.T) {
 	memberTok := sessionToken(srv.Secret, "member")
 
 	create := doReq(t, h, http.MethodPost, "/api/rooms", adminTok, map[string]any{
-		"room_id":   "ops",
 		"room_name": "Ops Room",
 	})
 	if create.Code != http.StatusOK {
 		t.Fatalf("create room status=%d body=%s", create.Code, create.Body.String())
+	}
+	created := decodeBody(t, create)
+	room, ok := created["room"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected created room object, got %#v", created["room"])
+	}
+	roomID, ok := room["id"].(string)
+	if !ok || !strings.HasPrefix(roomID, "ops-room") || len(roomID) <= len("ops-room") {
+		t.Fatalf("expected generated ops-room id with suffix, got %#v", room["id"])
 	}
 
 	rooms := doReq(t, h, http.MethodGet, "/api/rooms", adminTok, nil)
@@ -354,19 +375,28 @@ func TestRoomsCreateAndJoinFlow(t *testing.T) {
 		t.Fatalf("list rooms status=%d body=%s", rooms.Code, rooms.Body.String())
 	}
 
-	forbidden := doReq(t, h, http.MethodGet, "/api/messages?room_id=ops", memberTok, nil)
-	if forbidden.Code != http.StatusForbidden {
-		t.Fatalf("expected member blocked from ops before join, got %d body=%s", forbidden.Code, forbidden.Body.String())
-	}
-
-	join := doReq(t, h, http.MethodPost, "/api/rooms/join", memberTok, map[string]any{"room_id": "ops"})
-	if join.Code != http.StatusOK {
-		t.Fatalf("join room status=%d body=%s", join.Code, join.Body.String())
-	}
-
-	allowed := doReq(t, h, http.MethodGet, "/api/messages?room_id=ops", memberTok, nil)
+	allowed := doReq(t, h, http.MethodGet, "/api/messages?room_id="+roomID, memberTok, nil)
 	if allowed.Code != http.StatusOK {
-		t.Fatalf("expected member access after join, got %d body=%s", allowed.Code, allowed.Body.String())
+		t.Fatalf("expected member access to admin-created room, got %d body=%s", allowed.Code, allowed.Body.String())
+	}
+
+	join := doReq(t, h, http.MethodPost, "/api/rooms/join", memberTok, map[string]any{"room_id": roomID})
+	if join.Code != http.StatusOK {
+		t.Fatalf("join room should remain idempotent, got %d body=%s", join.Code, join.Body.String())
+	}
+
+	deleteMain := doReq(t, h, http.MethodDelete, "/api/rooms/main", adminTok, nil)
+	if deleteMain.Code != http.StatusBadRequest {
+		t.Fatalf("delete main expected 400, got %d body=%s", deleteMain.Code, deleteMain.Body.String())
+	}
+
+	deleteRoom := doReq(t, h, http.MethodDelete, "/api/rooms/"+roomID, adminTok, nil)
+	if deleteRoom.Code != http.StatusOK {
+		t.Fatalf("delete generated room expected 200, got %d body=%s", deleteRoom.Code, deleteRoom.Body.String())
+	}
+	afterDelete := doReq(t, h, http.MethodGet, "/api/messages?room_id="+roomID, memberTok, nil)
+	if afterDelete.Code != http.StatusForbidden {
+		t.Fatalf("expected deleted room inaccessible, got %d body=%s", afterDelete.Code, afterDelete.Body.String())
 	}
 }
 
@@ -627,6 +657,8 @@ func TestCustomMediaUploadListDelete(t *testing.T) {
 	if err := srv.Store.AddUserToRoom("ops", "root"); err != nil {
 		t.Fatal(err)
 	}
+	addUser(t, srv.Store, "u2", "outsider", "member")
+	outsiderTok := sessionToken(srv.Secret, "u2")
 
 	deny := doReq(t, h, http.MethodPost, "/api/admin/custom-media", userTok, map[string]any{
 		"kind": "emoji", "name": "party_blob", "data_url": smallPNG,
@@ -662,7 +694,7 @@ func TestCustomMediaUploadListDelete(t *testing.T) {
 		t.Fatalf("expected main room media only, got %#v", items)
 	}
 
-	denyOpsList := doReq(t, h, http.MethodGet, "/api/custom-media?room_id=ops", userTok, nil)
+	denyOpsList := doReq(t, h, http.MethodGet, "/api/custom-media?room_id=ops", outsiderTok, nil)
 	if denyOpsList.Code != http.StatusForbidden {
 		t.Fatalf("expected non-member ops list forbidden, got %d body=%s", denyOpsList.Code, denyOpsList.Body.String())
 	}
@@ -731,6 +763,28 @@ func TestAdminEndpoints_RoleAndRemovalGuards(t *testing.T) {
 		t.Fatalf("remove self expected 400, got %d", rr.Code)
 	}
 
+	addUser(t, srv.Store, "mem2", "member2", "member")
+	rr = doReq(t, h, http.MethodPost, "/api/admin/remove-user", tokAdmin, map[string]any{
+		"user_id": "mem2",
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("admin remove member expected 200, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	active, err := srv.Store.IsUserActive("mem2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if active {
+		t.Fatal("expected member removed by admin to be inactive")
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/admin/remove-user", tokAdmin, map[string]any{
+		"user_id": "mem",
+	})
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("admin remove admin expected 403, got %d body=%s", rr.Code, rr.Body.String())
+	}
+
 	rr = doReq(t, h, http.MethodPost, "/api/admin/remove-user", tokRoot, map[string]any{
 		"user_id": "adm",
 	})
@@ -738,7 +792,7 @@ func TestAdminEndpoints_RoleAndRemovalGuards(t *testing.T) {
 		t.Fatalf("remove user expected 200, got %d body=%s", rr.Code, rr.Body.String())
 	}
 
-	active, err := srv.Store.IsUserActive("adm")
+	active, err = srv.Store.IsUserActive("adm")
 	if err != nil {
 		t.Fatal(err)
 	}

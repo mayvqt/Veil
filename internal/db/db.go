@@ -43,6 +43,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   display_name TEXT NOT NULL,
   role TEXT NOT NULL,
+  status_text TEXT NOT NULL DEFAULT '',
   chat_color TEXT NOT NULL DEFAULT '',
   avatar_url TEXT NOT NULL DEFAULT '',
   avatar_ring_color TEXT NOT NULL DEFAULT '',
@@ -80,6 +81,8 @@ CREATE TABLE IF NOT EXISTS rooms (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   status_text TEXT NOT NULL DEFAULT 'encrypted room',
+  pinned INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0,
   created_by TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
@@ -187,6 +190,9 @@ CREATE INDEX IF NOT EXISTS idx_pinned_messages_room_pinned_at ON pinned_messages
 	if err := ensureUsersAvatarRingColumns(db); err != nil {
 		return err
 	}
+	if err := ensureUsersStatusTextColumn(db); err != nil {
+		return err
+	}
 	if err := ensureRoomStateColumns(db); err != nil {
 		return err
 	}
@@ -208,6 +214,9 @@ CREATE INDEX IF NOT EXISTS idx_pinned_messages_room_pinned_at ON pinned_messages
 	if err := ensureDefaultRooms(db); err != nil {
 		return err
 	}
+	if err := ensureRoomsMetadataColumns(db); err != nil {
+		return err
+	}
 	if err := backfillMessageReceiptsV2(db); err != nil {
 		return err
 	}
@@ -218,7 +227,7 @@ func now() string { return time.Now().UTC().Format(time.RFC3339) }
 
 func tableColumns(db *sql.DB, table string) (map[string]struct{}, error) {
 	switch table {
-	case "messages", "room_state", "users", "pinned_messages", "invites":
+	case "messages", "room_state", "users", "pinned_messages", "invites", "rooms":
 	default:
 		return nil, fmt.Errorf("unsupported table for migration: %s", table)
 	}
@@ -320,6 +329,25 @@ func ensureUsersAvatarRingColumns(db *sql.DB) error {
 	})
 }
 
+func ensureUsersStatusTextColumn(db *sql.DB) error {
+	return addMissingColumns(db, "users", []columnDef{{name: "status_text", columnDef: "TEXT NOT NULL DEFAULT ''"}})
+}
+
+func ensureRoomsMetadataColumns(db *sql.DB) error {
+	if err := addMissingColumns(db, "rooms", []columnDef{
+		{name: "pinned", columnDef: "INTEGER NOT NULL DEFAULT 0"},
+		{name: "sort_order", columnDef: "INTEGER NOT NULL DEFAULT 0"},
+	}); err != nil {
+		return err
+	}
+	_, err := db.Exec(`
+UPDATE rooms
+SET sort_order = (SELECT COUNT(*) FROM rooms r2 WHERE r2.rowid <= rooms.rowid)
+WHERE sort_order=0
+`)
+	return err
+}
+
 func backfillUsersChatColors(db *sql.DB) error {
 	rows, err := db.Query("SELECT id FROM users WHERE TRIM(chat_color)=''")
 	if err != nil {
@@ -353,12 +381,12 @@ SELECT ?, COALESCE(NULLIF(TRIM(room_name), ''), 'Room Chat'), COALESCE(NULLIF(TR
 FROM room_state WHERE id=1;
 
 INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
-SELECT ?, id, ? FROM users WHERE active=1;
+SELECT r.id, u.id, ? FROM rooms r CROSS JOIN users u WHERE u.active=1;
 
 UPDATE messages SET room_id=? WHERE TRIM(COALESCE(room_id,''))='';
 UPDATE pinned_messages SET room_id=? WHERE TRIM(COALESCE(room_id,''))='';
 UPDATE invites SET room_id=? WHERE TRIM(COALESCE(room_id,''))='';
-`, DefaultRoomID, DefaultRoomStatusText, now(), DefaultRoomID, now(), DefaultRoomID, DefaultRoomID, DefaultRoomID)
+`, DefaultRoomID, DefaultRoomStatusText, now(), now(), DefaultRoomID, DefaultRoomID, DefaultRoomID)
 	return err
 }
 

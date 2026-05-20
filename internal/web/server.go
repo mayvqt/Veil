@@ -11,6 +11,8 @@ import (
 	"veil/internal/db"
 )
 
+const AppVersion = "mvp-01"
+
 type Server struct {
 	Store          *db.Store
 	Hub            *chat.Hub

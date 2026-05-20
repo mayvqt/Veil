@@ -14,12 +14,16 @@ type Room struct {
 	Name        string `json:"name"`
 	StatusText  string `json:"status_text"`
 	UnreadCount int64  `json:"unread_count"`
+	Pinned      bool   `json:"pinned"`
+	SortOrder   int    `json:"sort_order"`
 }
 
 type User struct {
 	ID               string `json:"id"`
 	DisplayName      string `json:"display_name"`
 	Role             string `json:"role"`
+	RoomRole         string `json:"room_role,omitempty"`
+	StatusText       string `json:"status_text"`
 	ChatColor        string `json:"chat_color"`
 	AvatarURL        string `json:"avatar_url"`
 	AvatarRingColor  string `json:"avatar_ring_color"`

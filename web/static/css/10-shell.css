@@ -56,8 +56,131 @@
     padding: 0 2px;
 }
 
+.channel-head,
+.channel-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.channel-head {
+    justify-content: space-between;
+}
+
+.channel-icon-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    font: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+
+.channel-icon-btn:hover,
+.channel-icon-btn.active {
+    color: var(--ink);
+    border-color: color-mix(in srgb, var(--accent-2) 34%, var(--line));
+    background: color-mix(in srgb, var(--surface-2) 74%, transparent);
+}
+
+.channel-create {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--surface) 58%, transparent);
+}
+
+.channel-create[hidden] {
+    display: none;
+}
+
+.channel-create input {
+    width: 100%;
+    min-width: 0;
+    height: 34px;
+    padding: 0 10px;
+    border-radius: 8px;
+}
+
+.channel-create button {
+    height: 32px;
+}
+
+.channel-create .status {
+    min-height: 0;
+    padding: 0;
+    font-size: .72rem;
+}
+
 .channels-nav .nav-btn {
     font-weight: 600;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.channel-copy,
+.member-copy {
+    display: grid;
+    min-width: 0;
+    gap: 2px;
+}
+
+.channel-label {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.channel-topic,
+.member-status {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 500;
+    line-height: 1.2;
+}
+
+.channel-rename,
+.channel-delete,
+.channel-pin,
+.channel-move,
+.channel-topic-btn {
+    flex: 0 0 auto;
+    opacity: .72;
+}
+
+.channel-pin.active {
+    color: var(--accent-2);
+}
+
+.channel-topic-btn {
+    font-size: .88rem;
+    font-weight: 800;
+}
+
+.channel-rename:hover {
+    color: var(--accent-2);
+}
+
+.channel-delete:hover {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 42%, var(--line));
+    background: color-mix(in srgb, var(--danger) 12%, var(--surface));
 }
 
 .brand h1 {
@@ -523,6 +646,14 @@
     grid-template-columns: 10px minmax(0, 1fr);
 }
 
+.member-copy {
+    gap: 1px;
+}
+
+.member-name {
+    min-width: 0;
+}
+
 .member-dot {
     width: 8px;
     height: 8px;
@@ -645,6 +776,18 @@
     border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
     color: color-mix(in srgb, var(--accent-2) 58%, var(--ink));
     background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+}
+
+.role-badge-admin {
+    border-color: color-mix(in srgb, var(--accent-2) 52%, var(--line));
+    color: color-mix(in srgb, var(--accent-2) 70%, var(--ink));
+    background: color-mix(in srgb, var(--accent-2) 16%, var(--surface));
+}
+
+.role-badge-root {
+    border-color: color-mix(in srgb, var(--danger) 58%, var(--line));
+    color: color-mix(in srgb, var(--danger) 72%, var(--ink));
+    background: color-mix(in srgb, var(--danger) 16%, var(--surface));
 }
 
 .member-empty {

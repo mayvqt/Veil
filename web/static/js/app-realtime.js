@@ -224,6 +224,7 @@ async function refreshMembers() {
     myUserID = res.data.me || myUserID;
     const me = members.find((m) => String(m.id || '') === String(myUserID || ''));
     if (me) {
+        currentStatusText = String(me.status_text || '');
         currentAvatarRingColor = normalizeHexColorAlpha(me.avatar_ring_color || '');
         currentAvatarRingColor2 = normalizeHexColorAlpha(me.avatar_ring_color2 || '');
         currentAvatarRingColor3 = normalizeHexColorAlpha(me.avatar_ring_color3 || '');
@@ -291,8 +292,10 @@ function renderMembersList() {
         const hasImageAvatar = isAvatarImageURL(avatarURL);
         const avatar = !showAvatars ? '' : `<span class="${ring.className}"${ring.style}>${hasImageAvatar ? `<img class="member-avatar-img" src="${esc(avatarURL)}" alt="${esc(name)}" loading="lazy"/>` : `<span class="member-avatar" style="background:${esc(color)}">${esc(initial)}</span>`}</span>`;
         const roomRole = String(m.room_role || '').trim().toLowerCase();
-        const roomRoleBadge = roomRole === 'moderator' ? '<span class="role-badge role-badge-mod">Moderator</span>' : '';
-        return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online ? 'on' : 'off'}" aria-hidden="true"></span>${avatar}<span class="member-name">${esc(name)}${self ? ' (you)' : ''}${roomRoleBadge}</span></div>`;
+        const status = String(m.status_text || '').trim();
+        const globalRoleBadge = roleBadgeHTML(m.role);
+        const roomRoleBadge = roleBadgeHTML(roomRole);
+        return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online ? 'on' : 'off'}" aria-hidden="true"></span>${avatar}<span class="member-copy"><span class="member-name">${esc(name)}${self ? ' (you)' : ''}${globalRoleBadge}${roomRoleBadge}</span>${status ? `<span class="member-status">${esc(status)}</span>` : ''}</span></div>`;
     }).join('');
 }
 
@@ -327,27 +330,30 @@ async function renderAdminUsers() {
     }
 
     for (const u of users) {
+        const isMe = String(u.id || '') === String(myUserID || '');
         const canChange = myRole === 'root_admin' && u.role !== 'root_admin';
+        const canRemove = !isMe && ((myRole === 'root_admin' && u.role !== 'root_admin') || (myRole === 'admin' && u.role === 'member'));
         const roleOptions = ['member', 'admin'].map(role => `<option value="${role}" ${u.role === role ? 'selected' : ''}>${role}</option>`).join('');
         const row = document.createElement('div');
         row.className = 'admin-user';
-        const isMe = String(u.id || '') === String(myUserID || '');
         const memberRow = roomMembers.find((m) => String(m.id || '') === String(u.id || '')) || {};
         const roomRole = String(memberRow.room_role || '').trim().toLowerCase();
-        const roomRoleBadge = roomRole === 'moderator' ? '<span class="role-badge role-badge-mod">Moderator</span>' : '';
+        const globalRoleBadge = roleBadgeHTML(u.role);
+        const roomRoleBadge = roleBadgeHTML(roomRole);
         const isGlobalAdmin = myRole === 'root_admin' || myRole === 'admin';
         const inRoom = !!memberRow && !!memberRow.id;
         const canManageRoomRole = isGlobalAdmin && u.role !== 'root_admin' && inRoom;
         const roomRoleActions = canManageRoomRole
             ? `<button class="secondary" data-set-room-mod="${esc(u.id)}">Set Mod</button><button class="secondary" data-clear-room-mod="${esc(u.id)}">Clear Mod</button>`
             : `<span class="muted">${inRoom ? 'room role locked' : 'not in room'}</span>`;
-        row.innerHTML = `<div><strong>${esc(u.display_name)}${isMe ? ' (you)' : ''}${roomRoleBadge}</strong><div class="admin-role">${esc(u.role)}</div></div>${canChange ? `<div class="admin-actions"><select data-user="${esc(u.id)}">${roleOptions}</select><button class="btn-danger" data-remove-user="${esc(u.id)}">Remove</button>${roomRoleActions}</div>` : `<div class="admin-actions">${roomRoleActions}</div>`}`;
+        const roleSelect = canChange ? `<select data-user="${esc(u.id)}">${roleOptions}</select>` : '';
+        const removeButton = canRemove ? `<button class="btn-danger" data-remove-user="${esc(u.id)}">Remove</button>` : '';
+        row.innerHTML = `<div><strong>${esc(u.display_name)}${isMe ? ' (you)' : ''}${globalRoleBadge}${roomRoleBadge}</strong><div class="admin-role">${esc(u.role)}</div></div><div class="admin-actions">${roleSelect}${removeButton}${roomRoleActions}</div>`;
         box.appendChild(row);
     }
 
     if (myRole !== 'root_admin') {
-        status.textContent = 'Members loaded. Root admin permission required to update roles.';
-        return;
+        status.textContent = myRole === 'admin' ? 'Members loaded. Admins can remove regular members.' : 'Members loaded. Root admin permission required to update roles.';
     }
 
     box.querySelectorAll('select[data-user]').forEach((sel) => {
@@ -379,6 +385,7 @@ async function renderAdminUsers() {
             }
             status.textContent = 'User removed. Access revoked.';
             status.className = 'status ok';
+            await refreshMembers();
             await renderAdminUsers();
         });
     });

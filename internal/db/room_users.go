@@ -1,9 +1,11 @@
 package db
 
 import (
+	"crypto/rand"
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 
@@ -33,14 +35,68 @@ func normalizeRoomID(value string) string {
 	return string(out)
 }
 
+func baseRoomIDFromName(value string) string {
+	v := strings.TrimSpace(strings.ToLower(value))
+	out := make([]rune, 0, len(v))
+	lastDash := false
+	for _, r := range v {
+		valid := (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9')
+		if valid {
+			out = append(out, r)
+			lastDash = false
+			continue
+		}
+		if !lastDash && len(out) > 0 {
+			out = append(out, '-')
+			lastDash = true
+		}
+	}
+	for len(out) > 0 && out[len(out)-1] == '-' {
+		out = out[:len(out)-1]
+	}
+	if len(out) == 0 {
+		return "room"
+	}
+	if len(out) > 32 {
+		out = out[:32]
+		for len(out) > 0 && out[len(out)-1] == '-' {
+			out = out[:len(out)-1]
+		}
+	}
+	return string(out)
+}
+
+func randomRoomIDDigits() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(90000000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%08d", n.Int64()+10000000), nil
+}
+
+func uniqueRoomID(tx *sql.Tx, roomName string) (string, error) {
+	base := baseRoomIDFromName(roomName)
+	if len(base) > 39 {
+		base = base[:39]
+	}
+	for range 20 {
+		digits, err := randomRoomIDDigits()
+		if err != nil {
+			return "", err
+		}
+		id := normalizeRoomID(base + digits)
+		var count int
+		if err := tx.QueryRow("SELECT COUNT(*) FROM rooms WHERE id=?", id).Scan(&count); err != nil {
+			return "", err
+		}
+		if count == 0 {
+			return id, nil
+		}
+	}
+	return "", errors.New("failed to generate unique room id")
+}
+
 func (s *Store) CreateRoom(roomID, roomName, statusText, actorUserID string) (Room, error) {
-	id := normalizeRoomID(roomID)
-	if id == "" {
-		return Room{}, errors.New("invalid room id")
-	}
-	if len(id) > 48 {
-		return Room{}, errors.New("room id too long")
-	}
 	name := strings.TrimSpace(roomName)
 	if name == "" {
 		return Room{}, errors.New("room name required")
@@ -48,18 +104,77 @@ func (s *Store) CreateRoom(roomID, roomName, statusText, actorUserID string) (Ro
 	if statusText == "" {
 		statusText = DefaultRoomStatusText
 	}
-	_, err := s.DB.Exec("INSERT INTO rooms (id, name, status_text, created_by, created_at) VALUES (?, ?, ?, ?, ?)", id, name, statusText, actorUserID, now())
+	tx, err := s.DB.Begin()
 	if err != nil {
 		return Room{}, err
 	}
-	if _, err := s.DB.Exec("INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at) VALUES (?, ?, ?)", id, actorUserID, now()); err != nil {
+	defer tx.Rollback()
+	id := normalizeRoomID(roomID)
+	if id == "" {
+		var err error
+		id, err = uniqueRoomID(tx, name)
+		if err != nil {
+			return Room{}, err
+		}
+	}
+	if len(id) > 48 {
+		return Room{}, errors.New("room id too long")
+	}
+	var sortOrder int
+	if err := tx.QueryRow("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM rooms").Scan(&sortOrder); err != nil {
 		return Room{}, err
 	}
-	return Room{ID: id, Name: name, StatusText: statusText}, nil
+	if _, err := tx.Exec("INSERT INTO rooms (id, name, status_text, sort_order, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)", id, name, statusText, sortOrder, actorUserID, now()); err != nil {
+		return Room{}, err
+	}
+	if _, err := tx.Exec(`
+INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
+SELECT ?, id, ? FROM users WHERE active=1`, id, now()); err != nil {
+		return Room{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return Room{}, err
+	}
+	return Room{ID: id, Name: name, StatusText: statusText, SortOrder: sortOrder}, nil
+}
+
+func (s *Store) DeleteRoom(roomID string) error {
+	if roomID == DefaultRoomID {
+		return errors.New("cannot delete default room")
+	}
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("DELETE FROM message_reactions WHERE message_id IN (SELECT id FROM messages WHERE room_id=?)", roomID); err != nil {
+		return err
+	}
+	for _, stmt := range []string{
+		"DELETE FROM pinned_messages WHERE room_id=?",
+		"DELETE FROM message_receipts_v2 WHERE room_id=?",
+		"DELETE FROM room_roles WHERE room_id=?",
+		"DELETE FROM room_memberships WHERE room_id=?",
+		"DELETE FROM invites WHERE room_id=?",
+		"DELETE FROM messages WHERE room_id=?",
+		"DELETE FROM rooms WHERE id=?",
+	} {
+		if _, err := tx.Exec(stmt, roomID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (s *Store) AddUserToRoom(roomID, userID string) error {
 	_, err := s.DB.Exec("INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at) VALUES (?, ?, ?)", roomID, userID, now())
+	return err
+}
+
+func (s *Store) AddUserToAllRooms(userID string) error {
+	_, err := s.DB.Exec(`
+INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
+SELECT id, ?, ? FROM rooms`, userID, now())
 	return err
 }
 
@@ -194,7 +309,9 @@ func (s *Store) InitRoom(roomName, displayName, publicKey, credentialID, roomKey
 	if _, err := tx.Exec("INSERT OR IGNORE INTO rooms (id, name, status_text, created_by, created_at) VALUES (?, ?, ?, ?, ?)", DefaultRoomID, roomName, DefaultRoomStatusText, u.ID, now()); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at) VALUES (?, ?, ?)", DefaultRoomID, u.ID, now()); err != nil {
+	if _, err := tx.Exec(`
+INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
+SELECT id, ?, ? FROM rooms`, u.ID, now()); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -217,7 +334,9 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, created_at) VALUES (?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, now()); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at) VALUES (?, ?, ?)", DefaultRoomID, u.ID, now()); err != nil {
+	if _, err := tx.Exec(`
+INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
+SELECT id, ?, ? FROM rooms`, u.ID, now()); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -228,11 +347,11 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 
 func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT u.id, u.display_name, u.role, u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
+SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -243,11 +362,11 @@ WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 
 func (s *Store) GetActiveUser(userID string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT id, display_name, role, chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none')
+SELECT id, display_name, role, COALESCE(status_text,''), chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none')
 FROM users
 WHERE id=? AND active=1`, userID)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -257,7 +376,7 @@ WHERE id=? AND active=1`, userID)
 }
 
 func (s *Store) ListUsers() ([]User, error) {
-	rows, err := s.DB.Query("SELECT id, display_name, role, chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none') FROM users WHERE active=1 ORDER BY created_at ASC")
+	rows, err := s.DB.Query("SELECT id, display_name, role, COALESCE(status_text,''), chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none') FROM users WHERE active=1 ORDER BY created_at ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +385,7 @@ func (s *Store) ListUsers() ([]User, error) {
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -276,9 +395,10 @@ func (s *Store) ListUsers() ([]User, error) {
 
 func (s *Store) ListUsersByRoom(roomID string) ([]User, error) {
 	rows, err := s.DB.Query(`
-SELECT u.id, u.display_name, u.role, u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
+SELECT u.id, u.display_name, u.role, COALESCE(rr.role,''), COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
 FROM users u
 JOIN room_memberships rm ON rm.user_id=u.id
+LEFT JOIN room_roles rr ON rr.room_id=rm.room_id AND rr.user_id=u.id
 WHERE rm.room_id=? AND u.active=1
 ORDER BY rm.joined_at ASC`, roomID)
 	if err != nil {
@@ -289,7 +409,7 @@ ORDER BY rm.joined_at ASC`, roomID)
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.RoomRole, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -310,18 +430,19 @@ func (s *Store) IsRoomMember(roomID, userID string) (bool, error) {
 
 func (s *Store) ListRoomsForUser(userID string) ([]Room, error) {
 	rows, err := s.DB.Query(`
-SELECT r.id, r.name, COALESCE(r.status_text, ?),
-COALESCE(SUM(CASE
-  WHEN m.rowid > COALESCE(rc.last_seen_rowid, 0) AND m.sender_id <> rm.user_id THEN 1
-  ELSE 0
-END), 0) AS unread_count
+SELECT r.id, r.name, COALESCE(r.status_text, ?), COALESCE(r.pinned, 0), COALESCE(r.sort_order, 0),
+(
+  SELECT COUNT(*)
+  FROM messages m
+  WHERE m.room_id=r.id
+    AND m.rowid > COALESCE(rc.last_seen_rowid, 0)
+    AND m.sender_id <> rm.user_id
+) AS unread_count
 FROM rooms r
 JOIN room_memberships rm ON rm.room_id=r.id
 LEFT JOIN message_receipts_v2 rc ON rc.room_id=r.id AND rc.user_id=rm.user_id
-LEFT JOIN messages m ON m.room_id=r.id
 WHERE rm.user_id=?
-GROUP BY r.id, r.name, r.status_text, rm.joined_at
-ORDER BY rm.joined_at ASC`, DefaultRoomStatusText, userID)
+ORDER BY r.pinned DESC, r.sort_order ASC, rm.joined_at ASC`, DefaultRoomStatusText, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -330,9 +451,11 @@ ORDER BY rm.joined_at ASC`, DefaultRoomStatusText, userID)
 	rooms := make([]Room, 0)
 	for rows.Next() {
 		var room Room
-		if err := rows.Scan(&room.ID, &room.Name, &room.StatusText, &room.UnreadCount); err != nil {
+		var pinned int
+		if err := rows.Scan(&room.ID, &room.Name, &room.StatusText, &pinned, &room.SortOrder, &room.UnreadCount); err != nil {
 			return nil, err
 		}
+		room.Pinned = pinned == 1
 		rooms = append(rooms, room)
 	}
 	return rooms, rows.Err()
@@ -384,6 +507,57 @@ func (s *Store) SetUserDisplayName(userID, displayName string) error {
 	}
 	_, err := s.DB.Exec("UPDATE users SET display_name=? WHERE id=? AND active=1", name, userID)
 	return err
+}
+
+func (s *Store) SetUserStatusText(userID, statusText string) error {
+	status := strings.TrimSpace(statusText)
+	_, err := s.DB.Exec("UPDATE users SET status_text=? WHERE id=? AND active=1", status, userID)
+	return err
+}
+
+func (s *Store) SetRoomPinned(roomID string, pinned bool) error {
+	value := 0
+	if pinned {
+		value = 1
+	}
+	_, err := s.DB.Exec("UPDATE rooms SET pinned=? WHERE id=?", value, roomID)
+	return err
+}
+
+func (s *Store) MoveRoom(roomID string, direction int) error {
+	if direction == 0 {
+		return nil
+	}
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var pinned, sortOrder int
+	if err := tx.QueryRow("SELECT pinned, sort_order FROM rooms WHERE id=?", roomID).Scan(&pinned, &sortOrder); err != nil {
+		return err
+	}
+	var otherID string
+	var otherOrder int
+	query := "SELECT id, sort_order FROM rooms WHERE pinned=? AND sort_order < ? ORDER BY sort_order DESC LIMIT 1"
+	if direction > 0 {
+		query = "SELECT id, sort_order FROM rooms WHERE pinned=? AND sort_order > ? ORDER BY sort_order ASC LIMIT 1"
+	}
+	err = tx.QueryRow(query, pinned, sortOrder).Scan(&otherID, &otherOrder)
+	if errors.Is(err, sql.ErrNoRows) {
+		return tx.Commit()
+	}
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE rooms SET sort_order=? WHERE id=?", otherOrder, roomID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE rooms SET sort_order=? WHERE id=?", sortOrder, otherID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (s *Store) SetUserAvatarURL(userID, avatarURL string) error {

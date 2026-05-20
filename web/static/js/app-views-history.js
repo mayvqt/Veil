@@ -4,7 +4,13 @@ function navHTML() {
     <aside class="sidebar">
       <div class="brand"><div class="eyebrow">encrypted room</div><h1>Veil</h1><span class="muted">private realtime chat</span></div>
       <div class="sidebar-section">
-        <div class="sidebar-head">Channels</div>
+        <div class="sidebar-head channel-head"><span>Channels</span>${isAdminRole(myRole) ? `<button class="channel-icon-btn" data-channel-create-toggle type="button" aria-label="Create channel" title="Create channel">+</button>` : ''}</div>
+        ${isAdminRole(myRole) ? `
+        <div class="channel-create" data-channel-create-panel hidden>
+          <input id="sidebarRoomNameInput" type="text" maxlength="80" placeholder="Channel name" aria-label="Channel name"/>
+          <button id="sidebarCreateRoomBtn" class="secondary" type="button">Create</button>
+          <div id="sidebarCreateRoomStatus" class="status"></div>
+        </div>` : ''}
         <div class="nav channels-nav">
           ${rooms.map((room) => roomNavButtonHTML(room)).join('')}
         </div>
@@ -24,7 +30,13 @@ function roomNavButtonHTML(room) {
     const active = roomID === String(activeRoomID || '');
     const unread = active ? 0 : roomUnreadCount(room);
     const unreadLabel = unread > 99 ? '99+' : String(unread);
-    return `<button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" type="button"># ${esc(room && room.name || roomID || 'room')}${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>`;
+    const canManage = isAdminRole(myRole) && roomID;
+    const canDelete = canManage && roomID !== 'main';
+    const label = String(room && room.name || roomID || 'room');
+    const topic = String(room && room.status_text || '').trim();
+    const pinned = !!(room && room.pinned);
+    const topicHTML = topic && topic !== DEFAULT_ROOM_STATUS_TEXT ? `<span class="channel-topic">${esc(topic)}</span>` : '';
+    return `<div class="channel-row"><button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" data-sidebar-unread="${esc(String(unread))}" type="button"><span class="channel-copy"><span class="channel-label">${pinned ? '★ ' : ''}# ${esc(label)}</span>${topicHTML}</span>${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>${canManage ? `<button class="channel-icon-btn channel-pin${pinned ? ' active' : ''}" data-pin-room-id="${esc(roomID)}" data-pin-room-next="${pinned ? '0' : '1'}" type="button" aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(label)}" title="${pinned ? 'Unpin channel' : 'Pin channel'}">★</button><button class="channel-icon-btn channel-move" data-move-room-id="${esc(roomID)}" data-move-room-direction="up" type="button" aria-label="Move ${esc(label)} up" title="Move up">↑</button><button class="channel-icon-btn channel-move" data-move-room-id="${esc(roomID)}" data-move-room-direction="down" type="button" aria-label="Move ${esc(label)} down" title="Move down">↓</button><button class="channel-icon-btn channel-topic-btn" data-topic-room-id="${esc(roomID)}" data-topic-room-text="${esc(topic)}" type="button" aria-label="Edit ${esc(label)} topic" title="Edit topic">i</button><button class="channel-icon-btn channel-rename" data-rename-room-id="${esc(roomID)}" data-rename-room-name="${esc(label)}" type="button" aria-label="Rename ${esc(label)}" title="Rename channel">✎</button>` : ''}${canDelete ? `<button class="channel-icon-btn channel-delete" data-delete-room-id="${esc(roomID)}" data-delete-room-name="${esc(label)}" type="button" aria-label="Delete ${esc(label)}" title="Delete channel">×</button>` : ''}</div>`;
 }
 
 function sidebarToggleHTML() {
@@ -68,7 +80,7 @@ function chatPanelHTML() {
           ${sidebarToggleHTML()}
           <div class="room-title">
             <strong>${esc(title)}</strong>
-            <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span></small>
+            <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span>${isAdminRole(myRole) ? `<button id="roomTopicQuickEdit" class="room-topic-edit" type="button" title="Edit channel topic" aria-label="Edit channel topic">✎</button>` : ''}</small>
           </div>
         </div>
         <div class="top-actions">
@@ -173,6 +185,15 @@ function settingsSectionHTML(title, body, extraClass = '') {
     return `<section class="settings-section ${esc(extraClass)}"><h3>${esc(title)}</h3>${body}</section>`;
 }
 
+function settingsDetailsHTML(title, body, open = false) {
+    return `
+    <details class="settings-details" ${open ? 'open' : ''}>
+      <summary>${esc(title)}</summary>
+      <div class="settings-details-body">${body}</div>
+    </details>
+  `;
+}
+
 function adminCardHTML(title, lead, body, extraClass = '') {
     return `
     <section class="settings-section admin-section admin-card ${esc(extraClass)}">
@@ -218,11 +239,17 @@ function themePanelHTML() {
             <button class="secondary" data-theme-preset="midnight">Midnight</button>
             <button class="secondary" data-theme-preset="graphite">Graphite</button>
           </div>
+          <div class="theme-actions settings-footer">
+            <button id="copyTheme" class="secondary">Copy Theme</button>
+            <button id="importTheme" class="secondary">Import Theme</button>
+          </div>
           `)}
           ${settingsSectionHTML('Custom Colors', `
-          <div class="theme-grid">
-            ${fields.map(([key, label, hint]) => `<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(t[key])}"/></div>`).join('')}
-          </div>
+          ${settingsDetailsHTML('Advanced color controls', `
+            <div class="theme-grid">
+              ${fields.map(([key, label, hint]) => `<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(t[key])}"/></div>`).join('')}
+            </div>
+          `)}
           `)}
           ${settingsSectionHTML('Display', `
           <div class="settings-list">
@@ -232,6 +259,7 @@ function themePanelHTML() {
           </div>
           <div class="theme-actions settings-footer">
             <button id="resetTheme" class="secondary">Reset</button>
+            <button id="resetDisplayPrefs" class="secondary">Reset Display</button>
           </div>
           `)}
           <div id="themeStatus" class="status">Theme changes save immediately.</div>
@@ -258,7 +286,7 @@ function profilePanelHTML() {
           ${settingsSectionHTML('Identity', `
           <div class="profile-summary" id="profilePreview">
             ${profilePreview}
-            <div><strong>${esc(currentDisplayName || 'member')}</strong><span>${esc(myRole || 'member')}</span></div>
+            <div><strong>${esc(currentDisplayName || 'member')}${roleBadgeHTML(myRole)}</strong><span>${esc(myRole || 'member')} · version ${esc(appVersion || APP_VERSION)}</span></div>
           </div>
           <div class="theme-row file-row">
             <label for="profile-display-name">Display Name<span>Shown to everyone</span></label>
@@ -266,6 +294,14 @@ function profilePanelHTML() {
           </div>
           <div class="theme-actions settings-footer">
             <button id="profileDisplayNameSave" class="secondary">Save Name</button>
+          </div>
+          <div class="theme-row file-row">
+            <label for="profile-status-text">Status<span>Shown in member lists</span></label>
+            <input id="profile-status-text" type="text" maxlength="120" value="${esc(currentStatusText || '')}" placeholder="Available, focusing, away..."/>
+          </div>
+          <div class="theme-actions settings-footer">
+            <button id="profileStatusTextSave" class="secondary">Save Status</button>
+            <button id="profileStatusTextClear" class="secondary">Clear</button>
           </div>
           <div class="theme-row">
             <label for="profile-chat-color">Name Color<span>Shown in chat</span></label>
@@ -299,50 +335,53 @@ function profilePanelHTML() {
           <div class="settings-list">
             ${switchControlHTML('profileAvatarRingEnabled', 'Use avatar ring', ringEnabled)}
           </div>
-          <div class="ring-settings">
-          <div class="theme-row">
-            <label for="profile-avatar-ring-color">Primary<span>Color</span></label>
-            <input id="profile-avatar-ring-color" type="color" value="${esc(hexColorBase(currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName || ''), '#ff9d66'))}"/>
-          </div>
-          <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha">Primary Opacity<span>${esc(ringAlpha1)}%</span></label>
-            <input id="profile-avatar-ring-alpha" type="range" min="0" max="100" step="1" value="${esc(ringAlpha1)}"/>
-          </div>
-          <div class="theme-row">
-            <label for="profile-avatar-ring-color2">Secondary<span>Color</span></label>
-            <input id="profile-avatar-ring-color2" type="color" value="${esc(hexColorBase(currentAvatarRingColor2 || currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName || ''), '#ff78b2'))}"/>
-          </div>
-          <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha2">Secondary Opacity<span>${esc(ringAlpha2)}%</span></label>
-            <input id="profile-avatar-ring-alpha2" type="range" min="0" max="100" step="1" value="${esc(ringAlpha2)}"/>
-          </div>
-          <div class="theme-row">
-            <label for="profile-avatar-ring-color3">Rainbow 3<span>Color</span></label>
-            <input id="profile-avatar-ring-color3" type="color" value="${esc(hexColorBase(currentAvatarRingColor3 || '#57db84', '#57db84'))}"/>
-          </div>
-          <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha3">Rainbow 3 Opacity<span>${esc(ringAlpha3)}%</span></label>
-            <input id="profile-avatar-ring-alpha3" type="range" min="0" max="100" step="1" value="${esc(ringAlpha3)}"/>
-          </div>
-          <div class="theme-row">
-            <label for="profile-avatar-ring-color4">Rainbow 4<span>Color</span></label>
-            <input id="profile-avatar-ring-color4" type="color" value="${esc(hexColorBase(currentAvatarRingColor4 || '#9d7bff', '#9d7bff'))}"/>
-          </div>
-          <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-alpha4">Rainbow 4 Opacity<span>${esc(ringAlpha4)}%</span></label>
-            <input id="profile-avatar-ring-alpha4" type="range" min="0" max="100" step="1" value="${esc(ringAlpha4)}"/>
-          </div>
-          <div class="theme-row wide-control">
-            <label for="profile-avatar-ring-mode">Animation<span>Mode</span></label>
-            <select id="profile-avatar-ring-mode">
-              <option value="none" ${currentAvatarRingMode === 'none' ? 'selected' : ''}>Still</option>
-              <option value="pulse" ${currentAvatarRingMode === 'pulse' ? 'selected' : ''}>Pulse</option>
-              <option value="glow" ${currentAvatarRingMode === 'glow' ? 'selected' : ''}>Glow</option>
-              <option value="rainbow" ${currentAvatarRingMode === 'rainbow' ? 'selected' : ''}>Rainbow</option>
-            </select>
-          </div>
-          </div>
+          ${settingsDetailsHTML('Ring style', `
+            <div class="ring-settings">
+              <div class="theme-row">
+                <label for="profile-avatar-ring-color">Primary<span>Color</span></label>
+                <input id="profile-avatar-ring-color" type="color" value="${esc(hexColorBase(currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName || ''), '#ff9d66'))}"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="profile-avatar-ring-alpha">Primary Opacity<span>${esc(ringAlpha1)}%</span></label>
+                <input id="profile-avatar-ring-alpha" type="range" min="0" max="100" step="1" value="${esc(ringAlpha1)}"/>
+              </div>
+              <div class="theme-row">
+                <label for="profile-avatar-ring-color2">Secondary<span>Color</span></label>
+                <input id="profile-avatar-ring-color2" type="color" value="${esc(hexColorBase(currentAvatarRingColor2 || currentAvatarRingColor || currentUserChatColor || userColor(currentDisplayName || ''), '#ff78b2'))}"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="profile-avatar-ring-alpha2">Secondary Opacity<span>${esc(ringAlpha2)}%</span></label>
+                <input id="profile-avatar-ring-alpha2" type="range" min="0" max="100" step="1" value="${esc(ringAlpha2)}"/>
+              </div>
+              <div class="theme-row">
+                <label for="profile-avatar-ring-color3">Rainbow 3<span>Color</span></label>
+                <input id="profile-avatar-ring-color3" type="color" value="${esc(hexColorBase(currentAvatarRingColor3 || '#57db84', '#57db84'))}"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="profile-avatar-ring-alpha3">Rainbow 3 Opacity<span>${esc(ringAlpha3)}%</span></label>
+                <input id="profile-avatar-ring-alpha3" type="range" min="0" max="100" step="1" value="${esc(ringAlpha3)}"/>
+              </div>
+              <div class="theme-row">
+                <label for="profile-avatar-ring-color4">Rainbow 4<span>Color</span></label>
+                <input id="profile-avatar-ring-color4" type="color" value="${esc(hexColorBase(currentAvatarRingColor4 || '#9d7bff', '#9d7bff'))}"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="profile-avatar-ring-alpha4">Rainbow 4 Opacity<span>${esc(ringAlpha4)}%</span></label>
+                <input id="profile-avatar-ring-alpha4" type="range" min="0" max="100" step="1" value="${esc(ringAlpha4)}"/>
+              </div>
+              <div class="theme-row wide-control">
+                <label for="profile-avatar-ring-mode">Animation<span>Mode</span></label>
+                <select id="profile-avatar-ring-mode">
+                  <option value="none" ${currentAvatarRingMode === 'none' ? 'selected' : ''}>Still</option>
+                  <option value="pulse" ${currentAvatarRingMode === 'pulse' ? 'selected' : ''}>Pulse</option>
+                  <option value="glow" ${currentAvatarRingMode === 'glow' ? 'selected' : ''}>Glow</option>
+                  <option value="rainbow" ${currentAvatarRingMode === 'rainbow' ? 'selected' : ''}>Rainbow</option>
+                </select>
+              </div>
+            </div>
+          `, true)}
           <div class="theme-actions settings-footer">
+            <button id="profileAvatarRingMatchName" class="secondary">Match Name Color</button>
             <button id="profileAvatarRingClear" class="secondary">Clear Ring</button>
           </div>
           `)}
@@ -441,15 +480,14 @@ function controlPanelHTML() {
           </div>
           <div class="admin-column admin-column-side">
             ${adminCardHTML(
-        'Room Directory',
-        'Create additional rooms and expose them in the channel switcher.',
+        'Channel Directory',
+        'Create channels for everyone. Internal ids are generated automatically.',
         `
               <div class="theme-actions admin-actions-row">
-                <input id="newRoomIDInput" type="text" maxlength="48" placeholder="room id (e.g. ops)"/>
                 <input id="newRoomNameInput" type="text" maxlength="80" placeholder="Room display name"/>
                 <button id="createRoomBtn" class="secondary">Create Room</button>
               </div>
-              <div id="createRoomStatus" class="status">Admins can create rooms and join from the room switcher.</div>
+              <div id="createRoomStatus" class="status">Admin-created rooms are visible to all active members.</div>
             `
     )}
             ${adminCardHTML(
@@ -744,6 +782,7 @@ async function loadHistory({appendOlder = false} = {}) {
     } else {
         renderUnreadDivider();
         renderPinnedBarFromState();
+        renderChatEmptyState();
         scrollChatToBottom();
     }
     bindMessageImageScroll();
@@ -770,6 +809,24 @@ function renderPinnedBarFromState() {
     const bar = $('pinnedBar');
     const messages = $('messages');
     chatRenderPinnedBar(bar, messages);
+}
+
+function renderChatEmptyState() {
+    const messages = $('messages');
+    if (!messages) return;
+    const existing = messages.querySelector('.chat-empty-state');
+    if (existing) existing.remove();
+    if (messages.querySelector('.line[data-msg-id]')) return;
+    const adminActions = isAdminRole(myRole)
+        ? `<div class="chat-empty-actions"><button class="secondary" data-empty-channel-action="rename" type="button">Rename</button><button class="secondary" data-empty-channel-action="topic" type="button">Set Topic</button></div>`
+        : '';
+    messages.insertAdjacentHTML('beforeend', `
+      <div class="chat-empty-state">
+        <strong># ${esc(roomName || 'Room Chat')}</strong>
+        <span>No messages here yet.</span>
+        ${adminActions}
+      </div>
+    `);
 }
 
 async function appendMessageRecord(messagesEl, record, {prepend = false, animate = false} = {}) {
@@ -812,6 +869,8 @@ async function appendMessageRecord(messagesEl, record, {prepend = false, animate
         edited_at: String(record.edited_at || '')
     });
     const row = drawMessage(record, plain);
+    const emptyState = messagesEl.querySelector('.chat-empty-state');
+    if (emptyState) emptyState.remove();
     if (prepend) messagesEl.insertAdjacentHTML('afterbegin', row);
     else messagesEl.insertAdjacentHTML('beforeend', row);
     if (animate) {

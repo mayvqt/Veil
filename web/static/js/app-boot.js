@@ -12,6 +12,7 @@
     }
 
     const h = await api('/health');
+    if (h.data && h.data.version) appVersion = String(h.data.version || APP_VERSION);
     if (!h.ok) {
         await bootView();
         return;

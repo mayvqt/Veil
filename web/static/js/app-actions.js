@@ -17,6 +17,7 @@ function bindChatActions() {
     const searchWrap = $('chatSearchWrap');
     const searchToggle = $('chatSearchToggle');
     const jumpLatestBtn = $('jumpLatest');
+    const roomTopicQuickEdit = $('roomTopicQuickEdit');
     const pinnedBar = $('pinnedBar');
     const emojiToggle = $('emojiToggle');
     const emojiPicker = $('emojiPicker');
@@ -124,6 +125,11 @@ function bindChatActions() {
         scrollChatToBottom();
         updateJumpLatestVisibility();
     };
+    if (roomTopicQuickEdit) {
+        roomTopicQuickEdit.onclick = async () => {
+            await editChannelTopicByID(activeRoomID, roomStatusText, null);
+        };
+    }
     const toggleEmojiPicker = () => {
         if (!emojiPicker || !emojiToggle) return;
         closeStickerPicker();
@@ -395,6 +401,13 @@ function bindChatActions() {
         messages.addEventListener('click', async (e) => {
             const target = e.target;
             if (!(target instanceof Element)) return;
+            const emptyAction = target.closest('button[data-empty-channel-action]');
+            if (emptyAction) {
+                const action = emptyAction.getAttribute('data-empty-channel-action') || '';
+                if (action === 'rename') await renameChannelByID(activeRoomID, roomName, null);
+                if (action === 'topic') await editChannelTopicByID(activeRoomID, roomStatusText, null);
+                return;
+            }
             const replyBtn = target.closest('button[data-reply-msg]');
             if (replyBtn) {
                 setReplyTarget(replyBtn.getAttribute('data-reply-msg') || '');
@@ -632,9 +645,52 @@ function bindUserMenuActions() {
 }
 
 function bindSidebarChannelActions() {
-    document.querySelectorAll('button[data-sidebar-room-id]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            await switchActiveRoom(btn.getAttribute('data-sidebar-room-id') || 'main');
+    const nav = document.querySelector('.channels-nav');
+    if (!nav || nav.dataset.bound === '1') return;
+    nav.dataset.bound = '1';
+    nav.addEventListener('click', async (ev) => {
+        const target = ev.target;
+        if (!(target instanceof Element)) return;
+        const status = $('sidebarCreateRoomStatus');
+        const deleteBtn = target.closest('button[data-delete-room-id]');
+        if (deleteBtn) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await deleteChannelByID(deleteBtn.getAttribute('data-delete-room-id'), deleteBtn.getAttribute('data-delete-room-name'), status);
+            return;
+        }
+        const renameBtn = target.closest('button[data-rename-room-id]');
+        if (renameBtn) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await renameChannelByID(renameBtn.getAttribute('data-rename-room-id'), renameBtn.getAttribute('data-rename-room-name'), status);
+            return;
+        }
+        const topicBtn = target.closest('button[data-topic-room-id]');
+        if (topicBtn) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await editChannelTopicByID(topicBtn.getAttribute('data-topic-room-id'), topicBtn.getAttribute('data-topic-room-text'), status);
+            return;
+        }
+        const pinBtn = target.closest('button[data-pin-room-id]');
+        if (pinBtn) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await setChannelPinned(pinBtn.getAttribute('data-pin-room-id'), pinBtn.getAttribute('data-pin-room-next') === '1', status);
+            return;
+        }
+        const moveBtn = target.closest('button[data-move-room-id]');
+        if (moveBtn) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            await moveChannelByID(moveBtn.getAttribute('data-move-room-id'), moveBtn.getAttribute('data-move-room-direction'), status);
+            return;
+        }
+        const roomBtn = target.closest('button[data-sidebar-room-id]');
+        if (roomBtn) {
+            jumpToUnreadAfterSwitch = Number(roomBtn.getAttribute('data-sidebar-unread') || 0) > 0;
+            await switchActiveRoom(roomBtn.getAttribute('data-sidebar-room-id') || 'main');
             if (window.matchMedia && window.matchMedia(MOBILE_SIDEBAR_QUERY).matches) {
                 sidebarOpen = false;
                 persistSidebarOpenState();
@@ -644,8 +700,179 @@ function bindSidebarChannelActions() {
                 currentView = VIEW_CHAT;
             }
             await renderMain();
-        });
+        }
     });
+}
+
+async function editChannelTopicByID(roomID, currentTopic, statusEl) {
+    const id = String(roomID || '').trim();
+    if (!id) return false;
+    const nextTopic = prompt('Channel topic', String(currentTopic || roomStatusText || '').trim());
+    if (nextTopic === null) return false;
+    const topic = String(nextTopic || '').trim();
+    const r = await api(`/api/admin/room-status-text?room_id=${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: JSON.stringify({room_status_text: topic})
+    });
+    if (!r.ok) {
+        setStatus(statusEl, r.data.error || 'Could not update topic.', 'err');
+        return false;
+    }
+    if (String(activeRoomID || '') === id) {
+        setRoomStatusText(String((r.data && r.data.room_status_text) || topic || DEFAULT_ROOM_STATUS_TEXT));
+    }
+    await refreshRooms();
+    refreshSidebarChannelsInPlace();
+    setStatus(statusEl, 'Channel topic updated.', 'ok');
+    return true;
+}
+
+async function setChannelPinned(roomID, pinned, statusEl) {
+    const id = String(roomID || '').trim();
+    if (!id) return false;
+    const r = await api('/api/admin/room-pin', {
+        method: 'POST',
+        body: JSON.stringify({room_id: id, pinned: !!pinned})
+    });
+    if (!r.ok) {
+        setStatus(statusEl, r.data.error || 'Could not update channel pin.', 'err');
+        return false;
+    }
+    await refreshRooms();
+    refreshSidebarChannelsInPlace();
+    setStatus(statusEl, pinned ? 'Channel pinned.' : 'Channel unpinned.', 'ok');
+    return true;
+}
+
+async function moveChannelByID(roomID, direction, statusEl) {
+    const id = String(roomID || '').trim();
+    const dir = direction === 'down' ? 'down' : 'up';
+    if (!id) return false;
+    const r = await api('/api/admin/room-move', {
+        method: 'POST',
+        body: JSON.stringify({room_id: id, direction: dir})
+    });
+    if (!r.ok) {
+        setStatus(statusEl, r.data.error || 'Could not move channel.', 'err');
+        return false;
+    }
+    await refreshRooms();
+    refreshSidebarChannelsInPlace();
+    setStatus(statusEl, `Channel moved ${dir}.`, 'ok');
+    return true;
+}
+
+async function createChannelFromName(roomName, statusEl, inputEl) {
+    const displayName = String(roomName || '').trim();
+    if (!displayName) {
+        setStatus(statusEl, 'Name required.', 'err');
+        return false;
+    }
+    const r = await api('/api/rooms', {
+        method: 'POST',
+        body: JSON.stringify({room_name: displayName, status_text: DEFAULT_ROOM_STATUS_TEXT})
+    });
+    if (!r.ok) {
+        setStatus(statusEl, r.data.error || 'Could not create channel.', 'err');
+        return false;
+    }
+    const room = r.data && r.data.room ? r.data.room : {};
+    await refreshRooms();
+    refreshSidebarChannelsInPlace();
+    setStatus(statusEl, `Created #${room.name || displayName}.`, 'ok');
+    if (inputEl) inputEl.value = '';
+    return true;
+}
+
+async function deleteChannelByID(roomID, roomDisplayName, statusEl) {
+    const id = String(roomID || '').trim();
+    if (!id || id === 'main') return false;
+    const label = String(roomDisplayName || id).trim();
+    if (!confirm(`Delete #${label}? Messages, pins, invites, and media for this channel will be removed.`)) return false;
+    const wasActive = String(activeRoomID || '') === id;
+    const r = await api(`/api/rooms/${encodeURIComponent(id)}`, {method: 'DELETE'});
+    if (!r.ok) {
+        setStatus(statusEl, r.data.error || 'Could not delete channel.', 'err');
+        return false;
+    }
+    await refreshRooms();
+    if (wasActive) {
+        if (String(activeRoomID || '') === id) activeRoomID = String((availableRooms[0] && availableRooms[0].id) || 'main');
+        try {
+            localStorage.setItem('veil.activeRoomID', activeRoomID);
+        } catch {
+        }
+        await refreshRoomName();
+        if (ws) {
+            try {
+                ws.close();
+            } catch {
+            }
+        }
+    }
+    refreshSidebarChannelsInPlace();
+    setStatus(statusEl, `Deleted #${label}.`, 'ok');
+    if (wasActive && currentView === VIEW_CHAT) await renderMain();
+    return true;
+}
+
+async function renameChannelByID(roomID, currentName, statusEl) {
+    const id = String(roomID || '').trim();
+    if (!id) return false;
+    const before = String(currentName || '').trim();
+    const nextName = prompt('Rename channel', before);
+    if (nextName === null) return false;
+    const displayName = String(nextName || '').trim();
+    if (!displayName) {
+        setStatus(statusEl, 'Name required.', 'err');
+        return false;
+    }
+    const r = await api(`/api/admin/room-name?room_id=${encodeURIComponent(id)}`, {
+        method: 'POST',
+        body: JSON.stringify({room_name: displayName})
+    });
+    if (!r.ok) {
+        setStatus(statusEl, r.data.error || 'Could not rename channel.', 'err');
+        return false;
+    }
+    await refreshRooms();
+    if (String(activeRoomID || '') === id) {
+        roomName = String((r.data && r.data.room_name) || displayName).trim();
+    }
+    refreshSidebarChannelsInPlace();
+    const title = document.querySelector('.room-title strong');
+    if (title && String(activeRoomID || '') === id) title.textContent = roomName || displayName;
+    setStatus(statusEl, `Renamed #${before || id} to #${displayName}.`, 'ok');
+    return true;
+}
+
+function bindChannelManageActions() {
+    if (!isAdminRole(myRole)) return;
+    const toggle = document.querySelector('[data-channel-create-toggle]');
+    const panel = document.querySelector('[data-channel-create-panel]');
+    const input = $('sidebarRoomNameInput');
+    const createBtn = $('sidebarCreateRoomBtn');
+    const status = $('sidebarCreateRoomStatus');
+    if (toggle && panel) {
+        toggle.addEventListener('click', () => {
+            const open = panel.hidden;
+            panel.hidden = !open;
+            toggle.classList.toggle('active', open);
+            if (open && input) input.focus();
+        });
+    }
+    if (createBtn) {
+        createBtn.addEventListener('click', async () => {
+            await createChannelFromName(input && input.value, status, input);
+        });
+    }
+    if (input) {
+        input.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            await createChannelFromName(input.value, status, input);
+        });
+    }
 }
 
 function persistSidebarOpenState() {
@@ -705,14 +932,15 @@ function refreshSidebarChannelsInPlace() {
     const rooms = (availableRooms.length ? availableRooms : [{id: activeRoomID || 'main', name: roomName || 'Room Chat'}]);
     nav.innerHTML = rooms.map((room) => roomNavButtonHTML(room)).join('');
     bindSidebarChannelActions();
+    bindChannelManageActions();
 }
 
 async function pollRoomsForUnread() {
     const shell = document.querySelector('.chat-shell');
     if (!shell) return;
-    const before = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || '')]));
+    const before = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || ''), String(room.status_text || ''), !!room.pinned, Number(room.sort_order || 0)]));
     await refreshRooms();
-    const after = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || '')]));
+    const after = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || ''), String(room.status_text || ''), !!room.pinned, Number(room.sort_order || 0)]));
     if (before !== after) refreshSidebarChannelsInPlace();
 }
 
@@ -834,6 +1062,9 @@ function bindThemeActions() {
     const avatarToggle = $('themeAvatarToggle');
     const avatarRingToggle = $('themeAvatarRingToggle');
     const timestampToggle = $('themeTimestampToggle');
+    const copyThemeBtn = $('copyTheme');
+    const importThemeBtn = $('importTheme');
+    const resetDisplayBtn = $('resetDisplayPrefs');
     const readThemeFromInputs = () => {
         const theme = {};
         for (const input of inputs) theme[input.dataset.themeKey] = input.value;
@@ -860,12 +1091,50 @@ function bindThemeActions() {
         });
     });
 
+    if (copyThemeBtn) {
+        copyThemeBtn.onclick = async () => {
+            const raw = JSON.stringify(currentTheme(), null, 2);
+            try {
+                await navigator.clipboard.writeText(raw);
+                setStatus(status, 'Theme copied.', 'ok');
+            } catch {
+                setStatus(status, 'Clipboard blocked. Export from local storage instead.', 'err');
+            }
+        };
+    }
+    if (importThemeBtn) {
+        importThemeBtn.onclick = () => {
+            const raw = prompt('Paste theme JSON');
+            if (raw === null) return;
+            try {
+                const nextTheme = normalizeTheme(JSON.parse(raw));
+                fillInputs(nextTheme);
+                saveTheme(nextTheme);
+                setStatus(status, 'Theme imported.', 'ok');
+            } catch {
+                setStatus(status, 'Theme JSON was not valid.', 'err');
+            }
+        };
+    }
     const resetBtn = $('resetTheme');
     if (resetBtn) {
         resetBtn.onclick = () => {
             resetTheme();
             fillInputs(DEFAULT_THEME);
             setStatus(status, 'Theme reset.', 'ok');
+        };
+    }
+    if (resetDisplayBtn) {
+        resetDisplayBtn.onclick = async () => {
+            setShowAvatars(true);
+            setShowAvatarRings(true);
+            setTimestampMode('always');
+            if (avatarToggle) avatarToggle.checked = showAvatars;
+            if (avatarRingToggle) avatarRingToggle.checked = showAvatarRings;
+            if (timestampToggle) timestampToggle.checked = timestampMode === 'hover';
+            renderMembersList();
+            if (currentView === VIEW_CHAT) await loadHistory();
+            setStatus(status, 'Display preferences reset.', 'ok');
         };
     }
     if (avatarToggle) {
@@ -900,6 +1169,9 @@ function bindProfileActions() {
     const status = $('profileStatus');
     const displayNameInput = $('profile-display-name');
     const displayNameSaveBtn = $('profileDisplayNameSave');
+    const statusTextInput = $('profile-status-text');
+    const statusTextSaveBtn = $('profileStatusTextSave');
+    const statusTextClearBtn = $('profileStatusTextClear');
     const avatarFileInput = $('profile-avatar-file');
     const avatarClearBtn = $('profileAvatarClear');
     const avatarCropper = $('avatarCropper');
@@ -919,6 +1191,7 @@ function bindProfileActions() {
     const avatarRingModeInput = $('profile-avatar-ring-mode');
     const avatarRingEnabled = $('profileAvatarRingEnabled');
     const avatarRingClearBtn = $('profileAvatarRingClear');
+    const avatarRingMatchBtn = $('profileAvatarRingMatchName');
     const backgroundFileInput = $('profile-background-file');
     const backgroundClearBtn = $('profileBackgroundClear');
     const backgroundStrengthInput = $('profile-background-strength');
@@ -1225,6 +1498,23 @@ function bindProfileActions() {
         await renderMain();
         setStatus(status, 'Display name saved for everyone.', 'ok');
     };
+    const saveStatusText = async (nextValue = null) => {
+        if (!statusTextInput) return;
+        const nextStatus = nextValue === null ? String(statusTextInput.value || '').trim() : String(nextValue || '').trim();
+        if (nextStatus.length > 120) {
+            setStatus(status, 'Status must be 120 characters or fewer.', 'err');
+            return;
+        }
+        const r = await api('/api/profile/status', {method: 'POST', body: JSON.stringify({status_text: nextStatus})});
+        if (!r.ok) {
+            setStatus(status, r.data.error || 'Failed to save status.', 'err');
+            return;
+        }
+        currentStatusText = String((r.data && r.data.status_text) || nextStatus).trim();
+        statusTextInput.value = currentStatusText;
+        await refreshMembers();
+        setStatus(status, currentStatusText ? 'Status saved.' : 'Status cleared.', 'ok');
+    };
 
     if (displayNameSaveBtn) {
         displayNameSaveBtn.onclick = saveDisplayName;
@@ -1234,6 +1524,19 @@ function bindProfileActions() {
             if (ev.key !== 'Enter') return;
             ev.preventDefault();
             await saveDisplayName();
+        });
+    }
+    if (statusTextSaveBtn) {
+        statusTextSaveBtn.onclick = () => saveStatusText();
+    }
+    if (statusTextClearBtn) {
+        statusTextClearBtn.onclick = () => saveStatusText('');
+    }
+    if (statusTextInput) {
+        statusTextInput.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            await saveStatusText();
         });
     }
 
@@ -1356,6 +1659,18 @@ function bindProfileActions() {
     }
     if (avatarRingClearBtn) {
         avatarRingClearBtn.onclick = clearAvatarRing;
+    }
+    if (avatarRingMatchBtn) {
+        avatarRingMatchBtn.onclick = async () => {
+            const nameColor = normalizeHexColor(currentUserChatColor || userColor(currentDisplayName || '')) || '#ff9d66';
+            if (avatarRingColorInput) avatarRingColorInput.value = nameColor;
+            if (avatarRingColor2Input) avatarRingColor2Input.value = nameColor;
+            if (avatarRingAlphaInput) avatarRingAlphaInput.value = '100';
+            if (avatarRingAlpha2Input) avatarRingAlpha2Input.value = '55';
+            if (avatarRingEnabled) avatarRingEnabled.checked = true;
+            updateAvatarRingPreview();
+            await saveAvatarRing();
+        };
     }
     if (backgroundClearBtn) {
         backgroundClearBtn.onclick = () => {
@@ -1481,7 +1796,6 @@ function bindControlActions() {
     const roomStatusTextAdminInput = $('roomStatusTextAdminInput');
     const saveRoomStatusTextAdminBtn = $('saveRoomStatusTextAdmin');
     const roomStatusTextAdminStatus = $('roomStatusTextAdminStatus');
-    const newRoomIDInput = $('newRoomIDInput');
     const newRoomNameInput = $('newRoomNameInput');
     const createRoomBtn = $('createRoomBtn');
     const createRoomStatus = $('createRoomStatus');
@@ -1692,31 +2006,15 @@ function bindControlActions() {
     }
     if (createRoomBtn) {
         createRoomBtn.onclick = async () => {
-            const roomID = String((newRoomIDInput && newRoomIDInput.value) || '').trim();
             const roomDisplayName = String((newRoomNameInput && newRoomNameInput.value) || '').trim();
-            if (!roomID || !roomDisplayName) {
+            if (!roomDisplayName) {
                 if (createRoomStatus) {
-                    createRoomStatus.textContent = 'Enter room id and room name.';
+                    createRoomStatus.textContent = 'Enter a room name.';
                     createRoomStatus.className = 'status err';
                 }
                 return;
             }
-            const r = await api('/api/rooms', {method: 'POST', body: JSON.stringify({room_id: roomID, room_name: roomDisplayName, status_text: DEFAULT_ROOM_STATUS_TEXT})});
-            if (!r.ok) {
-                if (createRoomStatus) {
-                    createRoomStatus.textContent = r.data.error || 'failed';
-                    createRoomStatus.className = 'status err';
-                }
-                return;
-            }
-            await refreshRooms();
-            refreshSidebarChannelsInPlace();
-            if (createRoomStatus) {
-                createRoomStatus.textContent = `Created room ${roomID}.`;
-                createRoomStatus.className = 'status ok';
-            }
-            if (newRoomIDInput) newRoomIDInput.value = '';
-            if (newRoomNameInput) newRoomNameInput.value = '';
+            await createChannelFromName(roomDisplayName, createRoomStatus, newRoomNameInput);
         };
     }
     if (retainMessagesBtn) {
@@ -1844,6 +2142,7 @@ async function renderMain() {
     bindSidebarToggleActions();
     bindUserMenuActions();
     bindSidebarChannelActions();
+    bindChannelManageActions();
     if (!window.__veilRoomsPollTimer) {
         window.__veilRoomsPollTimer = setInterval(() => {
             pollRoomsForUnread();
@@ -1854,6 +2153,11 @@ async function renderMain() {
         bindChatActions();
         await loadHistory();
         await refreshMembers();
+        if (jumpToUnreadAfterSwitch) {
+            jumpToUnreadAfterSwitch = false;
+            const divider = document.querySelector('.unread-divider');
+            if (divider) divider.scrollIntoView({block: 'center', behavior: 'smooth'});
+        }
         updateRoomConnectionStatus(!!ws && ws.readyState === WebSocket.OPEN);
         ensureSocket();
         return;

@@ -217,7 +217,7 @@ async function chatHandleExtendedMessageAction(target, {onPinsChanged} = {}) {
     const pinBtn = target.closest("button[data-pin-msg]");
     if (pinBtn) {
         const id = pinBtn.getAttribute("data-pin-msg") || "";
-        const pin = pinBtn.textContent.trim().toLowerCase() === "pin";
+        const pin = !pinnedMessageIDs.has(id);
         const r = await api(withRoomQuery("/api/admin/pin-message"), {
             method: "POST",
             body: JSON.stringify({message_id: id, pin}),

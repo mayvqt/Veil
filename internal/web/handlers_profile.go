@@ -40,6 +40,26 @@ func (s *Server) updateProfileName(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true, "display_name": name})
 }
 
+func (s *Server) updateProfileStatus(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		StatusText string `json:"status_text"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	statusText := cleanInput(req.StatusText, maxRoomStatusLen)
+	if err := s.Store.SetUserStatusText(u.ID, statusText); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update status"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "status_text": statusText})
+}
+
 func (s *Server) updateProfileColor(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.requireAPIUser(w, r)
 	if !ok {

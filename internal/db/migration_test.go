@@ -105,3 +105,37 @@ INSERT INTO users (id, display_name, role, active, created_at) VALUES ('u1','ali
 		t.Fatalf("expected migrated avatar ring defaults empty/empty/empty/empty/none, got %q/%q/%q/%q/%q", ringColor, ringColor2, ringColor3, ringColor4, ringMode)
 	}
 }
+
+func TestMigrateBackfillsActiveUsersIntoExistingRooms(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "room-memberships.db")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.DB.Exec("INSERT INTO users (id, display_name, role, active, created_at) VALUES ('u1','root','root_admin',1,'2026-01-01T00:00:00Z'), ('u2','member','member',1,'2026-01-01T00:00:00Z')"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.DB.Exec("INSERT INTO rooms (id, name, status_text, created_by, created_at) VALUES ('ops','Ops',?,'u1','2026-01-01T00:00:00Z')", DefaultRoomStatusText); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.DB.Exec("INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at) VALUES ('ops','u1','2026-01-01T00:00:00Z')"); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.DB.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	store, err = Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer store.DB.Close()
+
+	var count int
+	if err := store.DB.QueryRow("SELECT COUNT(*) FROM room_memberships WHERE room_id='ops' AND user_id IN ('u1','u2')").Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 2 {
+		t.Fatalf("expected migration to backfill both active users into ops, got %d", count)
+	}
+}

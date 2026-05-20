@@ -19,6 +19,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/join", s.joinInvite)
 	r.Post("/api/session/from-credential", s.sessionFromCredential)
 	r.Post("/api/profile/name", s.updateProfileName)
+	r.Post("/api/profile/status", s.updateProfileStatus)
 	r.Post("/api/profile/color", s.updateProfileColor)
 	r.Post("/api/profile/avatar", s.updateProfileAvatar)
 	r.Post("/api/profile/avatar-ring", s.updateProfileAvatarRing)
@@ -26,6 +27,7 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/api/messages", s.listMessages)
 	r.Get("/api/rooms", s.listRooms)
 	r.Post("/api/rooms", s.createRoom)
+	r.Delete("/api/rooms/{room_id}", s.deleteRoom)
 	r.Post("/api/rooms/join", s.joinRoom)
 	r.Post("/api/messages/read", s.markMessagesRead)
 	r.Post("/api/messages/edit", s.editMessage)
@@ -50,6 +52,8 @@ func (s *Server) Routes() http.Handler {
 	r.Get("/api/admin/messages/stats", s.messageStats)
 	r.Post("/api/admin/room-name", s.updateRoomName)
 	r.Post("/api/admin/room-status-text", s.updateRoomStatusText)
+	r.Post("/api/admin/room-pin", s.updateRoomPin)
+	r.Post("/api/admin/room-move", s.moveRoom)
 	r.Post("/api/admin/messages/clear", s.clearMessages)
 	r.Post("/api/admin/messages/retain", s.retainMessages)
 	r.Post("/api/admin/custom-media", s.uploadCustomMedia)
@@ -68,7 +72,7 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, 500, map[string]any{"ok": false})
 		return
 	}
-	writeJSON(w, 200, map[string]any{"ok": true, "initialized": initialized})
+	writeJSON(w, 200, map[string]any{"ok": true, "initialized": initialized, "version": AppVersion})
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {

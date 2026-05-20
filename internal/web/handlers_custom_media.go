@@ -283,3 +283,7 @@ func sanitizeCustomMediaRoomID(roomID string) string {
 func customMediaPrefix(roomID, kind, name string) string {
 	return fmt.Sprintf("room_%s_%s_%s_", roomID, kind, name)
 }
+
+func customMediaRoomPrefix(roomID string) string {
+	return fmt.Sprintf("room_%s_", roomID)
+}

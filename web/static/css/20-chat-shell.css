@@ -70,6 +70,48 @@
     box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-soft) 60%, transparent);
 }
 
+.chat-empty-state {
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 8px;
+    min-height: min(320px, 58vh);
+    color: var(--muted);
+    text-align: center;
+}
+
+.chat-empty-state strong {
+    color: var(--ink);
+    font-size: 1rem;
+}
+
+.chat-empty-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 4px;
+}
+
+.room-topic-edit {
+    width: 24px;
+    height: 24px;
+    margin-left: 6px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--line) 72%, transparent);
+    border-radius: 7px;
+    background: color-mix(in srgb, var(--surface) 72%, transparent);
+    color: var(--muted);
+    font: inherit;
+    font-size: .78rem;
+    line-height: 1;
+}
+
+.room-topic-edit:hover {
+    color: var(--ink);
+    border-color: color-mix(in srgb, var(--accent-2) 42%, var(--line));
+}
+
 .has-local-bg .chat-log {
     background: linear-gradient(180deg, rgba(0, 0, 0, var(--local-bg-chat-a)), rgba(0, 0, 0, var(--local-bg-chat-b))),
     var(--local-bg-image) center / cover no-repeat;
