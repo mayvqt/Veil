@@ -144,6 +144,7 @@ let roomMembers = [];
 let replyToMessageID = '';
 let reconnectNeedsCatchup = false;
 let typingTimer = null;
+let readReceiptTimer = null;
 let activeNotificationAudio = null;
 let messageReactions = new Map();
 let myReactions = new Map();
@@ -1134,21 +1135,40 @@ function refreshAllMessageMeta() {
 async function sendReadReceiptForVisible() {
     const messages = $('messages');
     if (!messages) return;
+    const viewport = messages.getBoundingClientRect();
     const rows = [...messages.querySelectorAll('.line[data-row-id]')];
     if (rows.length === 0) return;
-    const last = rows[rows.length - 1];
-    const rowID = Number(last.getAttribute('data-row-id') || 0);
+    let rowID = 0;
+    for (const row of rows) {
+        const bounds = row.getBoundingClientRect();
+        const isVisible = bounds.bottom > viewport.top && bounds.top < viewport.bottom;
+        if (!isVisible) continue;
+        const currentRowID = Number(row.getAttribute('data-row-id') || 0);
+        if (currentRowID > rowID) rowID = currentRowID;
+    }
     if (!rowID) return;
     await api(withRoomQuery('/api/messages/read'), {method: 'POST', body: JSON.stringify({last_seen_rowid: rowID})});
 }
 
-function bindMessageImageScroll() {
+function scheduleVisibleReadReceipt() {
+    clearTimeout(readReceiptTimer);
+    readReceiptTimer = setTimeout(() => {
+        sendReadReceiptForVisible().catch(() => {});
+    }, 180);
+}
+
+function bindMessageImageScroll({stickToBottom = null} = {}) {
     const messages = $('messages');
     if (!messages) return;
+    const shouldStick = stickToBottom === null
+        ? (messages.scrollHeight - messages.clientHeight - messages.scrollTop) < 180
+        : !!stickToBottom;
     messages.querySelectorAll('img.chat-image').forEach((img) => {
         if (img.dataset.scrollBound === '1') return;
         img.dataset.scrollBound = '1';
-        img.addEventListener('load', scrollChatToBottom, {once: true});
+        img.addEventListener('load', () => {
+            if (shouldStick) scrollChatToBottom();
+        }, {once: true});
     });
 }
 

@@ -183,6 +183,10 @@
     animation: line-in .62s cubic-bezier(.17, .78, .24, .99) both;
 }
 
+.line-history-enter {
+    animation: history-line-in .46s cubic-bezier(.18, .8, .24, 1) both;
+}
+
 .line.no-avatar {
     --line-content-col: 1;
     grid-template-columns: minmax(0, 1fr);

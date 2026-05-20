@@ -64,6 +64,12 @@ func TestSecurityHeadersMiddleware(t *testing.T) {
 	if !strings.Contains(csp, "media-src 'self' data: blob:") {
 		t.Fatalf("expected CSP to allow local notification media, got %q", csp)
 	}
+	if !strings.Contains(csp, "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com") {
+		t.Fatalf("expected CSP to allow configured font stylesheet host, got %q", csp)
+	}
+	if !strings.Contains(csp, "font-src 'self' https://fonts.gstatic.com") {
+		t.Fatalf("expected CSP to allow configured font file host, got %q", csp)
+	}
 }
 
 func TestEnvParsers(t *testing.T) {

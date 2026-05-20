@@ -771,13 +771,21 @@ async function loadHistory({appendOlder = false} = {}) {
     const seq = ++historyLoadSeq;
     const messages = $('messages');
     if (!messages) return;
+    const previousScrollHeight = appendOlder ? messages.scrollHeight : 0;
+    const previousScrollTop = appendOlder ? messages.scrollTop : 0;
     const params = new URLSearchParams();
     params.set('limit', '50');
     if (appendOlder && oldestLoadedRowID > 0) params.set('before_rowid', String(oldestLoadedRowID));
     params.set('room_id', String(activeRoomID || 'main'));
     const history = await api(`/api/messages?${params.toString()}`);
-    if (seq !== historyLoadSeq) return;
-    if (!history.ok) return;
+    if (seq !== historyLoadSeq) {
+        if (appendOlder) historyLoadingMore = false;
+        return;
+    }
+    if (!history.ok) {
+        if (appendOlder) historyLoadingMore = false;
+        return;
+    }
     const list = Array.isArray(history.data.messages) ? history.data.messages : [];
     const reactionPayload = history.data.reactions || {};
     const myReactionPayload = history.data.my_reactions || {};
@@ -834,11 +842,18 @@ async function loadHistory({appendOlder = false} = {}) {
         const myLastSeenRowID = Number((data.receipts && data.receipts[myUserID]) || 0);
         unreadDividerRowID = myLastSeenRowID;
     }
+    const preparedRows = [];
     for (const m of renderList) {
-        if (appendOlder) await appendMessageRecord(messages, m, {prepend: true});
-        else await appendMessageRecord(messages, m);
+        const prepared = await prepareMessageRecord(m);
+        if (prepared) preparedRows.push(prepared);
         const rowID = Number(m.row_id || 0);
         if (rowID > 0 && (oldestLoadedRowID === 0 || rowID < oldestLoadedRowID)) oldestLoadedRowID = rowID;
+    }
+    if (appendOlder) {
+        insertPreparedMessageRows(messages, preparedRows, {prepend: true});
+        messages.scrollTop = previousScrollTop + (messages.scrollHeight - previousScrollHeight);
+    } else {
+        insertPreparedMessageRows(messages, preparedRows);
     }
     if (data.receipts) {
         for (const [uid, row] of Object.entries(data.receipts)) readReceipts.set(uid, Number(row || 0));
@@ -850,11 +865,30 @@ async function loadHistory({appendOlder = false} = {}) {
         renderPinnedBarFromState();
         renderChatEmptyState();
         scrollChatToBottom();
+        revealLoadedHistoryMessages(messages);
     }
     bindMessageImageScroll();
     updatePresenceCount();
-    await sendReadReceiptForVisible();
+    if (!appendOlder) await sendReadReceiptForVisible();
     refreshAllMessageMeta();
+}
+
+function insertPreparedMessageRows(messagesEl, rows, {prepend = false} = {}) {
+    if (!messagesEl || !Array.isArray(rows) || rows.length === 0) return;
+    const orderedRows = prepend ? [...rows].reverse() : rows;
+    const html = orderedRows.map((row) => row.html).join('');
+    const emptyState = messagesEl.querySelector('.chat-empty-state');
+    if (emptyState) emptyState.remove();
+    messagesEl.insertAdjacentHTML(prepend ? 'afterbegin' : 'beforeend', html);
+}
+
+function revealLoadedHistoryMessages(messagesEl) {
+    if (!messagesEl) return;
+    const rows = [...messagesEl.querySelectorAll('.line[data-msg-id]')];
+    rows.reverse().forEach((row, index) => {
+        row.style.animationDelay = `${Math.min(index * 18, 360)}ms`;
+        row.classList.add('line-history-enter');
+    });
 }
 
 function renderUnreadDivider() {
@@ -895,13 +929,13 @@ function renderChatEmptyState() {
     `);
 }
 
-async function appendMessageRecord(messagesEl, record, {prepend = false, animate = false} = {}) {
-    if (!messagesEl || !record) return false;
+async function prepareMessageRecord(record) {
+    if (!record) return null;
     const myUserIDStr = String(myUserID || '');
     const senderIDStr = String(record.sender_id || '');
     const messageID = String(record.id || '').trim();
     if (messageID) {
-        if (seenMessageIDs.has(messageID)) return false;
+        if (seenMessageIDs.has(messageID)) return null;
         seenMessageIDs.add(messageID);
     }
     registerDisplayName(record.display_name || '');
@@ -934,13 +968,22 @@ async function appendMessageRecord(messagesEl, record, {prepend = false, animate
         sender_id: senderIDStr,
         edited_at: String(record.edited_at || '')
     });
-    const row = drawMessage(record, plain);
+    return {
+        html: drawMessage(record, plain),
+        messageID
+    };
+}
+
+async function appendMessageRecord(messagesEl, record, {prepend = false, animate = false} = {}) {
+    if (!messagesEl || !record) return false;
+    const prepared = await prepareMessageRecord(record);
+    if (!prepared) return false;
     const emptyState = messagesEl.querySelector('.chat-empty-state');
     if (emptyState) emptyState.remove();
-    if (prepend) messagesEl.insertAdjacentHTML('afterbegin', row);
-    else messagesEl.insertAdjacentHTML('beforeend', row);
+    if (prepend) messagesEl.insertAdjacentHTML('afterbegin', prepared.html);
+    else messagesEl.insertAdjacentHTML('beforeend', prepared.html);
     if (animate) {
-        const inserted = messagesEl.querySelector(`.line[data-msg-id="${cssEscape(messageID)}"]`);
+        const inserted = messagesEl.querySelector(`.line[data-msg-id="${cssEscape(prepared.messageID)}"]`);
         if (inserted) inserted.classList.add('line-enter');
     }
     return true;

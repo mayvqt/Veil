@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -69,6 +70,38 @@ func TestRoutesContainExpectedEndpoints(t *testing.T) {
 	for route, seen := range expected {
 		if !seen {
 			t.Fatalf("expected route missing: %s", route)
+		}
+	}
+}
+
+func TestRouteCacheHeaders(t *testing.T) {
+	t.Chdir("../..")
+	store, err := db.Open(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := New(store)
+	h := srv.Routes()
+
+	tests := []struct {
+		path      string
+		wantCache string
+	}{
+		{path: "/", wantCache: "no-store"},
+		{path: "/static/css/00-base.css", wantCache: "no-store"},
+		{path: "/static/js/app-core.js", wantCache: "no-store"},
+		{path: "/static/icon-192.png", wantCache: "public, max-age=31536000, immutable"},
+	}
+
+	for _, tt := range tests {
+		req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+		rr := httptest.NewRecorder()
+		h.ServeHTTP(rr, req)
+		if rr.Code != http.StatusOK {
+			t.Fatalf("%s status=%d body=%s", tt.path, rr.Code, rr.Body.String())
+		}
+		if got := rr.Header().Get("Cache-Control"); got != tt.wantCache {
+			t.Fatalf("%s Cache-Control=%q, want %q", tt.path, got, tt.wantCache)
 		}
 	}
 }

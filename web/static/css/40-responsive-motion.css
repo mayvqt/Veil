@@ -374,6 +374,19 @@
     }
 }
 
+@keyframes history-line-in {
+    0% {
+        opacity: 0;
+        transform: translateY(12px) scale(.992);
+        filter: blur(1.2px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+        filter: blur(0);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .line,
     .line-media,
@@ -385,7 +398,8 @@
         transition: none !important;
     }
 
-    .line-enter {
+    .line-enter,
+    .line-history-enter {
         animation: none !important;
     }
 }

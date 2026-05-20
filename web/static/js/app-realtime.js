@@ -15,7 +15,7 @@ async function handleIncomingMessage(data, messages) {
     if (clientMsgID && pendingOutgoing.has(clientMsgID)) {
         pendingOutgoing.delete(clientMsgID);
     }
-    bindMessageImageScroll();
+    bindMessageImageScroll({stickToBottom: mine || nearBottom});
     if (!mine) playNotificationSound();
     if (mine || nearBottom) scrollChatToBottom();
     await sendReadReceiptForVisible();
@@ -43,6 +43,7 @@ async function handleMessageUpdate(data, messages) {
             messages.scrollTop = prevTop + delta;
         }
     }
+    bindMessageImageScroll({stickToBottom: nearBottom});
     await sendReadReceiptForVisible();
     refreshAllMessageMeta();
 }

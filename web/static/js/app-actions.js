@@ -388,6 +388,7 @@ function bindChatActions() {
     if (messages) {
         messages.addEventListener('scroll', () => {
             updateJumpLatestVisibility();
+            scheduleVisibleReadReceipt();
             if (messages.scrollTop > 20 || historyLoadingMore || !hasMoreHistory) return;
             historyLoadingMore = true;
             loadHistory({appendOlder: true});
@@ -570,11 +571,26 @@ async function switchActiveRoom(nextRoomID) {
         }
     }
     await refreshRoomName();
+}
+
+function updateChatRoomChrome() {
+    const roomTitleEl = document.querySelector('.room-title strong');
+    if (roomTitleEl) roomTitleEl.textContent = roomName || 'Room Chat';
+    refreshSidebarChannelsInPlace();
+    updateRoomConnectionStatus(!!ws && ws.readyState === WebSocket.OPEN);
+}
+
+async function reloadActiveChatRoomInPlace() {
+    updateChatRoomChrome();
+    await loadHistory();
     await refreshMembers();
-    if (currentView === VIEW_CHAT) {
-        await loadHistory();
-        ensureSocket();
+    if (jumpToUnreadAfterSwitch) {
+        jumpToUnreadAfterSwitch = false;
+        const divider = document.querySelector('.unread-divider');
+        if (divider) divider.scrollIntoView({block: 'center', behavior: 'smooth'});
     }
+    updateRoomConnectionStatus(!!ws && ws.readyState === WebSocket.OPEN);
+    ensureSocket();
 }
 
 function bindUserMenuActions() {
@@ -683,16 +699,22 @@ function bindSidebarChannelActions() {
         }
         const roomBtn = target.closest('button[data-sidebar-room-id]');
         if (roomBtn) {
+            const nextRoomID = String(roomBtn.getAttribute('data-sidebar-room-id') || 'main').trim() || 'main';
+            const roomChanged = nextRoomID !== String(activeRoomID || '');
             jumpToUnreadAfterSwitch = Number(roomBtn.getAttribute('data-sidebar-unread') || 0) > 0;
-            await switchActiveRoom(roomBtn.getAttribute('data-sidebar-room-id') || 'main');
+            const canSwitchInPlace = currentView === VIEW_CHAT && !!$('messages');
+            await switchActiveRoom(nextRoomID);
             if (window.matchMedia && window.matchMedia(MOBILE_SIDEBAR_QUERY).matches) {
                 sidebarOpen = false;
                 persistSidebarOpenState();
                 syncSidebarLayoutState();
             }
-            if (currentView !== VIEW_CHAT) {
-                currentView = VIEW_CHAT;
+            if (!roomChanged && currentView === VIEW_CHAT) return;
+            if (canSwitchInPlace) {
+                await reloadActiveChatRoomInPlace();
+                return;
             }
+            currentView = VIEW_CHAT;
             await renderMain();
         }
     });
@@ -2146,15 +2168,7 @@ async function renderMain() {
 
     if (currentView === VIEW_CHAT) {
         bindChatActions();
-        await loadHistory();
-        await refreshMembers();
-        if (jumpToUnreadAfterSwitch) {
-            jumpToUnreadAfterSwitch = false;
-            const divider = document.querySelector('.unread-divider');
-            if (divider) divider.scrollIntoView({block: 'center', behavior: 'smooth'});
-        }
-        updateRoomConnectionStatus(!!ws && ws.readyState === WebSocket.OPEN);
-        ensureSocket();
+        await reloadActiveChatRoomInPlace();
         return;
     }
     if (currentView === VIEW_KEYS) {

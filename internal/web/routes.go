@@ -2,6 +2,8 @@ package web
 
 import (
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -60,9 +62,9 @@ func (s *Server) Routes() http.Handler {
 	r.Delete("/api/admin/custom-media/{name}", s.deleteCustomMedia)
 
 	r.Get("/ws", s.ws)
-	r.Handle("/avatars/*", http.StripPrefix("/avatars/", http.FileServer(http.Dir(s.AvatarDir))))
-	r.Handle("/media/*", http.StripPrefix("/media/", http.FileServer(http.Dir(s.MediaDir))))
-	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	r.Handle("/avatars/*", cacheControlledFileServer("/avatars/", s.AvatarDir))
+	r.Handle("/media/*", cacheControlledFileServer("/media/", s.MediaDir))
+	r.Handle("/static/*", cacheControlledFileServer("/static/", "web/static"))
 	return r
 }
 
@@ -76,5 +78,23 @@ func (s *Server) health(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	http.ServeFile(w, r, "web/static/index.html")
+}
+
+func cacheControlledFileServer(prefix, dir string) http.Handler {
+	files := http.StripPrefix(prefix, http.FileServer(http.Dir(dir)))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", cacheControlForPath(r.URL.Path))
+		files.ServeHTTP(w, r)
+	})
+}
+
+func cacheControlForPath(path string) string {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".avif", ".gif", ".ico", ".jpg", ".jpeg", ".png", ".svg", ".webp":
+		return "public, max-age=31536000, immutable"
+	default:
+		return "no-store"
+	}
 }
