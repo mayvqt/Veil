@@ -565,8 +565,12 @@ async function switchActiveRoom(nextRoomID) {
     } catch {
     }
     if (ws) {
+        const closingSocket = ws;
+        ws = null;
+        wsReady = null;
+        reconnectNeedsCatchup = false;
         try {
-            ws.close();
+            closingSocket.close();
         } catch {
         }
     }

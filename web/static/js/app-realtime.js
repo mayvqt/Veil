@@ -202,8 +202,9 @@ function ensureSocket() {
         await handleSocketEvent(x, messages);
     };
     socket.onclose = () => {
+        if (ws !== socket) return;
         updateRoomConnectionStatus(false);
-        if (ws === socket) ws = null;
+        ws = null;
         wsReady = null;
         reconnectNeedsCatchup = true;
         scheduleSocketReconnect();
