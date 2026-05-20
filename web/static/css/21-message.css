@@ -145,14 +145,15 @@
 }
 
 .inline-custom-sticker {
+    display: block;
     width: min(156px, 42vw);
     max-height: 156px;
     object-fit: contain;
-    vertical-align: middle;
     border-radius: 10px;
     border: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface) 80%, transparent);
     padding: 2px;
+    margin: 2px 0;
 }
 
 .line {
@@ -163,7 +164,7 @@
     grid-template-columns: 42px minmax(0, 1fr);
     grid-template-rows: auto auto auto;
     column-gap: 12px;
-    row-gap: 0;
+    row-gap: 4px;
     word-break: break-word;
     align-items: start;
     padding: 6px 8px 8px;
@@ -266,7 +267,7 @@
     align-items: baseline;
     gap: 8px;
     min-width: 0;
-    line-height: 1;
+    line-height: 1.2;
 }
 
 .line-user {
@@ -293,11 +294,15 @@
     display: grid;
     grid-column: var(--line-content-col);
     grid-row: 2;
-    gap: 1px;
+    gap: 5px;
     min-width: 0;
     max-width: 100%;
-    margin-top: -2px;
     transition: transform .18s ease, background .18s ease;
+}
+
+.line-media > .line-text {
+    display: block;
+    line-height: 1.45;
 }
 
 .line:hover .line-media {
@@ -457,11 +462,14 @@
     background: var(--surface);
     object-fit: contain;
     cursor: zoom-in;
+    margin-top: 1px;
 }
 
 .image-meta {
+    display: block;
     color: var(--muted);
     font-size: .78rem;
+    line-height: 1.25;
 }
 
 .file-link {
