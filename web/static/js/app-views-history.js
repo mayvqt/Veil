@@ -25,6 +25,70 @@ function roomUnreadCount(room) {
     return Math.floor(n);
 }
 
+function channelActionButtonHTML({className, attrs, label, title, text}) {
+    return `<button class="channel-icon-btn ${className}" ${attrs} type="button" aria-label="${esc(label)}" title="${esc(title)}">${esc(text)}</button>`;
+}
+
+function channelActionsHTML({roomID, label, topic, pinned, canManage, canDelete}) {
+    if (!canManage && !canDelete) return '';
+
+    const safeRoomID = esc(roomID);
+    const safeLabel = esc(label);
+    const actions = [];
+
+    if (canManage) {
+        actions.push(
+            channelActionButtonHTML({
+                className: `channel-pin${pinned ? ' active' : ''}`,
+                attrs: `data-pin-room-id="${safeRoomID}" data-pin-room-next="${pinned ? '0' : '1'}"`,
+                label: `${pinned ? 'Unpin' : 'Pin'} ${label}`,
+                title: pinned ? 'Unpin channel' : 'Pin channel',
+                text: '★',
+            }),
+            channelActionButtonHTML({
+                className: 'channel-move',
+                attrs: `data-move-room-id="${safeRoomID}" data-move-room-direction="up"`,
+                label: `Move ${label} up`,
+                title: 'Move up',
+                text: '↑',
+            }),
+            channelActionButtonHTML({
+                className: 'channel-move',
+                attrs: `data-move-room-id="${safeRoomID}" data-move-room-direction="down"`,
+                label: `Move ${label} down`,
+                title: 'Move down',
+                text: '↓',
+            }),
+            channelActionButtonHTML({
+                className: 'channel-topic-btn',
+                attrs: `data-topic-room-id="${safeRoomID}" data-topic-room-text="${esc(topic)}"`,
+                label: `Edit ${label} topic`,
+                title: 'Edit topic',
+                text: 'i',
+            }),
+            channelActionButtonHTML({
+                className: 'channel-rename',
+                attrs: `data-rename-room-id="${safeRoomID}" data-rename-room-name="${safeLabel}"`,
+                label: `Rename ${label}`,
+                title: 'Rename channel',
+                text: '✎',
+            }),
+        );
+    }
+
+    if (canDelete) {
+        actions.push(channelActionButtonHTML({
+            className: 'channel-delete',
+            attrs: `data-delete-room-id="${safeRoomID}" data-delete-room-name="${safeLabel}"`,
+            label: `Delete ${label}`,
+            title: 'Delete channel',
+            text: '×',
+        }));
+    }
+
+    return `<span class="channel-actions">${actions.join('')}</span>`;
+}
+
 function roomNavButtonHTML(room) {
     const roomID = String(room && room.id || '');
     const active = roomID === String(activeRoomID || '');
@@ -36,7 +100,8 @@ function roomNavButtonHTML(room) {
     const topic = String(room && room.status_text || '').trim();
     const pinned = !!(room && room.pinned);
     const topicHTML = topic && topic !== DEFAULT_ROOM_STATUS_TEXT ? `<span class="channel-topic">${esc(topic)}</span>` : '';
-    return `<div class="channel-row"><button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" data-sidebar-unread="${esc(String(unread))}" type="button"><span class="channel-copy"><span class="channel-label">${pinned ? '★ ' : ''}# ${esc(label)}</span>${topicHTML}</span>${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>${canManage ? `<button class="channel-icon-btn channel-pin${pinned ? ' active' : ''}" data-pin-room-id="${esc(roomID)}" data-pin-room-next="${pinned ? '0' : '1'}" type="button" aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(label)}" title="${pinned ? 'Unpin channel' : 'Pin channel'}">★</button><button class="channel-icon-btn channel-move" data-move-room-id="${esc(roomID)}" data-move-room-direction="up" type="button" aria-label="Move ${esc(label)} up" title="Move up">↑</button><button class="channel-icon-btn channel-move" data-move-room-id="${esc(roomID)}" data-move-room-direction="down" type="button" aria-label="Move ${esc(label)} down" title="Move down">↓</button><button class="channel-icon-btn channel-topic-btn" data-topic-room-id="${esc(roomID)}" data-topic-room-text="${esc(topic)}" type="button" aria-label="Edit ${esc(label)} topic" title="Edit topic">i</button><button class="channel-icon-btn channel-rename" data-rename-room-id="${esc(roomID)}" data-rename-room-name="${esc(label)}" type="button" aria-label="Rename ${esc(label)}" title="Rename channel">✎</button>` : ''}${canDelete ? `<button class="channel-icon-btn channel-delete" data-delete-room-id="${esc(roomID)}" data-delete-room-name="${esc(label)}" type="button" aria-label="Delete ${esc(label)}" title="Delete channel">×</button>` : ''}</div>`;
+    const actionsHTML = channelActionsHTML({roomID, label, topic, pinned, canManage, canDelete});
+    return `<div class="channel-row"><button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" data-sidebar-unread="${esc(String(unread))}" type="button"><span class="channel-copy"><span class="channel-label">${pinned ? '★ ' : ''}# ${esc(label)}</span>${topicHTML}</span>${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>${actionsHTML}</div>`;
 }
 
 function sidebarToggleHTML() {
