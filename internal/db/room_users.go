@@ -280,7 +280,14 @@ func (s *Store) UserCount() (int, error) {
 	return c, err
 }
 
-func (s *Store) InitRoom(roomName, displayName, publicKey, credentialID, roomKeyEnc string) (*User, error) {
+func optionalString(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(values[0])
+}
+
+func (s *Store) InitRoom(roomName, displayName, publicKey, credentialID, roomKeyEnc string, deviceSecretHash ...string) (*User, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return nil, err
@@ -300,7 +307,7 @@ func (s *Store) InitRoom(roomName, displayName, publicKey, credentialID, roomKey
 	if _, err := tx.Exec("INSERT INTO users (id, display_name, role, chat_color, created_at) VALUES (?, ?, ?, ?, ?)", u.ID, u.DisplayName, u.Role, u.ChatColor, now()); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, created_at) VALUES (?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, now()); err != nil {
+	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, device_secret_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, optionalString(deviceSecretHash), now()); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec("UPDATE room_state SET room_name=?, initialized=1, room_key_enc=?, created_at=? WHERE id=1", roomName, roomKeyEnc, now()); err != nil {
@@ -320,7 +327,7 @@ SELECT id, ?, ? FROM rooms`, u.ID, now()); err != nil {
 	return u, nil
 }
 
-func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, error) {
+func (s *Store) AddMember(displayName, publicKey, credentialID string, deviceSecretHash ...string) (*User, error) {
 	u := &User{ID: uuid.NewString(), DisplayName: displayName, Role: "member"}
 	u.ChatColor = defaultChatColorForUserID(u.ID)
 	tx, err := s.DB.Begin()
@@ -331,7 +338,7 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string) (*User, e
 	if _, err := tx.Exec("INSERT INTO users (id, display_name, role, chat_color, created_at) VALUES (?, ?, ?, ?, ?)", u.ID, u.DisplayName, u.Role, u.ChatColor, now()); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, created_at) VALUES (?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, now()); err != nil {
+	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, device_secret_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, optionalString(deviceSecretHash), now()); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec(`
@@ -350,6 +357,24 @@ func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
+	u := &User{}
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return u, nil
+}
+
+func (s *Store) FindUserByCredentialSecret(credentialID, deviceSecretHash string) (*User, error) {
+	row := s.DB.QueryRow(`
+SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
+FROM users u JOIN devices d ON d.user_id=u.id
+WHERE d.credential_id=? AND u.active=1 AND (
+  COALESCE(d.device_secret_hash,'')='' OR d.device_secret_hash=?
+)
+LIMIT 1`, credentialID, deviceSecretHash)
 	u := &User{}
 	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

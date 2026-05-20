@@ -29,7 +29,7 @@ func setSessionCookie(w http.ResponseWriter, session string, secure bool, maxAge
 		Value:    session,
 		HttpOnly: true,
 		Secure:   secure,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 		MaxAge:   int(maxAge.Seconds()),
 		Expires:  time.Now().Add(maxAge),

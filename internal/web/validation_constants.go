@@ -5,6 +5,7 @@ const (
 	maxRoomStatusLen   = 48
 	maxDisplayNameLen  = 48
 	maxCredentialIDLen = 128
+	maxDeviceSecretLen = 128
 	maxPublicKeyLen    = 4096
 	maxRoomKeyEncLen   = 256
 	maxInviteIDLen     = 128

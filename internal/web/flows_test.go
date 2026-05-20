@@ -25,6 +25,7 @@ func TestBootstrapInviteJoinSingleUseFlow(t *testing.T) {
 		"display_name":  "owner",
 		"public_key":    "pk-owner",
 		"credential_id": "cred-owner",
+		"device_secret": "secret-owner",
 		"room_key_enc":  "roomkey",
 	})
 	if boot.Code != http.StatusOK {
@@ -40,6 +41,7 @@ func TestBootstrapInviteJoinSingleUseFlow(t *testing.T) {
 		"display_name":  "owner2",
 		"public_key":    "pk-owner2",
 		"credential_id": "cred-owner2",
+		"device_secret": "secret-owner2",
 		"room_key_enc":  "roomkey2",
 	})
 	if boot2.Code != http.StatusConflict {
@@ -63,6 +65,7 @@ func TestBootstrapInviteJoinSingleUseFlow(t *testing.T) {
 		"display_name":  "member1",
 		"public_key":    "pk-m1",
 		"credential_id": "cred-m1",
+		"device_secret": "secret-m1",
 	})
 	if join.Code != http.StatusOK {
 		t.Fatalf("join status=%d body=%s", join.Code, join.Body.String())
@@ -78,6 +81,7 @@ func TestBootstrapInviteJoinSingleUseFlow(t *testing.T) {
 		"display_name":  "member2",
 		"public_key":    "pk-m2",
 		"credential_id": "cred-m2",
+		"device_secret": "secret-m2",
 	})
 	if join2.Code != http.StatusForbidden {
 		t.Fatalf("expected single-use invite to fail second join, got %d body=%s", join2.Code, join2.Body.String())
@@ -86,9 +90,17 @@ func TestBootstrapInviteJoinSingleUseFlow(t *testing.T) {
 	// Credential-based session restore should work for joined member.
 	restore := doReq(t, h, http.MethodPost, "/api/session/from-credential", "", map[string]any{
 		"credential_id": "cred-m1",
+		"device_secret": "secret-m1",
 	})
 	if restore.Code != http.StatusOK {
 		t.Fatalf("session restore status=%d body=%s", restore.Code, restore.Body.String())
+	}
+	restoreWrongSecret := doReq(t, h, http.MethodPost, "/api/session/from-credential", "", map[string]any{
+		"credential_id": "cred-m1",
+		"device_secret": "wrong-secret",
+	})
+	if restoreWrongSecret.Code != http.StatusUnauthorized {
+		t.Fatalf("expected wrong device secret to fail, got %d body=%s", restoreWrongSecret.Code, restoreWrongSecret.Body.String())
 	}
 }
 
@@ -100,6 +112,7 @@ func TestInviteJoinsTargetRoom(t *testing.T) {
 		"display_name":  "owner",
 		"public_key":    "pk-owner",
 		"credential_id": "cred-owner",
+		"device_secret": "secret-owner",
 		"room_key_enc":  "roomkey",
 	})
 	if boot.Code != http.StatusOK {
@@ -128,6 +141,7 @@ func TestInviteJoinsTargetRoom(t *testing.T) {
 		"display_name":  "member1",
 		"public_key":    "pk-m1",
 		"credential_id": "cred-m1",
+		"device_secret": "secret-m1",
 	})
 	if join.Code != http.StatusOK {
 		t.Fatalf("join status=%d body=%s", join.Code, join.Body.String())

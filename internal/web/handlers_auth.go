@@ -1,8 +1,11 @@
 package web
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"veil/internal/auth"
@@ -14,6 +17,7 @@ type bootstrapReq struct {
 	DisplayName  string `json:"display_name"`
 	PublicKey    string `json:"public_key"`
 	CredentialID string `json:"credential_id"`
+	DeviceSecret string `json:"device_secret"`
 	RoomKeyEnc   string `json:"room_key_enc"`
 }
 
@@ -32,13 +36,14 @@ func (s *Server) bootstrap(w http.ResponseWriter, r *http.Request) {
 	req.RoomName = cleanInput(req.RoomName, maxRoomNameLen)
 	req.DisplayName = cleanInput(req.DisplayName, maxDisplayNameLen)
 	req.CredentialID = cleanInput(req.CredentialID, maxCredentialIDLen)
+	req.DeviceSecret = cleanInput(req.DeviceSecret, maxDeviceSecretLen)
 	req.PublicKey = cleanInput(req.PublicKey, maxPublicKeyLen)
 	req.RoomKeyEnc = cleanInput(req.RoomKeyEnc, maxRoomKeyEncLen)
-	if req.RoomName == "" || req.DisplayName == "" || req.CredentialID == "" || req.RoomKeyEnc == "" {
+	if req.RoomName == "" || req.DisplayName == "" || req.CredentialID == "" || req.DeviceSecret == "" || req.RoomKeyEnc == "" {
 		writeJSON(w, 400, map[string]string{"error": "room and display name required"})
 		return
 	}
-	u, err := s.Store.InitRoom(req.RoomName, req.DisplayName, req.PublicKey, req.CredentialID, req.RoomKeyEnc)
+	u, err := s.Store.InitRoom(req.RoomName, req.DisplayName, req.PublicKey, req.CredentialID, req.RoomKeyEnc, hashDeviceSecret(req.DeviceSecret))
 	if err != nil {
 		writeJSON(w, 400, map[string]string{"error": err.Error()})
 		return
@@ -84,6 +89,7 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 		DisplayName  string `json:"display_name"`
 		PublicKey    string `json:"public_key"`
 		CredentialID string `json:"credential_id"`
+		DeviceSecret string `json:"device_secret"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
@@ -93,7 +99,8 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 	req.DisplayName = cleanInput(req.DisplayName, maxDisplayNameLen)
 	req.PublicKey = cleanInput(req.PublicKey, maxPublicKeyLen)
 	req.CredentialID = cleanInput(req.CredentialID, maxCredentialIDLen)
-	if req.Token == "" || req.DisplayName == "" || req.CredentialID == "" {
+	req.DeviceSecret = cleanInput(req.DeviceSecret, maxDeviceSecretLen)
+	if req.Token == "" || req.DisplayName == "" || req.CredentialID == "" || req.DeviceSecret == "" {
 		writeJSON(w, 400, map[string]string{"error": "invite token and display name required"})
 		return
 	}
@@ -102,7 +109,7 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 403, map[string]string{"error": "access denied"})
 		return
 	}
-	u, err := s.Store.AddMember(req.DisplayName, req.PublicKey, req.CredentialID)
+	u, err := s.Store.AddMember(req.DisplayName, req.PublicKey, req.CredentialID, hashDeviceSecret(req.DeviceSecret))
 	if err != nil {
 		writeJSON(w, 403, map[string]string{"error": "access denied"})
 		return
@@ -128,13 +135,15 @@ func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		CredentialID string `json:"credential_id"`
+		DeviceSecret string `json:"device_secret"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
 	req.CredentialID = cleanInput(req.CredentialID, maxCredentialIDLen)
-	u, err := s.Store.FindUserByCredential(req.CredentialID)
+	req.DeviceSecret = cleanInput(req.DeviceSecret, maxDeviceSecretLen)
+	u, err := s.Store.FindUserByCredentialSecret(req.CredentialID, hashDeviceSecret(req.DeviceSecret))
 	if err != nil || u == nil {
 		writeJSON(w, 401, map[string]string{"error": "unauthorized"})
 		return
@@ -143,4 +152,13 @@ func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {
 	setSessionCookie(w, session, s.CookieSecure, s.SessionMaxAge)
 	log.Printf("web_session_issued user_id=%s", u.ID)
 	writeJSON(w, 200, map[string]any{"ok": true, "display_name": u.DisplayName})
+}
+
+func hashDeviceSecret(secret string) string {
+	secret = strings.TrimSpace(secret)
+	if secret == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(secret))
+	return hex.EncodeToString(sum[:])
 }

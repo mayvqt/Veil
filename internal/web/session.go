@@ -77,5 +77,5 @@ func sessionTokenFromRequest(r *http.Request) string {
 	if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
 		return strings.TrimSpace(authHeader[7:])
 	}
-	return r.URL.Query().Get("session")
+	return ""
 }

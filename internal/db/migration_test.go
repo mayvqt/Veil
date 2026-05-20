@@ -56,6 +56,25 @@ CREATE TABLE invites (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, created_by 
 	if statusText != DefaultRoomStatusText {
 		t.Fatalf("expected migrated room_status_text default %q, got %q", DefaultRoomStatusText, statusText)
 	}
+	rows, err = dbRaw.Query("PRAGMA table_info(devices)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	deviceCols := map[string]bool{}
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull, pk int
+		var def any
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &def, &pk); err != nil {
+			t.Fatal(err)
+		}
+		deviceCols[name] = true
+	}
+	if !deviceCols["device_secret_hash"] {
+		t.Fatalf("expected migrated device_secret_hash column, got %#v", deviceCols)
+	}
 }
 
 func TestMigrateAddsAndBackfillsUserChatColor(t *testing.T) {

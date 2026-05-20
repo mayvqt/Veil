@@ -3,6 +3,7 @@ const APP_VERSION = 'mvp-01';
 let appVersion = APP_VERSION;
 let roomKeyHex = localStorage.getItem('veil.roomKeyHex') || '';
 let currentCredentialId = localStorage.getItem('veil.credentialId') || '';
+let currentDeviceSecret = localStorage.getItem('veil.deviceSecret') || '';
 let currentDisplayName = localStorage.getItem('veil.displayName') || '';
 let currentStatusText = '';
 let ws;
@@ -661,7 +662,9 @@ function randomRoomKeyHex() {
 }
 
 function generatePassphrase() {
-    return [0, 0, 0, 0, 0].map(() => PASSPHRASE_WORDS[Math.floor(Math.random() * PASSPHRASE_WORDS.length)]).join(' ');
+    const picks = new Uint32Array(5);
+    crypto.getRandomValues(picks);
+    return [...picks].map((n) => PASSPHRASE_WORDS[n % PASSPHRASE_WORDS.length]).join(' ');
 }
 
 async function importRoomKey(roomKeyHex) {
@@ -728,6 +731,7 @@ async function createDeviceSyncCode(passphrase) {
         created_at: new Date().toISOString(),
         server_base: location.origin,
         credential_id: currentCredentialId,
+        device_secret: currentDeviceSecret,
         display_name: currentDisplayName || '',
         ...wrapped
     });
@@ -741,11 +745,12 @@ async function importDeviceSyncCode(code, passphrase) {
     const rk = await unwrapRoomKeyWithPassphrase(payload, passphrase);
     roomKeyHex = rk;
     currentCredentialId = payload.credential_id || '';
+    currentDeviceSecret = payload.device_secret || currentDeviceSecret || '';
     currentDisplayName = payload.display_name || '';
     persistIdentity();
     const r = await api('/api/session/from-credential', {
         method: 'POST',
-        body: JSON.stringify({credential_id: currentCredentialId})
+        body: JSON.stringify({credential_id: currentCredentialId, device_secret: currentDeviceSecret})
     });
     if (!r.ok) throw new Error(r.data.error || 'Session restore failed');
 }
@@ -1149,6 +1154,7 @@ function bindMessageImageScroll() {
 
 function persistIdentity() {
     localStorage.setItem('veil.credentialId', currentCredentialId);
+    localStorage.setItem('veil.deviceSecret', currentDeviceSecret);
     localStorage.setItem('veil.displayName', currentDisplayName);
     localStorage.setItem('veil.roomKeyHex', roomKeyHex);
 }
@@ -1191,12 +1197,14 @@ function bindImageLightbox() {
 
 async function joinWithToken(token, name) {
     const credentialId = crypto.randomUUID();
+    const deviceSecret = bytesToHex(randomBytes(32));
     const res = await api('/api/join', {
         method: 'POST',
-        body: JSON.stringify({token, display_name: name, public_key: 'mvp', credential_id: credentialId})
+        body: JSON.stringify({token, display_name: name, public_key: 'mvp', credential_id: credentialId, device_secret: deviceSecret})
     });
     if (!res.ok) return res;
     currentCredentialId = credentialId;
+    currentDeviceSecret = deviceSecret;
     currentDisplayName = name;
     if (res.data && typeof res.data.room_key_enc === 'string' && res.data.room_key_enc.length > 0) {
         roomKeyHex = res.data.room_key_enc;
@@ -1214,6 +1222,7 @@ async function joinWithToken(token, name) {
 
 async function bootstrapRoom(room, name) {
     const credentialId = crypto.randomUUID();
+    const deviceSecret = bytesToHex(randomBytes(32));
     roomKeyHex = randomRoomKeyHex();
     const res = await api('/api/bootstrap', {
         method: 'POST',
@@ -1222,11 +1231,13 @@ async function bootstrapRoom(room, name) {
             display_name: name,
             public_key: 'mvp',
             credential_id: credentialId,
+            device_secret: deviceSecret,
             room_key_enc: roomKeyHex
         })
     });
     if (!res.ok) return res;
     currentCredentialId = credentialId;
+    currentDeviceSecret = deviceSecret;
     currentDisplayName = name;
     persistIdentity();
     return res;
@@ -1268,6 +1279,7 @@ async function exportKeys(passphrase) {
         created_at: new Date().toISOString(),
         server_base: location.origin,
         credential_id: currentCredentialId || '',
+        device_secret: currentDeviceSecret || '',
         display_name: currentDisplayName || '', ...wrapped
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});

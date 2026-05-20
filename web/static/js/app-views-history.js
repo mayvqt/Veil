@@ -621,11 +621,12 @@ async function accessView() {
             const rk = await unwrapRoomKeyWithPassphrase(cfg, pass);
             roomKeyHex = rk;
             currentCredentialId = cfg.credential_id || '';
+            currentDeviceSecret = cfg.device_secret || currentDeviceSecret || '';
             currentDisplayName = cfg.display_name || '';
             persistIdentity();
             const r = await api('/api/session/from-credential', {
                 method: 'POST',
-                body: JSON.stringify({credential_id: currentCredentialId})
+                body: JSON.stringify({credential_id: currentCredentialId, device_secret: currentDeviceSecret})
             });
             if (!r.ok) {
                 out.textContent = r.data.error || 'Import worked, but login failed.';

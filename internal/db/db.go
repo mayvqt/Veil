@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS devices (
   user_id TEXT NOT NULL,
   public_key TEXT NOT NULL,
   credential_id TEXT NOT NULL,
+  device_secret_hash TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id)
 );
@@ -193,6 +194,9 @@ CREATE INDEX IF NOT EXISTS idx_pinned_messages_room_pinned_at ON pinned_messages
 	if err := ensureUsersStatusTextColumn(db); err != nil {
 		return err
 	}
+	if err := ensureDevicesSecretHashColumn(db); err != nil {
+		return err
+	}
 	if err := ensureRoomStateColumns(db); err != nil {
 		return err
 	}
@@ -227,7 +231,7 @@ func now() string { return time.Now().UTC().Format(time.RFC3339) }
 
 func tableColumns(db *sql.DB, table string) (map[string]struct{}, error) {
 	switch table {
-	case "messages", "room_state", "users", "pinned_messages", "invites", "rooms":
+	case "messages", "room_state", "users", "pinned_messages", "invites", "rooms", "devices":
 	default:
 		return nil, fmt.Errorf("unsupported table for migration: %s", table)
 	}
@@ -331,6 +335,10 @@ func ensureUsersAvatarRingColumns(db *sql.DB) error {
 
 func ensureUsersStatusTextColumn(db *sql.DB) error {
 	return addMissingColumns(db, "users", []columnDef{{name: "status_text", columnDef: "TEXT NOT NULL DEFAULT ''"}})
+}
+
+func ensureDevicesSecretHashColumn(db *sql.DB) error {
+	return addMissingColumns(db, "devices", []columnDef{{name: "device_secret_hash", columnDef: "TEXT NOT NULL DEFAULT ''"}})
 }
 
 func ensureRoomsMetadataColumns(db *sql.DB) error {

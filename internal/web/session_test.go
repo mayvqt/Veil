@@ -1,6 +1,8 @@
 package web
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 	"time"
@@ -26,5 +28,16 @@ func TestUserFromSignedTokenRejectsExpiredSession(t *testing.T) {
 	token := auth.Sign("u1|"+old, srv.Secret)
 	if _, err := srv.userFromSignedToken(token); err == nil {
 		t.Fatal("expected expired session to fail")
+	}
+}
+
+func TestSessionTokenFromRequestRejectsQueryToken(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/api/messages?session=leaky", nil)
+	if got := sessionTokenFromRequest(req); got != "" {
+		t.Fatalf("expected query session token to be ignored, got %q", got)
+	}
+	req.Header.Set("Authorization", "Bearer header-token")
+	if got := sessionTokenFromRequest(req); got != "header-token" {
+		t.Fatalf("expected bearer token, got %q", got)
 	}
 }

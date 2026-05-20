@@ -16,13 +16,27 @@ func TestDecodeJSONRejectsTrailingAndUnknown(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"ok"} {"x":1}`))
+	req.Header.Set("Content-Type", "application/json")
 	if err := decodeJSON(w, req, &payload); err == nil {
 		t.Fatal("expected trailing JSON to fail")
 	}
 	w = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"unknown":"x"}`))
+	req.Header.Set("Content-Type", "application/json")
 	if err := decodeJSON(w, req, &payload); err == nil {
 		t.Fatal("expected unknown field to fail")
+	}
+}
+
+func TestDecodeJSONRequiresJSONContentType(t *testing.T) {
+	var payload struct {
+		Name string `json:"name"`
+	}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(`{"name":"ok"}`))
+	req.Header.Set("Content-Type", "text/plain")
+	if err := decodeJSON(w, req, &payload); err == nil {
+		t.Fatal("expected non-json content-type to fail")
 	}
 }
 
@@ -91,6 +105,9 @@ func TestSetSessionCookie(t *testing.T) {
 			found = true
 			if c.Value != "signed-token" || !c.HttpOnly || !c.Secure {
 				t.Fatalf("unexpected cookie fields: %#v", c)
+			}
+			if c.SameSite != http.SameSiteStrictMode {
+				t.Fatalf("expected Strict same-site cookie, got %#v", c.SameSite)
 			}
 		}
 	}
