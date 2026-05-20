@@ -16,7 +16,11 @@
         await bootView();
         return;
     }
-    const m = await api('/api/messages');
+    const m = await api(withRoomQuery('/api/messages'));
+    if (m.ok && m.data && m.data.room_id) {
+        activeRoomID = String(m.data.room_id || activeRoomID || 'main');
+    }
+    if (m.ok) await refreshRooms();
     if (m.ok) {
         await chatView();
         return;

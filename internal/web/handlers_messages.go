@@ -25,12 +25,16 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 			beforeRowID = n
 		}
 	}
-	msgs, err := s.Store.ListRecentMessages(limit, beforeRowID)
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	msgs, err := s.Store.ListRecentMessages(roomID, limit, beforeRowID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load messages"})
 		return
 	}
-	receipts, err := s.Store.ListReadReceipts()
+	receipts, err := s.Store.ListReadReceipts(roomID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load read receipts"})
 		return
@@ -54,12 +58,13 @@ func (s *Server) listMessages(w http.ResponseWriter, r *http.Request) {
 		}
 		myReactions[messageID] = arr
 	}
-	pinnedIDs, err := s.Store.ListPinnedMessageIDs(100)
+	pinnedIDs, err := s.Store.ListPinnedMessageIDs(roomID, 100)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load pinned messages"})
 		return
 	}
 	writeJSON(w, 200, map[string]any{
+		"room_id":               roomID,
 		"messages":              msgs,
 		"has_more":              len(msgs) >= limit,
 		"receipts":              receipts,
@@ -93,11 +98,16 @@ func (s *Server) markMessagesRead(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "last_seen_rowid must be > 0"})
 		return
 	}
-	if err := s.Store.UpsertReadReceipt(u.ID, req.LastSeenRowID); err != nil {
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	if err := s.Store.UpsertReadReceipt(roomID, u.ID, req.LastSeenRowID); err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to mark read"})
 		return
 	}
 	s.Hub.Broadcast(chat.Outbound{Type: "receipt", Data: map[string]string{
+		"room_id":         roomID,
 		"user_id":         u.ID,
 		"display_name":    u.DisplayName,
 		"last_seen_rowid": strconv.FormatInt(req.LastSeenRowID, 10),
@@ -126,12 +136,18 @@ func (s *Server) editMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "message_id, ciphertext, nonce required"})
 		return
 	}
-	msg, err := s.Store.EditMessage(req.MessageID, u.ID, req.Ciphertext, req.Nonce)
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	msg, err := s.Store.EditMessage(roomID, req.MessageID, u.ID, req.Ciphertext, req.Nonce)
 	if err != nil {
 		writeJSON(w, 404, map[string]string{"error": "message not found"})
 		return
 	}
-	s.Hub.Broadcast(chat.Outbound{Type: "message_update", Data: outboundMessageData(msg, "")})
+	data := outboundMessageData(msg, "")
+	data["room_id"] = roomID
+	s.Hub.Broadcast(chat.Outbound{Type: "message_update", Data: data})
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -152,12 +168,18 @@ func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "message_id required"})
 		return
 	}
-	msg, err := s.Store.DeleteMessage(req.MessageID, u.ID)
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	msg, err := s.Store.DeleteMessage(roomID, req.MessageID, u.ID)
 	if err != nil {
 		writeJSON(w, 404, map[string]string{"error": "message not found"})
 		return
 	}
-	s.Hub.Broadcast(chat.Outbound{Type: "message_update", Data: outboundMessageData(msg, "")})
+	data := outboundMessageData(msg, "")
+	data["room_id"] = roomID
+	s.Hub.Broadcast(chat.Outbound{Type: "message_update", Data: data})
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
@@ -180,7 +202,11 @@ func (s *Server) reactMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "message_id and emoji required"})
 		return
 	}
-	exists, err := s.Store.MessageExists(req.MessageID)
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	exists, err := s.Store.MessageExists(roomID, req.MessageID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to process reaction"})
 		return
@@ -189,12 +215,13 @@ func (s *Server) reactMessage(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 404, map[string]string{"error": "message not found"})
 		return
 	}
-	count, active, err := s.Store.ToggleMessageReaction(req.MessageID, u.ID, req.Emoji)
+	count, active, err := s.Store.ToggleMessageReaction(roomID, req.MessageID, u.ID, req.Emoji)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to process reaction"})
 		return
 	}
 	s.Hub.Broadcast(chat.Outbound{Type: "reaction_update", Data: map[string]string{
+		"room_id":      roomID,
 		"message_id":   req.MessageID,
 		"user_id":      u.ID,
 		"display_name": u.DisplayName,
@@ -206,10 +233,15 @@ func (s *Server) reactMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) pinnedMessages(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAPIUser(w, r); !ok {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
 		return
 	}
-	ids, err := s.Store.ListPinnedMessageIDs(100)
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	ids, err := s.Store.ListPinnedMessageIDs(roomID, 100)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load pinned messages"})
 		return
@@ -218,10 +250,15 @@ func (s *Server) pinnedMessages(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) roomInfo(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAPIUser(w, r); !ok {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
 		return
 	}
-	info, err := s.Store.GetRoomInfo()
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	info, err := s.Store.GetRoomInfoByID(roomID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to load room"})
 		return

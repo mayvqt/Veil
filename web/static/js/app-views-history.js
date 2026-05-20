@@ -1,30 +1,52 @@
 function navHTML() {
-    const canOpenControl = isAdminRole(myRole);
+    const rooms = (availableRooms.length ? availableRooms : [{id: activeRoomID || 'main', name: roomName || 'Room Chat'}]);
     return `
     <aside class="sidebar">
       <div class="brand"><div class="eyebrow">encrypted room</div><h1>Veil</h1><span class="muted">private realtime chat</span></div>
-      <nav class="nav">
-        <button class="nav-btn ${currentView === VIEW_CHAT ? 'active' : ''}" id="tabChat">Chat</button>
-        <button class="nav-btn ${currentView === VIEW_PROFILE ? 'active' : ''}" id="tabProfile">Profile</button>
-        <button class="nav-btn ${currentView === VIEW_KEYS ? 'active' : ''}" id="tabKeys">Keys</button>
-        <button class="nav-btn ${currentView === VIEW_THEME ? 'active' : ''}" id="tabTheme">Theme</button>
-        ${canOpenControl ? `<button class="nav-btn ${currentView === VIEW_CONTROL ? 'active' : ''}" id="tabControl">Control</button>` : ''}
-      </nav>
-      <div></div>
-      <div class="whoami"><strong>${esc(currentDisplayName || 'Unknown')}</strong><div class="muted">${esc(myRole)}</div></div>
+      <div class="sidebar-section">
+        <div class="sidebar-head">Channels</div>
+        <div class="nav channels-nav">
+          ${rooms.map((room) => `<button class="nav-btn${String(room.id || '') === String(activeRoomID || '') ? ' active' : ''}" data-sidebar-room-id="${esc(room.id || '')}" type="button"># ${esc(room.name || room.id || 'room')}</button>`).join('')}
+        </div>
+      </div>
     </aside>
+  `;
+}
+
+function userMenuHTML({showLabel = true} = {}) {
+    const member = roomMembers.find((m) => String(m.id || '') === String(myUserID || '')) || {};
+    const profilePreview = showAvatars ? avatarMarkup(currentDisplayName || 'member', member.avatar_url || '', member) : '';
+    const canOpenControl = isAdminRole(myRole);
+    return `
+    <div class="user-menu-wrap">
+      <button class="profile-chip user-menu-toggle" data-user-menu-toggle type="button" aria-expanded="false" aria-label="Open user menu">
+        ${profilePreview}
+        <span>${esc(currentDisplayName || 'member')}${showLabel ? '' : ''}</span>
+      </button>
+      <div class="member-popover user-menu-pop" data-user-menu-panel aria-label="User menu">
+        <div class="user-menu-identity">
+          <strong>${esc(currentDisplayName || 'member')}</strong>
+          <span>${esc(myRole || 'member')}</span>
+        </div>
+        <div class="user-menu-sec">
+          <div class="user-menu-head">Navigate</div>
+          <button class="tiny-action user-menu-btn${currentView === VIEW_CHAT ? ' active' : ''}" data-user-view="${VIEW_CHAT}" type="button">Chat</button>
+          <button class="tiny-action user-menu-btn${currentView === VIEW_PROFILE ? ' active' : ''}" data-user-view="${VIEW_PROFILE}" type="button">Profile</button>
+          <button class="tiny-action user-menu-btn${currentView === VIEW_KEYS ? ' active' : ''}" data-user-view="${VIEW_KEYS}" type="button">Keys</button>
+          <button class="tiny-action user-menu-btn${currentView === VIEW_THEME ? ' active' : ''}" data-user-view="${VIEW_THEME}" type="button">Theme</button>
+          ${canOpenControl ? `<button class="tiny-action user-menu-btn${currentView === VIEW_CONTROL ? ' active' : ''}" data-user-view="${VIEW_CONTROL}" type="button">Control</button>` : ''}
+        </div>
+      </div>
+    </div>
   `;
 }
 
 function chatPanelHTML() {
     const title = roomName || 'Room Chat';
-    const member = roomMembers.find((m) => String(m.id || '') === String(myUserID || '')) || {};
-    const profilePreview = showAvatars ? avatarMarkup(currentDisplayName || 'member', member.avatar_url || '', member) : '';
     return `
     <section class="main">
       <header class="topbar chat-topbar">
         <div class="room-heading">
-          <button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}" aria-label="${sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}">${sidebarCollapsed ? '☰' : '✕'}</button>
           <div class="room-title">
             <strong>${esc(title)}</strong>
             <small><span class="status-dot off" aria-hidden="true"></span><span id="roomStatusLabel">${esc(roomStatusText)}</span></small>
@@ -47,7 +69,7 @@ function chatPanelHTML() {
             </svg>
           </button>
           <button id="memberToggle" class="secondary member-toggle" type="button" aria-label="Open online members list">Online Members <span id="memberCount">0</span></button>
-          <div class="profile-chip">${profilePreview}<span>${esc(currentDisplayName || 'member')}</span></div>
+          ${userMenuHTML()}
         </div>
       </header>
       <div id="memberPopover" class="member-popover"><div id="memberList" class="member-list"></div></div>
@@ -82,7 +104,7 @@ function chatPanelHTML() {
 function keysPanelHTML() {
     return `
     <section class="main utility">
-      <header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}" aria-label="${sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}">${sidebarCollapsed ? '☰' : '✕'}</button><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions"><span class="muted">local only</span></div></header>
+      <header class="topbar"><div><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions">${userMenuHTML({showLabel: false})}</div></header>
       <div class="panel utility-panel">
         <section class="card">
           <h3>Backup + Restore</h3>
@@ -115,7 +137,7 @@ function keysPanelHTML() {
 }
 
 function viewTopbarHTML(title, subtitle, aside = '') {
-    return `<header class="topbar"><div><button id="sidebarToggle" class="secondary sidebar-toggle" type="button" title="${sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}" aria-label="${sidebarCollapsed ? 'Open sidebar' : 'Collapse sidebar'}">${sidebarCollapsed ? '☰' : '✕'}</button><strong>${esc(title)}</strong><small>${esc(subtitle)}</small></div><div class="top-actions">${aside}</div></header>`;
+    return `<header class="topbar"><div><strong>${esc(title)}</strong><small>${esc(subtitle)}</small></div><div class="top-actions">${aside}${userMenuHTML({showLabel: false})}</div></header>`;
 }
 
 function switchControlHTML(id, label, checked) {
@@ -357,6 +379,13 @@ function controlPanelHTML() {
               </div>
               <div id="roomStatusTextAdminStatus" class="status">Admins can update the room status text.</div>
               <div id="roomNameStatus" class="status">Admins can update the room name.</div>
+              <p class="admin-lead">Create additional rooms.</p>
+              <div class="theme-actions admin-actions-row">
+                <input id="newRoomIDInput" type="text" maxlength="48" placeholder="room id (e.g. ops)"/>
+                <input id="newRoomNameInput" type="text" maxlength="80" placeholder="Room display name"/>
+                <button id="createRoomBtn" class="secondary">Create Room</button>
+              </div>
+              <div id="createRoomStatus" class="status">Admins can create rooms and join from the room switcher.</div>
             </section>
             <section class="settings-section admin-section admin-card admin-card-danger">
               <h3>Message Retention</h3>
@@ -569,6 +598,7 @@ async function loadHistory({appendOlder = false} = {}) {
     const params = new URLSearchParams();
     params.set('limit', '50');
     if (appendOlder && oldestLoadedRowID > 0) params.set('before_rowid', String(oldestLoadedRowID));
+    params.set('room_id', String(activeRoomID || 'main'));
     const history = await api(`/api/messages?${params.toString()}`);
     if (seq !== historyLoadSeq) return;
     if (!history.ok) return;

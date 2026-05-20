@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+
+	"veil/internal/db"
 )
 
 func decodeJSONBody(t *testing.T, rrBody []byte) map[string]any {
@@ -90,6 +92,67 @@ func TestBootstrapInviteJoinSingleUseFlow(t *testing.T) {
 	}
 }
 
+func TestInviteJoinsTargetRoom(t *testing.T) {
+	_, h := testServer(t)
+
+	boot := doReq(t, h, http.MethodPost, "/api/bootstrap", "", map[string]any{
+		"room_name":     "team",
+		"display_name":  "owner",
+		"public_key":    "pk-owner",
+		"credential_id": "cred-owner",
+		"room_key_enc":  "roomkey",
+	})
+	if boot.Code != http.StatusOK {
+		t.Fatalf("bootstrap status=%d body=%s", boot.Code, boot.Body.String())
+	}
+	ownerToken := boot.Result().Cookies()[0].Value
+
+	createRoom := doReq(t, h, http.MethodPost, "/api/rooms", ownerToken, map[string]any{
+		"room_id":   "ops",
+		"room_name": "Ops",
+	})
+	if createRoom.Code != http.StatusOK {
+		t.Fatalf("create room status=%d body=%s", createRoom.Code, createRoom.Body.String())
+	}
+
+	inviteResp := doReq(t, h, http.MethodPost, "/api/invite?room_id=ops", ownerToken, map[string]any{})
+	if inviteResp.Code != http.StatusOK {
+		t.Fatalf("create invite status=%d body=%s", inviteResp.Code, inviteResp.Body.String())
+	}
+	inviteData := decodeJSONBody(t, inviteResp.Body.Bytes())
+	link, _ := inviteData["invite_link"].(string)
+	token := link[len("/invite/"):]
+
+	join := doReq(t, h, http.MethodPost, "/api/join", "", map[string]any{
+		"token":         token,
+		"display_name":  "member1",
+		"public_key":    "pk-m1",
+		"credential_id": "cred-m1",
+	})
+	if join.Code != http.StatusOK {
+		t.Fatalf("join status=%d body=%s", join.Code, join.Body.String())
+	}
+	joinData := decodeJSONBody(t, join.Body.Bytes())
+	if joinData["room_id"] != "ops" {
+		t.Fatalf("expected room_id=ops in join response, got %#v", joinData["room_id"])
+	}
+
+	var joinToken string
+	for _, c := range join.Result().Cookies() {
+		if c.Name == "veil_session" {
+			joinToken = c.Value
+			break
+		}
+	}
+	if joinToken == "" {
+		t.Fatal("expected join to set session cookie")
+	}
+	allowed := doReq(t, h, http.MethodGet, "/api/messages?room_id=ops", joinToken, nil)
+	if allowed.Code != http.StatusOK {
+		t.Fatalf("expected invited member room access, got %d body=%s", allowed.Code, allowed.Body.String())
+	}
+}
+
 func TestAdminMessageRetentionPermissionsAndBehavior(t *testing.T) {
 	srv, h := testServer(t)
 	addUser(t, srv.Store, "root", "root", "root_admin")
@@ -97,10 +160,10 @@ func TestAdminMessageRetentionPermissionsAndBehavior(t *testing.T) {
 	rootTok := sessionToken(srv.Secret, "root")
 	memberTok := sessionToken(srv.Secret, "member")
 
-	if _, err := srv.Store.SaveMessage("root", "root", "ct1", "n1", ""); err != nil {
+	if _, err := srv.Store.SaveMessage(db.DefaultRoomID, "root", "root", "ct1", "n1", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := srv.Store.SaveMessage("member", "member", "ct2", "n2", ""); err != nil {
+	if _, err := srv.Store.SaveMessage(db.DefaultRoomID, "member", "member", "ct2", "n2", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,5 +194,66 @@ func TestAdminMessageRetentionPermissionsAndBehavior(t *testing.T) {
 	}
 	if count != 0 {
 		t.Fatalf("expected 0 messages after clear, got %d", count)
+	}
+}
+
+func TestAdminMessageRetentionScopedByRoom(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "root", "root", "root_admin")
+	rootTok := sessionToken(srv.Secret, "root")
+
+	if _, err := srv.Store.CreateRoom("ops", "Ops", db.DefaultRoomStatusText, "root"); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := srv.Store.SaveMessage(db.DefaultRoomID, "root", "root", "main-1", "n1", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.SaveMessage(db.DefaultRoomID, "root", "root", "main-2", "n2", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.SaveMessage("ops", "root", "root", "ops-1", "n3", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := srv.Store.SaveMessage("ops", "root", "root", "ops-2", "n4", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	retainOps := doReq(t, h, http.MethodPost, "/api/admin/messages/retain?room_id=ops", rootTok, map[string]any{"keep_latest": 1})
+	if retainOps.Code != http.StatusOK {
+		t.Fatalf("retain ops status=%d body=%s", retainOps.Code, retainOps.Body.String())
+	}
+	opsCount, err := srv.Store.MessageCountInRoom("ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opsCount != 1 {
+		t.Fatalf("expected 1 ops message after retain, got %d", opsCount)
+	}
+	mainCount, err := srv.Store.MessageCountInRoom(db.DefaultRoomID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mainCount != 2 {
+		t.Fatalf("expected main room unaffected at 2, got %d", mainCount)
+	}
+
+	clearMain := doReq(t, h, http.MethodPost, "/api/admin/messages/clear?room_id=main", rootTok, map[string]any{})
+	if clearMain.Code != http.StatusOK {
+		t.Fatalf("clear main status=%d body=%s", clearMain.Code, clearMain.Body.String())
+	}
+	mainCount, err = srv.Store.MessageCountInRoom(db.DefaultRoomID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mainCount != 0 {
+		t.Fatalf("expected main room cleared to 0, got %d", mainCount)
+	}
+	opsCount, err = srv.Store.MessageCountInRoom("ops")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if opsCount != 1 {
+		t.Fatalf("expected ops room unchanged at 1, got %d", opsCount)
 	}
 }

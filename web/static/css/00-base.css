@@ -1,38 +1,38 @@
 :root {
-    --bg: #130f12;
-    --bg-2: #20141c;
-    --ink: #f9edf5;
-    --muted: #c3a6b9;
-    --quiet: #9a7d8f;
-    --panel: #2b1b27;
-    --panel-2: #3a2534;
-    --surface: #1f141c;
-    --surface-2: #2a1b26;
-    --line: #533244;
-    --line-2: #6a4157;
-    --accent: #ff9d66;
-    --accent-2: #ff78b2;
-    --accent-soft: rgba(255, 157, 102, .14);
-    --focus-ring: rgba(255, 157, 102, .24);
-    --accent-grid: rgba(255, 157, 102, .09);
-    --app-shell: rgba(19, 15, 18, .94);
-    --sidebar-a: rgba(43, 27, 39, .98);
-    --sidebar-b: rgba(28, 19, 26, .98);
-    --topbar-bg: rgba(31, 20, 28, .74);
-    --composer-bg: rgba(31, 20, 28, .86);
-    --panel-grad-a: rgba(55, 34, 49, .88);
-    --panel-grad-b: rgba(31, 20, 28, .95);
-    --chat-grad-a: rgba(43, 27, 39, .92);
-    --chat-grad-b: rgba(28, 19, 26, .98);
-    --button-a: #d17346;
-    --button-b: #af5e35;
-    --button-hover-a: #ea8757;
-    --button-hover-b: #ca6f42;
-    --placeholder: #9e8093;
-    --active-ink: #fff4fb;
-    --danger: #ff7f9b;
-    --mention-self: #4bffa8;
-    --ok: #ff78b2;
+    --bg: #0f141b;
+    --bg-2: #171f29;
+    --ink: #e8edf5;
+    --muted: #a8b4c8;
+    --quiet: #8393ac;
+    --panel: #1f2936;
+    --panel-2: #273446;
+    --surface: #17202c;
+    --surface-2: #1e2a3b;
+    --line: #2f3d51;
+    --line-2: #3f5170;
+    --accent: #ff8a3d;
+    --accent-2: #42d8c8;
+    --accent-soft: rgba(66, 216, 200, .14);
+    --focus-ring: rgba(66, 216, 200, .24);
+    --accent-grid: rgba(66, 216, 200, .08);
+    --app-shell: rgba(15, 20, 27, .95);
+    --sidebar-a: rgba(24, 32, 43, .98);
+    --sidebar-b: rgba(20, 27, 37, .98);
+    --topbar-bg: rgba(23, 32, 44, .82);
+    --composer-bg: rgba(23, 32, 44, .92);
+    --panel-grad-a: rgba(36, 48, 64, .9);
+    --panel-grad-b: rgba(24, 33, 45, .96);
+    --chat-grad-a: rgba(29, 39, 54, .95);
+    --chat-grad-b: rgba(20, 28, 39, .98);
+    --button-a: #3e556f;
+    --button-b: #2e435b;
+    --button-hover-a: #486583;
+    --button-hover-b: #39516d;
+    --placeholder: #7f8ea5;
+    --active-ink: #f8fcff;
+    --danger: #ff6f7d;
+    --mention-self: #6df7a1;
+    --ok: #42d8c8;
     --local-bg-image: none;
     --local-bg-app-a: .57;
     --local-bg-app-b: .68;
@@ -41,7 +41,7 @@
     --local-bg-chat-a: .52;
     --local-bg-chat-b: .62;
     --local-bg-bar: .61;
-    --shadow: 0 20px 56px rgba(0, 0, 0, .38);
+    --shadow: 0 22px 60px rgba(4, 8, 14, .52);
     --radius-sm: 8px;
     --radius-md: 12px;
     --radius-lg: 16px;
@@ -72,10 +72,11 @@ html, body {
     min-height: 100%;
     width: 100%;
     background-color: var(--bg);
-    background: linear-gradient(135deg, var(--accent-grid) 0 1px, transparent 1px 16px),
+    background: radial-gradient(circle at 15% -10%, rgba(66, 216, 200, .09), transparent 28%),
+    radial-gradient(circle at 85% -8%, rgba(255, 138, 61, .1), transparent 26%),
     linear-gradient(180deg, var(--bg-2), var(--bg));
     color: var(--ink);
-    font-family: "JetBrains Mono", "Cascadia Mono", "IBM Plex Mono", "SF Mono", "Menlo", "Consolas", monospace;
+    font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", "Inter", sans-serif;
 }
 
 body {

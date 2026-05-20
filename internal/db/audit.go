@@ -1,5 +1,7 @@
 package db
 
+import "strings"
+
 func (s *Store) AddAdminAudit(actorID, actorName, action, target, details string) error {
 	_, err := s.DB.Exec("INSERT INTO admin_audit (actor_id, actor_name, action, target, details, created_at) VALUES (?, ?, ?, ?, ?, ?)", actorID, actorName, action, target, details, now())
 	return err
@@ -19,6 +21,45 @@ func (s *Store) ListAdminAudit(limit int) ([]map[string]string, error) {
 		var actorID, actorName, action, target, details, createdAt string
 		if err := rows.Scan(&actorID, &actorName, &action, &target, &details, &createdAt); err != nil {
 			return nil, err
+		}
+		out = append(out, map[string]string{
+			"actor_id":   actorID,
+			"actor_name": actorName,
+			"action":     action,
+			"target":     target,
+			"details":    details,
+			"created_at": createdAt,
+		})
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListAdminAuditByRoom(roomID string, limit int) ([]map[string]string, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	likeNeedle := "%room=" + roomID + "%"
+	rows, err := s.DB.Query(`
+SELECT actor_id, actor_name, action, target, details, created_at
+FROM admin_audit
+WHERE target=? OR details LIKE ?
+ORDER BY id DESC
+LIMIT ?`, roomID, likeNeedle, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]map[string]string, 0, limit)
+	for rows.Next() {
+		var actorID, actorName, action, target, details, createdAt string
+		if err := rows.Scan(&actorID, &actorName, &action, &target, &details, &createdAt); err != nil {
+			return nil, err
+		}
+		// Backward-compatible fallback: include legacy entries where target starts with the room id prefix.
+		if target != roomID && !strings.Contains(details, "room="+roomID) {
+			if !strings.HasPrefix(target, roomID+":") {
+				continue
+			}
 		}
 		out = append(out, map[string]string{
 			"actor_id":   actorID,

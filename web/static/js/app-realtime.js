@@ -152,6 +152,8 @@ const socketEventHandlers = {
 
 async function handleSocketEvent(evt, messages) {
     const data = evt.data || {};
+    const eventRoomID = String(data.room_id || '').trim();
+    if (eventRoomID && eventRoomID !== String(activeRoomID || 'main')) return;
     const handler = socketEventHandlers[evt.type];
     if (!handler) return;
     await handler(data, messages);
@@ -161,7 +163,7 @@ function ensureSocket() {
     if (ws && ws.readyState === WebSocket.OPEN) return Promise.resolve(ws);
     if (ws && ws.readyState === WebSocket.CONNECTING && wsReady) return wsReady;
 
-    const socket = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + '/ws');
+    const socket = new WebSocket((location.protocol === 'https:' ? 'wss' : 'ws') + '://' + location.host + withRoomQuery('/ws'));
     ws = socket;
     wsReady = new Promise((resolve) => {
         let settled = false;
@@ -209,7 +211,7 @@ function ensureSocket() {
 }
 
 async function refreshMembers() {
-    const res = await api('/api/members');
+    const res = await api(withRoomQuery('/api/members'));
     if (!res.ok) return;
     const members = Array.isArray(res.data.members) ? res.data.members : [];
     roomMembers = members;
@@ -288,7 +290,9 @@ function renderMembersList() {
         const self = myUserID && id === myUserID;
         const hasImageAvatar = isAvatarImageURL(avatarURL);
         const avatar = !showAvatars ? '' : `<span class="${ring.className}"${ring.style}>${hasImageAvatar ? `<img class="member-avatar-img" src="${esc(avatarURL)}" alt="${esc(name)}" loading="lazy"/>` : `<span class="member-avatar" style="background:${esc(color)}">${esc(initial)}</span>`}</span>`;
-        return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online ? 'on' : 'off'}" aria-hidden="true"></span>${avatar}<span class="member-name">${esc(name)}${self ? ' (you)' : ''}</span></div>`;
+        const roomRole = String(m.room_role || '').trim().toLowerCase();
+        const roomRoleBadge = roomRole === 'moderator' ? '<span class="role-badge role-badge-mod">Moderator</span>' : '';
+        return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online ? 'on' : 'off'}" aria-hidden="true"></span>${avatar}<span class="member-name">${esc(name)}${self ? ' (you)' : ''}${roomRoleBadge}</span></div>`;
     }).join('');
 }
 
@@ -328,7 +332,16 @@ async function renderAdminUsers() {
         const row = document.createElement('div');
         row.className = 'admin-user';
         const isMe = String(u.id || '') === String(myUserID || '');
-        row.innerHTML = `<div><strong>${esc(u.display_name)}${isMe ? ' (you)' : ''}</strong><div class="admin-role">${esc(u.role)}</div></div>${canChange ? `<div class="admin-actions"><select data-user="${esc(u.id)}">${roleOptions}</select><button class="btn-danger" data-remove-user="${esc(u.id)}">Remove</button></div>` : '<div class="muted">locked</div>'}`;
+        const memberRow = roomMembers.find((m) => String(m.id || '') === String(u.id || '')) || {};
+        const roomRole = String(memberRow.room_role || '').trim().toLowerCase();
+        const roomRoleBadge = roomRole === 'moderator' ? '<span class="role-badge role-badge-mod">Moderator</span>' : '';
+        const isGlobalAdmin = myRole === 'root_admin' || myRole === 'admin';
+        const inRoom = !!memberRow && !!memberRow.id;
+        const canManageRoomRole = isGlobalAdmin && u.role !== 'root_admin' && inRoom;
+        const roomRoleActions = canManageRoomRole
+            ? `<button class="secondary" data-set-room-mod="${esc(u.id)}">Set Mod</button><button class="secondary" data-clear-room-mod="${esc(u.id)}">Clear Mod</button>`
+            : `<span class="muted">${inRoom ? 'room role locked' : 'not in room'}</span>`;
+        row.innerHTML = `<div><strong>${esc(u.display_name)}${isMe ? ' (you)' : ''}${roomRoleBadge}</strong><div class="admin-role">${esc(u.role)}</div></div>${canChange ? `<div class="admin-actions"><select data-user="${esc(u.id)}">${roleOptions}</select><button class="btn-danger" data-remove-user="${esc(u.id)}">Remove</button>${roomRoleActions}</div>` : `<div class="admin-actions">${roomRoleActions}</div>`}`;
         box.appendChild(row);
     }
 
@@ -366,6 +379,44 @@ async function renderAdminUsers() {
             }
             status.textContent = 'User removed. Access revoked.';
             status.className = 'status ok';
+            await renderAdminUsers();
+        });
+    });
+    box.querySelectorAll('button[data-set-room-mod]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const userId = btn.getAttribute('data-set-room-mod') || '';
+            if (!userId) return;
+            const res = await api(withRoomQuery('/api/admin/room-role'), {
+                method: 'POST',
+                body: JSON.stringify({user_id: userId, role: 'moderator'})
+            });
+            if (!res.ok) {
+                status.textContent = res.data.error || 'Failed to set room moderator';
+                status.className = 'status err';
+                return;
+            }
+            status.textContent = 'Room moderator set.';
+            status.className = 'status ok';
+            await refreshMembers();
+            await renderAdminUsers();
+        });
+    });
+    box.querySelectorAll('button[data-clear-room-mod]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            const userId = btn.getAttribute('data-clear-room-mod') || '';
+            if (!userId) return;
+            const res = await api(withRoomQuery('/api/admin/room-role/clear'), {
+                method: 'POST',
+                body: JSON.stringify({user_id: userId})
+            });
+            if (!res.ok) {
+                status.textContent = res.data.error || 'Failed to clear room moderator';
+                status.className = 'status err';
+                return;
+            }
+            status.textContent = 'Room moderator cleared.';
+            status.className = 'status ok';
+            await refreshMembers();
             await renderAdminUsers();
         });
     });

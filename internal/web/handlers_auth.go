@@ -56,17 +56,17 @@ func (s *Server) createInvite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !isAdminRole(u.Role) {
-		writeJSON(w, 403, map[string]string{"error": "forbidden"})
-		return
-	}
 	token, err := randomToken()
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "could not create invite"})
 		return
 	}
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomManager(w, u, roomID) {
+		return
+	}
 	h := invite.HashToken(token)
-	id, err := s.Store.CreateInvite(h, u.ID, 24, 1)
+	id, err := s.Store.CreateInvite(roomID, h, u.ID, 24, 1)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "could not create invite"})
 		return
@@ -97,13 +97,18 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invite token and display name required"})
 		return
 	}
-	if _, err := s.Store.ValidateInvite(invite.HashToken(req.Token)); err != nil {
+	match, err := s.Store.ValidateInvite(invite.HashToken(req.Token))
+	if err != nil {
 		writeJSON(w, 403, map[string]string{"error": "access denied"})
 		return
 	}
 	u, err := s.Store.AddMember(req.DisplayName, req.PublicKey, req.CredentialID)
 	if err != nil {
 		writeJSON(w, 403, map[string]string{"error": "access denied"})
+		return
+	}
+	if err := s.Store.AddUserToRoom(match.RoomID, u.ID); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to join room"})
 		return
 	}
 	roomKeyEnc, err := s.Store.GetRoomKeyEnc()
@@ -114,7 +119,7 @@ func (s *Server) joinInvite(w http.ResponseWriter, r *http.Request) {
 	session := auth.Sign(auth.NewSession(u.ID), s.Secret)
 	setSessionCookie(w, session, s.CookieSecure, s.SessionMaxAge)
 	log.Printf("invite_join_success user_id=%s display_name=%q", u.ID, u.DisplayName)
-	writeJSON(w, 200, map[string]any{"ok": true, "user": u, "room_key_enc": roomKeyEnc})
+	writeJSON(w, 200, map[string]any{"ok": true, "user": u, "room_key_enc": roomKeyEnc, "room_id": match.RoomID})
 }
 
 func (s *Server) sessionFromCredential(w http.ResponseWriter, r *http.Request) {

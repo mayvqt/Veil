@@ -130,7 +130,9 @@
 }
 
 .admin-user strong {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .admin-role {
@@ -492,4 +494,3 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 button:focus-visible {
     box-shadow: 0 0 0 3px var(--focus-ring), var(--elevated-shadow);
 }
-

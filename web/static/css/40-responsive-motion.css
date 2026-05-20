@@ -124,59 +124,18 @@
         padding-bottom: env(safe-area-inset-bottom);
     }
 
-    .chat-shell.sidebar-collapsed {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .sidebar-backdrop {
-        display: block;
-        position: absolute;
-        inset: 0;
-        background: var(--overlay-36);
-        opacity: 0;
-        pointer-events: none;
-        z-index: 11;
-        transition: opacity .2s ease;
-    }
-
-    .sidebar-backdrop.open {
-        opacity: 1;
-        pointer-events: auto;
-    }
-
     .sidebar {
-        position: absolute;
-        inset: 0 auto 0 0;
-        width: min(82vw, 300px);
-        height: 100%;
-        z-index: 12;
+        position: relative;
+        inset: auto;
+        width: 100%;
+        height: auto;
         border-right: 1px solid var(--line);
-        border-bottom: 0;
+        border-bottom: 1px solid var(--line);
         padding: 14px;
-    }
-
-    .chat-shell.sidebar-collapsed .sidebar {
-        transform: translateX(-110%);
-        opacity: 0;
-        pointer-events: none;
-    }
-
-    .chat-shell:not(.sidebar-collapsed) .sidebar {
-        transform: translateX(0);
-        opacity: 1;
-        pointer-events: auto;
-    }
-
-    .chat-shell:not(.sidebar-collapsed) .main {
-        pointer-events: none;
     }
 
     .nav {
         grid-template-columns: 1fr;
-    }
-
-    .whoami {
-        display: none;
     }
 
     .admin-grid {
