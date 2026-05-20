@@ -38,15 +38,20 @@ function bindChatActions() {
     const stickerButtons = stickerPicker ? [...stickerPicker.querySelectorAll('button[data-sticker]')] : [];
     if (typingStatus) typingStatus.textContent = '';
     if (memberToggle && memberPopover) {
+        activeMemberToggle = memberToggle;
+        activeMemberPopover = memberPopover;
         memberToggle.addEventListener('click', () => {
             memberPopover.classList.toggle('open');
         });
-        document.addEventListener('click', (e) => {
-            const target = e.target;
-            if (!(target instanceof Node)) return;
-            if (memberPopover.contains(target) || memberToggle.contains(target)) return;
-            memberPopover.classList.remove('open');
-        }, {capture: true});
+        if (!memberOutsideHandlerBound) {
+            memberOutsideHandlerBound = true;
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!(target instanceof Node) || !activeMemberPopover || !activeMemberToggle) return;
+                if (activeMemberPopover.contains(target) || activeMemberToggle.contains(target)) return;
+                activeMemberPopover.classList.remove('open');
+            }, {capture: true});
+        }
     }
     const renderPinPopover = () => {
         if (!pinList || !messages) return;
@@ -73,16 +78,21 @@ function bindChatActions() {
         });
     };
     if (pinToggle && pinPopover) {
+        activePinToggle = pinToggle;
+        activePinPopover = pinPopover;
         pinToggle.addEventListener('click', () => {
             renderPinPopover();
             pinPopover.classList.toggle('open');
         });
-        document.addEventListener('click', (e) => {
-            const target = e.target;
-            if (!(target instanceof Node)) return;
-            if (pinPopover.contains(target) || pinToggle.contains(target)) return;
-            pinPopover.classList.remove('open');
-        }, {capture: true});
+        if (!pinOutsideHandlerBound) {
+            pinOutsideHandlerBound = true;
+            document.addEventListener('click', (e) => {
+                const target = e.target;
+                if (!(target instanceof Node) || !activePinPopover || !activePinToggle) return;
+                if (activePinPopover.contains(target) || activePinToggle.contains(target)) return;
+                activePinPopover.classList.remove('open');
+            }, {capture: true});
+        }
     }
 
     const updateReplyPreview = () => {
@@ -174,6 +184,17 @@ function bindChatActions() {
             mentionPicker.innerHTML = '';
         }
     };
+    activeMentionPicker = mentionPicker;
+    activeMentionInput = input;
+    activeMentionClose = closeMentionPicker;
+    if (!mentionOutsideHandlerBound) {
+        mentionOutsideHandlerBound = true;
+        document.addEventListener('click', (e) => {
+            if (!activeMentionPicker || !activeMentionInput || !activeMentionClose) return;
+            if (e.target === activeMentionInput || activeMentionPicker.contains(e.target)) return;
+            activeMentionClose();
+        }, {capture: true});
+    }
     const emitTyping = (typing) => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
         ws.send(JSON.stringify({type: 'typing', typing: !!typing}));
@@ -545,11 +566,6 @@ function bindChatActions() {
             sendBtn.click();
         }
     });
-    document.addEventListener('click', (e) => {
-        if (!mentionPicker || !input) return;
-        if (e.target === input || mentionPicker.contains(e.target)) return;
-        closeMentionPicker();
-    }, {capture: true});
     updateReplyPreview();
     renderPinnedBar();
     updateJumpLatestVisibility();
@@ -587,6 +603,7 @@ function updateChatRoomChrome() {
 async function reloadActiveChatRoomInPlace() {
     updateChatRoomChrome();
     await loadHistory();
+    setRoomUnreadCount(activeRoomID, 0);
     await refreshMembers();
     if (jumpToUnreadAfterSwitch) {
         jumpToUnreadAfterSwitch = false;
@@ -950,9 +967,32 @@ function refreshSidebarChannelsInPlace() {
     const nav = document.querySelector('.channels-nav');
     if (!nav) return;
     const rooms = (availableRooms.length ? availableRooms : [{id: activeRoomID || 'main', name: roomName || 'Room Chat'}]);
-    nav.innerHTML = rooms.map((room) => roomNavButtonHTML(room)).join('');
+    const nextHTML = rooms.map((room) => roomNavButtonHTML(room)).join('');
+    if (nav.innerHTML === nextHTML) return;
+    nav.innerHTML = nextHTML;
     bindSidebarChannelActions();
     bindChannelManageActions();
+}
+
+function setRoomUnreadCount(roomID, unreadCount) {
+    const id = String(roomID || '').trim();
+    if (!id) return false;
+    const room = availableRooms.find((item) => String(item.id || '') === id);
+    if (!room) return false;
+    room.unread_count = Math.max(0, Math.floor(Number(unreadCount || 0)));
+    refreshSidebarChannelsInPlace();
+    return true;
+}
+
+function incrementRoomUnreadCount(roomID) {
+    const id = String(roomID || '').trim();
+    if (!id || id === String(activeRoomID || '')) return;
+    const room = availableRooms.find((item) => String(item.id || '') === id);
+    if (!room) {
+        pollRoomsForUnread();
+        return;
+    }
+    setRoomUnreadCount(id, Number(room.unread_count || 0) + 1);
 }
 
 async function pollRoomsForUnread() {
@@ -2167,7 +2207,7 @@ async function renderMain() {
     if (!window.__veilRoomsPollTimer) {
         window.__veilRoomsPollTimer = setInterval(() => {
             pollRoomsForUnread();
-        }, 12000);
+        }, 5000);
     }
 
     if (currentView === VIEW_CHAT) {

@@ -154,10 +154,23 @@ const socketEventHandlers = {
 async function handleSocketEvent(evt, messages) {
     const data = evt.data || {};
     const eventRoomID = String(data.room_id || '').trim();
-    if (eventRoomID && eventRoomID !== String(activeRoomID || 'main')) return;
+    if (eventRoomID && eventRoomID !== String(activeRoomID || 'main')) {
+        handleOffRoomSocketEvent(evt.type, data, eventRoomID);
+        return;
+    }
     const handler = socketEventHandlers[evt.type];
     if (!handler) return;
     await handler(data, messages);
+}
+
+function handleOffRoomSocketEvent(type, data, roomID) {
+    if (type === 'message' && String(data.sender_id || '') !== String(myUserID || '')) {
+        incrementRoomUnreadCount(roomID);
+        return;
+    }
+    if (type === 'room_update') {
+        pollRoomsForUnread();
+    }
 }
 
 function ensureSocket() {
