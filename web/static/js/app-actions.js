@@ -703,8 +703,17 @@ function refreshSidebarChannelsInPlace() {
     const nav = document.querySelector('.channels-nav');
     if (!nav) return;
     const rooms = (availableRooms.length ? availableRooms : [{id: activeRoomID || 'main', name: roomName || 'Room Chat'}]);
-    nav.innerHTML = rooms.map((room) => `<button class="nav-btn${String(room.id || '') === String(activeRoomID || '') ? ' active' : ''}" data-sidebar-room-id="${esc(room.id || '')}" type="button"># ${esc(room.name || room.id || 'room')}</button>`).join('');
+    nav.innerHTML = rooms.map((room) => roomNavButtonHTML(room)).join('');
     bindSidebarChannelActions();
+}
+
+async function pollRoomsForUnread() {
+    const shell = document.querySelector('.chat-shell');
+    if (!shell) return;
+    const before = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || '')]));
+    await refreshRooms();
+    const after = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || '')]));
+    if (before !== after) refreshSidebarChannelsInPlace();
 }
 
 function bindKeyActions() {
@@ -889,6 +898,8 @@ function bindThemeActions() {
 
 function bindProfileActions() {
     const status = $('profileStatus');
+    const displayNameInput = $('profile-display-name');
+    const displayNameSaveBtn = $('profileDisplayNameSave');
     const avatarFileInput = $('profile-avatar-file');
     const avatarClearBtn = $('profileAvatarClear');
     const avatarCropper = $('avatarCropper');
@@ -1187,6 +1198,44 @@ function bindProfileActions() {
             setStatus(status, e.message || 'Failed to apply background.', 'err');
         }
     };
+    const saveDisplayName = async () => {
+        if (!displayNameInput) return;
+        const nextName = String(displayNameInput.value || '').trim();
+        if (!nextName) {
+            setStatus(status, 'Display name is required.', 'err');
+            return;
+        }
+        if (nextName.length > 48) {
+            setStatus(status, 'Display name must be 48 characters or fewer.', 'err');
+            return;
+        }
+        const r = await api('/api/profile/name', {method: 'POST', body: JSON.stringify({display_name: nextName})});
+        if (!r.ok) {
+            setStatus(status, r.data.error || 'Failed to save display name.', 'err');
+            return;
+        }
+        currentDisplayName = String((r.data && r.data.display_name) || nextName).trim();
+        displayNameInput.value = currentDisplayName;
+        registerDisplayName(currentDisplayName);
+        persistIdentity();
+        refreshTopProfileChip();
+        refreshProfilePreviewAvatar();
+        await refreshMembers();
+        if (currentView === VIEW_CHAT) await loadHistory();
+        await renderMain();
+        setStatus(status, 'Display name saved for everyone.', 'ok');
+    };
+
+    if (displayNameSaveBtn) {
+        displayNameSaveBtn.onclick = saveDisplayName;
+    }
+    if (displayNameInput) {
+        displayNameInput.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            await saveDisplayName();
+        });
+    }
 
     if (avatarFileInput) {
         avatarFileInput.addEventListener('change', async () => {
@@ -1795,6 +1844,11 @@ async function renderMain() {
     bindSidebarToggleActions();
     bindUserMenuActions();
     bindSidebarChannelActions();
+    if (!window.__veilRoomsPollTimer) {
+        window.__veilRoomsPollTimer = setInterval(() => {
+            pollRoomsForUnread();
+        }, 12000);
+    }
 
     if (currentView === VIEW_CHAT) {
         bindChatActions();

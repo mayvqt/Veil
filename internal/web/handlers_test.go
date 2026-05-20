@@ -241,6 +241,30 @@ func TestProfileColorEndpointPersistsColor(t *testing.T) {
 	}
 }
 
+func TestProfileNameEndpointPersistsName(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "u1", "alice", "member")
+	token := sessionToken(srv.Secret, "u1")
+
+	rr := doReq(t, h, http.MethodPost, "/api/profile/name", token, map[string]any{"display_name": "  Alice Prime  "})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile name status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var got string
+	if err := srv.Store.DB.QueryRow("SELECT display_name FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != "Alice Prime" {
+		t.Fatalf("expected persisted trimmed display name %q, got %q", "Alice Prime", got)
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/name", token, map[string]any{"display_name": "   "})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected empty display name 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+}
+
 func TestProfileAvatarRingEndpointPersistsRing(t *testing.T) {
 	srv, h := testServer(t)
 	addUser(t, srv.Store, "u1", "alice", "member")

@@ -10,9 +10,10 @@ type RoomInfo struct {
 }
 
 type Room struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	StatusText string `json:"status_text"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	StatusText  string `json:"status_text"`
+	UnreadCount int64  `json:"unread_count"`
 }
 
 type User struct {

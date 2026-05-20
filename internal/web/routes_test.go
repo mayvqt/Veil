@@ -26,6 +26,7 @@ func TestRoutesContainExpectedEndpoints(t *testing.T) {
 		http.MethodGet + " /health":                                false,
 		http.MethodPost + " /api/bootstrap":                        false,
 		http.MethodPost + " /api/session/from-credential":          false,
+		http.MethodPost + " /api/profile/name":                     false,
 		http.MethodPost + " /api/profile/avatar":                   false,
 		http.MethodPost + " /api/profile/avatar-ring":              false,
 		http.MethodGet + " /api/messages":                          false,

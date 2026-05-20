@@ -6,11 +6,25 @@ function navHTML() {
       <div class="sidebar-section">
         <div class="sidebar-head">Channels</div>
         <div class="nav channels-nav">
-          ${rooms.map((room) => `<button class="nav-btn${String(room.id || '') === String(activeRoomID || '') ? ' active' : ''}" data-sidebar-room-id="${esc(room.id || '')}" type="button"># ${esc(room.name || room.id || 'room')}</button>`).join('')}
+          ${rooms.map((room) => roomNavButtonHTML(room)).join('')}
         </div>
       </div>
     </aside>
   `;
+}
+
+function roomUnreadCount(room) {
+    const n = Number(room && room.unread_count);
+    if (!Number.isFinite(n) || n <= 0) return 0;
+    return Math.floor(n);
+}
+
+function roomNavButtonHTML(room) {
+    const roomID = String(room && room.id || '');
+    const active = roomID === String(activeRoomID || '');
+    const unread = active ? 0 : roomUnreadCount(room);
+    const unreadLabel = unread > 99 ? '99+' : String(unread);
+    return `<button class="nav-btn${active ? ' active' : ''}${unread > 0 ? ' has-unread' : ''}" data-sidebar-room-id="${esc(roomID)}" type="button"># ${esc(room && room.name || roomID || 'room')}${unread > 0 ? `<span class="room-unread" aria-label="${esc(String(unread))} unread messages">${esc(unreadLabel)}</span>` : ''}</button>`;
 }
 
 function sidebarToggleHTML() {
@@ -159,6 +173,25 @@ function settingsSectionHTML(title, body, extraClass = '') {
     return `<section class="settings-section ${esc(extraClass)}"><h3>${esc(title)}</h3>${body}</section>`;
 }
 
+function adminCardHTML(title, lead, body, extraClass = '') {
+    return `
+    <section class="settings-section admin-section admin-card ${esc(extraClass)}">
+      <h3>${esc(title)}</h3>
+      <p class="admin-lead">${esc(lead)}</p>
+      ${body}
+    </section>
+  `;
+}
+
+function adminSubsectionHTML(title, body) {
+    return `
+    <div class="admin-subsection">
+      <h4>${esc(title)}</h4>
+      ${body}
+    </div>
+  `;
+}
+
 function themePanelHTML() {
     const t = currentTheme();
     const fields = [
@@ -226,6 +259,13 @@ function profilePanelHTML() {
           <div class="profile-summary" id="profilePreview">
             ${profilePreview}
             <div><strong>${esc(currentDisplayName || 'member')}</strong><span>${esc(myRole || 'member')}</span></div>
+          </div>
+          <div class="theme-row file-row">
+            <label for="profile-display-name">Display Name<span>Shown to everyone</span></label>
+            <input id="profile-display-name" type="text" maxlength="48" value="${esc(currentDisplayName || '')}" placeholder="Display name"/>
+          </div>
+          <div class="theme-actions settings-footer">
+            <button id="profileDisplayNameSave" class="secondary">Save Name</button>
           </div>
           <div class="theme-row">
             <label for="profile-chat-color">Name Color<span>Shown in chat</span></label>
@@ -351,15 +391,18 @@ function controlPanelHTML() {
       <div class="panel utility-panel">
         <div class="admin-layout">
           <div class="admin-column admin-column-main">
-            <section class="settings-section admin-section admin-card">
-              <h3>Members</h3>
-              <p class="admin-lead">Manage roles and member access for this room.</p>
+            ${adminCardHTML(
+        'Members',
+        'Manage roles and member access for this room.',
+        `
               <div id="roleStatus" class="status">${canManageUsers ? 'Load members to update roles.' : 'Only root admins can change roles.'}</div>
               <div id="adminUsers" class="admin-users"></div>
-            </section>
-            <section class="settings-section admin-section admin-card">
-              <h3>Invites</h3>
-              <p class="admin-lead">Create and manage invitation links for new members.</p>
+            `
+    )}
+            ${adminCardHTML(
+        'Invites',
+        'Create and manage invitation links for new members.',
+        `
               <div class="theme-actions admin-actions-row">
                 <button id="invite">Create Invite</button>
                 <button id="revokeUnusedInvites" class="secondary">Revoke Unused</button>
@@ -367,52 +410,52 @@ function controlPanelHTML() {
               </div>
               <div id="inviteOut" class="invite-out muted">No invites generated yet.</div>
               <div id="inviteList" class="admin-users"></div>
-            </section>
+            `
+    )}
+            ${adminCardHTML(
+        'Room Identity',
+        'Update the public name and status shown to everyone in this room.',
+        `
+              ${adminSubsectionHTML(
+            'Room Name',
+            `
+                <div class="theme-actions admin-actions-row">
+                  <input id="roomNameInput" type="text" maxlength="80" placeholder="Room name" value="${esc(roomName || '')}"/>
+                  <button id="saveRoomName" class="secondary">Save Name</button>
+                </div>
+                <div id="roomNameStatus" class="status">Admins can update the room name.</div>
+              `
+        )}
+              ${adminSubsectionHTML(
+            'Room Status Text',
+            `
+                <div class="theme-actions admin-actions-row">
+                  <input id="roomStatusTextAdminInput" type="text" maxlength="48" placeholder="${esc(DEFAULT_ROOM_STATUS_TEXT)}" value="${esc(roomStatusText)}"/>
+                  <button id="saveRoomStatusTextAdmin" class="secondary">Save Status Text</button>
+                </div>
+                <div id="roomStatusTextAdminStatus" class="status">Admins can update the room status text.</div>
+              `
+        )}
+            `
+    )}
           </div>
           <div class="admin-column admin-column-side">
-            <section class="settings-section admin-section admin-card">
-              <h3>Room</h3>
-              <p class="admin-lead">Update the visible room title for everyone.</p>
-              <div class="theme-actions admin-actions-row">
-                <input id="roomNameInput" type="text" maxlength="80" placeholder="Room name" value="${esc(roomName || '')}"/>
-                <button id="saveRoomName" class="secondary">Save Name</button>
-              </div>
-              <p class="admin-lead">Set the status text shown under the room title.</p>
-              <div class="theme-actions admin-actions-row">
-                <input id="roomStatusTextAdminInput" type="text" maxlength="48" placeholder="${esc(DEFAULT_ROOM_STATUS_TEXT)}" value="${esc(roomStatusText)}"/>
-                <button id="saveRoomStatusTextAdmin" class="secondary">Save Status Text</button>
-              </div>
-              <div id="roomStatusTextAdminStatus" class="status">Admins can update the room status text.</div>
-              <div id="roomNameStatus" class="status">Admins can update the room name.</div>
-              <p class="admin-lead">Create additional rooms.</p>
+            ${adminCardHTML(
+        'Room Directory',
+        'Create additional rooms and expose them in the channel switcher.',
+        `
               <div class="theme-actions admin-actions-row">
                 <input id="newRoomIDInput" type="text" maxlength="48" placeholder="room id (e.g. ops)"/>
                 <input id="newRoomNameInput" type="text" maxlength="80" placeholder="Room display name"/>
                 <button id="createRoomBtn" class="secondary">Create Room</button>
               </div>
               <div id="createRoomStatus" class="status">Admins can create rooms and join from the room switcher.</div>
-            </section>
-            <section class="settings-section admin-section admin-card admin-card-danger">
-              <h3>Message Retention</h3>
-              <p class="admin-lead">Prune or clear stored messages. These actions cannot be undone.</p>
-              <div id="messageAdminStatus" class="status">Loading message stats...</div>
-              <div class="theme-actions admin-actions-row">
-                <input id="retainCountInput" type="number" min="1" step="1" placeholder="Keep latest count"/>
-                <button id="retainMessages" class="secondary">Keep Latest</button>
-              </div>
-              <div class="theme-actions admin-actions-row">
-                <button id="clearMessages" class="btn-danger">Delete All Messages</button>
-              </div>
-            </section>
-            <section class="settings-section admin-section admin-card">
-              <h3>Admin Audit Log</h3>
-              <p class="admin-lead">Recent admin actions for accountability.</p>
-              <div id="auditStatus" class="status">Loading audit log...</div>
-              <div id="auditList" class="admin-users"></div>
-            </section>
-            <section class="settings-section admin-section admin-card">
-              <h3>Custom Emoji + Stickers</h3>
-              <p class="admin-lead">Upload room-specific emoji and stickers without changing source code.</p>
+            `
+    )}
+            ${adminCardHTML(
+        'Custom Emoji + Stickers',
+        'Upload room-specific emoji and stickers without changing source code.',
+        `
               <div class="theme-actions admin-actions-row">
                 <select id="customMediaKind">
                   <option value="emoji">Emoji</option>
@@ -424,7 +467,31 @@ function controlPanelHTML() {
               </div>
               <div id="customMediaStatus" class="status">Emoji insert token format: <code>:name:</code></div>
               <div id="customMediaList" class="admin-users"></div>
-            </section>
+            `
+    )}
+            ${adminCardHTML(
+        'Message Retention',
+        'Prune or clear stored messages. These actions cannot be undone.',
+        `
+              <div id="messageAdminStatus" class="status">Loading message stats...</div>
+              <div class="theme-actions admin-actions-row">
+                <input id="retainCountInput" type="number" min="1" step="1" placeholder="Keep latest count"/>
+                <button id="retainMessages" class="secondary">Keep Latest</button>
+              </div>
+              <div class="theme-actions admin-actions-row">
+                <button id="clearMessages" class="btn-danger">Delete All Messages</button>
+              </div>
+            `,
+        'admin-card-danger'
+    )}
+            ${adminCardHTML(
+        'Admin Audit Log',
+        'Recent admin actions for accountability.',
+        `
+              <div id="auditStatus" class="status">Loading audit log...</div>
+              <div id="auditList" class="admin-users"></div>
+            `
+    )}
           </div>
         </div>
       </div>
@@ -687,13 +754,16 @@ async function loadHistory({appendOlder = false} = {}) {
 
 function renderUnreadDivider() {
     const messages = $('messages');
-    if (!messages || unreadDividerRowID <= 0) return;
+    if (!messages) return;
+    const existing = messages.querySelector('.unread-divider');
+    if (existing) existing.remove();
+    if (unreadDividerRowID <= 0) return;
     const rows = [...messages.querySelectorAll('.line[data-row-id]')];
     const target = rows.find((row) => Number(row.getAttribute('data-row-id') || 0) > unreadDividerRowID);
     if (!target) return;
-    const existing = messages.querySelector('.unread-divider');
-    if (existing) existing.remove();
-    target.insertAdjacentHTML('beforebegin', `<div class="unread-divider">Unread Messages</div>`);
+    const unreadCount = rows.filter((row) => Number(row.getAttribute('data-row-id') || 0) > unreadDividerRowID).length;
+    const unreadLabel = unreadCount > 0 ? `${unreadCount} Unread` : 'Unread Messages';
+    target.insertAdjacentHTML('beforebegin', `<div class="unread-divider" role="separator" aria-label="${esc(unreadLabel)}"><span>${esc(unreadLabel)}</span></div>`);
 }
 
 function renderPinnedBarFromState() {

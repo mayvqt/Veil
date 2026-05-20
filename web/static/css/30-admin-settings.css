@@ -7,7 +7,7 @@
 
 .admin-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .95fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
     gap: 14px;
     align-content: start;
 }
@@ -42,6 +42,7 @@
 .admin-card h3 {
     font-size: 1.02rem;
     letter-spacing: .01em;
+    margin: 0;
 }
 
 .admin-lead {
@@ -49,6 +50,23 @@
     color: var(--muted);
     font-size: .86rem;
     line-height: 1.42;
+}
+
+.admin-subsection {
+    display: grid;
+    gap: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+    background: color-mix(in srgb, var(--surface) 74%, transparent);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+}
+
+.admin-subsection h4 {
+    margin: 0;
+    font-size: .82rem;
+    color: var(--quiet);
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
 
 .admin-actions-row {

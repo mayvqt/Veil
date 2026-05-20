@@ -310,10 +310,17 @@ func (s *Store) IsRoomMember(roomID, userID string) (bool, error) {
 
 func (s *Store) ListRoomsForUser(userID string) ([]Room, error) {
 	rows, err := s.DB.Query(`
-SELECT r.id, r.name, COALESCE(r.status_text, ?)
+SELECT r.id, r.name, COALESCE(r.status_text, ?),
+COALESCE(SUM(CASE
+  WHEN m.rowid > COALESCE(rc.last_seen_rowid, 0) AND m.sender_id <> rm.user_id THEN 1
+  ELSE 0
+END), 0) AS unread_count
 FROM rooms r
 JOIN room_memberships rm ON rm.room_id=r.id
+LEFT JOIN message_receipts_v2 rc ON rc.room_id=r.id AND rc.user_id=rm.user_id
+LEFT JOIN messages m ON m.room_id=r.id
 WHERE rm.user_id=?
+GROUP BY r.id, r.name, r.status_text, rm.joined_at
 ORDER BY rm.joined_at ASC`, DefaultRoomStatusText, userID)
 	if err != nil {
 		return nil, err
@@ -323,7 +330,7 @@ ORDER BY rm.joined_at ASC`, DefaultRoomStatusText, userID)
 	rooms := make([]Room, 0)
 	for rows.Next() {
 		var room Room
-		if err := rows.Scan(&room.ID, &room.Name, &room.StatusText); err != nil {
+		if err := rows.Scan(&room.ID, &room.Name, &room.StatusText, &room.UnreadCount); err != nil {
 			return nil, err
 		}
 		rooms = append(rooms, room)
@@ -367,6 +374,15 @@ func (s *Store) SetUserChatColor(userID, chatColor string) error {
 		return errors.New("invalid color")
 	}
 	_, err := s.DB.Exec("UPDATE users SET chat_color=? WHERE id=? AND active=1", chatColor, userID)
+	return err
+}
+
+func (s *Store) SetUserDisplayName(userID, displayName string) error {
+	name := strings.TrimSpace(displayName)
+	if name == "" {
+		return errors.New("display name required")
+	}
+	_, err := s.DB.Exec("UPDATE users SET display_name=? WHERE id=? AND active=1", name, userID)
 	return err
 }
 

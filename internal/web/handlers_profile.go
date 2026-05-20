@@ -16,6 +16,30 @@ var ringColorHexPattern = regexp.MustCompile(`^#[0-9a-f]{6}([0-9a-f]{2})?$`)
 var avatarDataURLPattern = regexp.MustCompile(`^data:(image/(png|jpeg|webp|gif));base64,([a-zA-Z0-9+/=]+)$`)
 var avatarRingModes = map[string]struct{}{"none": {}, "pulse": {}, "glow": {}, "rainbow": {}}
 
+func (s *Server) updateProfileName(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		DisplayName string `json:"display_name"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	name := cleanInput(req.DisplayName, maxDisplayNameLen)
+	if name == "" {
+		writeJSON(w, 400, map[string]string{"error": "display_name required"})
+		return
+	}
+	if err := s.Store.SetUserDisplayName(u.ID, name); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update display name"})
+		return
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "display_name": name})
+}
+
 func (s *Server) updateProfileColor(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.requireAPIUser(w, r)
 	if !ok {
