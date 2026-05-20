@@ -119,7 +119,7 @@
 @media (max-width: 980px) {
     .chat-shell {
         grid-template-columns: minmax(0, 1fr);
-        overflow: auto;
+        overflow: hidden;
         min-height: 100%;
         padding-bottom: env(safe-area-inset-bottom);
     }
@@ -128,55 +128,43 @@
         grid-template-columns: minmax(0, 1fr);
     }
 
-    .sidebar-backdrop {
-        display: block;
-        position: absolute;
-        inset: 0;
-        background: var(--overlay-36);
-        opacity: 0;
-        pointer-events: none;
-        z-index: 11;
-        transition: opacity .2s ease;
-    }
-
-    .sidebar-backdrop.open {
-        opacity: 1;
-        pointer-events: auto;
-    }
-
     .sidebar {
         position: absolute;
-        inset: 0 auto 0 0;
-        width: min(82vw, 300px);
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: min(84vw, 330px);
+        max-width: 330px;
         height: 100%;
-        z-index: 12;
-        border-right: 1px solid var(--line);
+        border-right: 1px solid color-mix(in srgb, var(--line) 90%, transparent);
         border-bottom: 0;
         padding: 14px;
-    }
-
-    .chat-shell.sidebar-collapsed .sidebar {
         transform: translateX(-110%);
         opacity: 0;
         pointer-events: none;
+        box-shadow: 20px 0 32px rgba(0, 0, 0, .36);
     }
 
-    .chat-shell:not(.sidebar-collapsed) .sidebar {
+    .chat-shell.sidebar-open .sidebar {
         transform: translateX(0);
         opacity: 1;
         pointer-events: auto;
     }
 
-    .chat-shell:not(.sidebar-collapsed) .main {
-        pointer-events: none;
+    .chat-shell.sidebar-open .sidebar-backdrop {
+        position: absolute;
+        inset: 0;
+        display: block;
+        z-index: 41;
+        border: 0;
+        margin: 0;
+        padding: 0;
+        background: rgba(0, 0, 0, .38);
+        cursor: pointer;
     }
 
     .nav {
         grid-template-columns: 1fr;
-    }
-
-    .whoami {
-        display: none;
     }
 
     .admin-grid {
@@ -242,11 +230,12 @@
     }
 
     .topbar {
-        padding: 12px 14px;
+        padding: 10px 12px;
+        gap: 8px;
     }
 
     .top-actions {
-        gap: 6px;
+        gap: 5px;
     }
 
     .chat-search-wrap {
@@ -265,8 +254,8 @@
     }
 
     .profile-chip {
-        max-width: 44px;
-        padding-right: 5px;
+        max-width: 42px;
+        padding-right: 4px;
     }
 
     .profile-chip span:last-child {
@@ -305,22 +294,24 @@
     }
 
     .composer {
-        padding: 10px 12px;
-        gap: 8px;
-        grid-template-columns: minmax(0, 1fr) 44px 44px 44px 94px;
+        padding: 8px 10px;
+        gap: 6px;
+        grid-template-columns: minmax(0, 1fr) 42px 42px 42px 90px;
     }
 
     #m {
-        min-height: 48px;
+        min-height: 44px;
+        padding: 9px 10px;
     }
 
     .emoji-btn {
-        width: 44px;
-        height: 48px;
+        width: 42px;
+        height: 44px;
     }
 
     #send {
-        min-height: 48px;
+        min-height: 44px;
+        padding: 9px 10px;
     }
 
     .chat-log {

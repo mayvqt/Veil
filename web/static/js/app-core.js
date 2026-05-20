@@ -13,6 +13,8 @@ let activeStickerToggle = null;
 let emojiOutsideHandlerBound = false;
 let pendingAttachment = null;
 let roomName = '';
+let activeRoomID = localStorage.getItem('veil.activeRoomID') || 'main';
+let availableRooms = [];
 let seenMessageIDs = new Set();
 const VIEW_CHAT = 'chat';
 const VIEW_KEYS = 'keys';
@@ -29,8 +31,6 @@ let currentAvatarRingColor3 = '';
 let currentAvatarRingColor4 = '';
 let currentAvatarRingMode = 'none';
 const knownDisplayNames = new Set();
-const SIDEBAR_COLLAPSED_KEY = 'veil.sidebarCollapsed';
-let sidebarCollapsed = loadSidebarCollapsed();
 
 const PASTELS = ['#8bd8bd', '#ffd166', '#f4978e', '#90dbf4', '#c1d37f', '#ffb86b', '#b8f2e6', '#f7aef8'];
 const PASSPHRASE_WORDS = ['amber', 'atlas', 'birch', 'bloom', 'cinder', 'cobalt', 'comet', 'copper', 'coral', 'dawn', 'drift', 'ember', 'fern', 'flint', 'frost', 'glow', 'grove', 'harbor', 'hazel', 'ivory', 'jade', 'lilac', 'lumen', 'maple', 'meadow', 'mist', 'moss', 'night', 'nova', 'oak', 'onyx', 'opal', 'pearl', 'pine', 'plum', 'quartz', 'rain', 'raven', 'reef', 'ridge', 'river', 'rose', 'sage', 'shade', 'shore', 'sky', 'slate', 'snow', 'stone', 'storm', 'sun', 'thistle', 'timber', 'topaz', 'vale', 'velvet', 'violet', 'wave', 'willow', 'wind'];
@@ -54,6 +54,8 @@ const EMOTICON_MAP = {
     '<3': '❤️',
     ':fire:': '🔥', ':lock:': '🔒', ':thumbsup:': '👍', ':100:': '💯'
 };
+const SIDEBAR_OPEN_KEY = 'veil.sidebarOpen';
+const MOBILE_SIDEBAR_QUERY = '(max-width: 980px)';
 const PBKDF2_ITERS = 600000;
 const THEME_STORAGE_KEY = 'veil.theme';
 const VEIL_THEME = {
@@ -116,6 +118,15 @@ const hashName = (n) => {
     return Math.abs(h);
 };
 let customUserColors = {};
+let sidebarOpen = (() => {
+    try {
+        const raw = localStorage.getItem(SIDEBAR_OPEN_KEY);
+        if (raw === null) return true;
+        return raw === '1';
+    } catch {
+        return true;
+    }
+})();
 let historyLoadSeq = 0;
 let oldestLoadedRowID = 0;
 let hasMoreHistory = true;
@@ -255,28 +266,6 @@ function avatarRingStyle(record = {}, fallbackColor = '') {
     };
 }
 
-function loadSidebarCollapsed() {
-    try {
-        const raw = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-        if (raw === null) return true;
-        return raw === '1';
-    } catch {
-        return true;
-    }
-}
-
-function setSidebarCollapsed(next) {
-    sidebarCollapsed = !!next;
-    try {
-        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? '1' : '0');
-    } catch {
-    }
-}
-
-function shouldAutoCollapseSidebarOnNav() {
-    return window.matchMedia('(max-width: 980px)').matches;
-}
-
 function setUserColor(name, color) {
     const safeName = String(name || '').trim();
     const safeColor = normalizeHexColor(color);
@@ -311,6 +300,13 @@ async function api(path, opts = {}) {
     } catch {
     }
     return {ok: r.ok, data};
+}
+
+function withRoomQuery(path) {
+    const roomID = String(activeRoomID || 'main').trim() || 'main';
+    const u = new URL(path, location.origin);
+    if (!u.searchParams.get('room_id')) u.searchParams.set('room_id', roomID);
+    return u.pathname + u.search;
 }
 
 const $ = (id) => document.getElementById(id);
@@ -1126,7 +1122,7 @@ async function sendReadReceiptForVisible() {
     const last = rows[rows.length - 1];
     const rowID = Number(last.getAttribute('data-row-id') || 0);
     if (!rowID) return;
-    await api('/api/messages/read', {method: 'POST', body: JSON.stringify({last_seen_rowid: rowID})});
+    await api(withRoomQuery('/api/messages/read'), {method: 'POST', body: JSON.stringify({last_seen_rowid: rowID})});
 }
 
 function bindMessageImageScroll() {
@@ -1193,6 +1189,13 @@ async function joinWithToken(token, name) {
     if (res.data && typeof res.data.room_key_enc === 'string' && res.data.room_key_enc.length > 0) {
         roomKeyHex = res.data.room_key_enc;
     }
+    if (res.data && res.data.room_id) {
+        activeRoomID = String(res.data.room_id || activeRoomID || 'main');
+        try {
+            localStorage.setItem('veil.activeRoomID', activeRoomID);
+        } catch {
+        }
+    }
     persistIdentity();
     return res;
 }
@@ -1225,10 +1228,24 @@ async function refreshAdminIdentity() {
 }
 
 async function refreshRoomName() {
-    const info = await api('/api/room');
+    const info = await api(withRoomQuery('/api/room'));
     if (!info.ok) return;
+    if (info.data && info.data.room_id) activeRoomID = String(info.data.room_id);
     roomName = (info.data && info.data.room_name) ? String(info.data.room_name).trim() : roomName;
     setRoomStatusText(info.data && info.data.room_status_text ? String(info.data.room_status_text) : roomStatusText);
+}
+
+async function refreshRooms() {
+    const res = await api('/api/rooms');
+    if (!res.ok) return;
+    availableRooms = Array.isArray(res.data.rooms) ? res.data.rooms : [];
+    if (!availableRooms.some((room) => String(room.id || '') === String(activeRoomID || ''))) {
+        activeRoomID = String((availableRooms[0] && availableRooms[0].id) || 'main');
+        try {
+            localStorage.setItem('veil.activeRoomID', activeRoomID);
+        } catch {
+        }
+    }
 }
 
 async function exportKeys(passphrase) {

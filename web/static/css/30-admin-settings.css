@@ -7,7 +7,7 @@
 
 .admin-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .95fr);
+    grid-template-columns: minmax(0, 1.2fr) minmax(320px, 1fr);
     gap: 14px;
     align-content: start;
 }
@@ -42,6 +42,7 @@
 .admin-card h3 {
     font-size: 1.02rem;
     letter-spacing: .01em;
+    margin: 0;
 }
 
 .admin-lead {
@@ -49,6 +50,23 @@
     color: var(--muted);
     font-size: .86rem;
     line-height: 1.42;
+}
+
+.admin-subsection {
+    display: grid;
+    gap: var(--space-2);
+    border: 1px solid color-mix(in srgb, var(--line) 88%, transparent);
+    background: color-mix(in srgb, var(--surface) 74%, transparent);
+    border-radius: var(--radius-sm);
+    padding: var(--space-3);
+}
+
+.admin-subsection h4 {
+    margin: 0;
+    font-size: .82rem;
+    color: var(--quiet);
+    letter-spacing: .04em;
+    text-transform: uppercase;
 }
 
 .admin-actions-row {
@@ -66,7 +84,7 @@
     border-bottom: 1px solid var(--line);
     background: transparent;
     border-radius: 0;
-    padding: 18px 22px;
+    padding: var(--space-4) var(--space-5);
     display: grid;
     gap: 12px;
     align-content: start;
@@ -103,7 +121,7 @@
     overflow: auto;
     border: 1px solid var(--line);
     background: color-mix(in srgb, var(--surface-2) 45%, transparent);
-    padding: 10px;
+    padding: var(--space-3);
     border-radius: var(--radius-sm);
 }
 
@@ -113,7 +131,7 @@
     gap: 8px;
     align-items: center;
     border: 1px solid var(--line);
-    padding: 10px;
+    padding: var(--space-3);
     border-radius: var(--radius-sm);
     background: var(--panel);
 }
@@ -130,7 +148,9 @@
 }
 
 .admin-user strong {
-    display: block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .admin-role {
@@ -141,9 +161,10 @@
 }
 
 .status {
-    font-size: .86rem;
+    font-size: .82rem;
     color: var(--muted);
     min-height: 20px;
+    line-height: 1.35;
 }
 
 .status.ok {
@@ -168,12 +189,12 @@
     border: 1px solid var(--line);
     border-radius: var(--radius-md);
     background: color-mix(in srgb, var(--surface) 68%, transparent);
-    padding: 16px;
+    padding: var(--space-4);
 }
 
 .settings-section h3 {
     margin: 0;
-    font-size: .95rem;
+    font-size: .92rem;
 }
 
 .settings-stack > .status {
@@ -371,7 +392,7 @@
     border: 1px solid var(--line);
     background: var(--surface);
     border-radius: var(--radius-sm);
-    padding: 10px;
+    padding: var(--space-3);
 }
 
 .theme-row.wide-control {
@@ -386,17 +407,18 @@
     display: grid;
     gap: 3px;
     font-weight: 650;
+    font-size: .86rem;
 }
 
 .theme-row span {
     color: var(--muted);
-    font-size: .78rem;
+    font-size: .8rem;
     font-weight: 400;
 }
 
 input[type="color"] {
     width: 52px;
-    height: 40px;
+    height: var(--control-h);
     padding: 4px;
     cursor: pointer;
 }
@@ -414,12 +436,15 @@ button, input, select, textarea {
     background: var(--surface);
     color: var(--ink);
     font: inherit;
-    padding: 10px 12px;
+    min-height: var(--control-h);
+    padding: 10px var(--space-3);
 }
 
 textarea {
     resize: vertical;
     min-height: 112px;
+    padding-top: 10px;
+    padding-bottom: 10px;
 }
 
 button {
@@ -492,4 +517,3 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 button:focus-visible {
     box-shadow: 0 0 0 3px var(--focus-ring), var(--elevated-shadow);
 }
-

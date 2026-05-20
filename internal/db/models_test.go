@@ -11,7 +11,7 @@ func TestInviteSingleUse(t *testing.T) {
 		t.Fatal(err)
 	}
 	hash := "hash-single-use"
-	id, err := store.CreateInvite(hash, "creator", 24, 1)
+	id, err := store.CreateInvite(DefaultRoomID, hash, "creator", 24, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,10 +31,10 @@ func TestRevokeUnusedInvites(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CreateInvite("h1", "creator", 24, 1); err != nil {
+	if _, err := store.CreateInvite(DefaultRoomID, "h1", "creator", 24, 1); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.CreateInvite("h2", "creator", 24, 1); err != nil {
+	if _, err := store.CreateInvite(DefaultRoomID, "h2", "creator", 24, 1); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.ValidateInvite("h2"); err != nil {

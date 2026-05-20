@@ -19,10 +19,11 @@ services:
       # Runtime-only: set in .env (compose) or Unraid "Add Container" env vars.
       # Left blank here so `docker compose build` works without local secrets.
       SESSION_SECRET: "${SESSION_SECRET:-}"
+      ALLOW_INSECURE_DEFAULT_SECRET: "${ALLOW_INSECURE_DEFAULT_SECRET:-true}"
       COOKIE_SECURE: "${COOKIE_SECURE:-false}"
       SESSION_MAX_AGE_HOURS: "${SESSION_MAX_AGE_HOURS:-720}"
       PUBLIC_ORIGIN: "${PUBLIC_ORIGIN:-}"
-      APP_ENV: "${APP_ENV:-production}"
+      APP_ENV: "${APP_ENV:-dev}"
       MESSAGE_RETENTION_DAYS: "${MESSAGE_RETENTION_DAYS:-}"
       MESSAGE_RETENTION_COUNT: "${MESSAGE_RETENTION_COUNT:-}"
     volumes:

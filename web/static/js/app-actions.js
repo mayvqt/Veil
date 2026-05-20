@@ -411,7 +411,7 @@ function bindChatActions() {
                 if (next === null) return;
                 if (!next.trim()) return;
                 const enc = await encryptText(roomKeyHex, JSON.stringify({v: 1, type: 'text', text: next.trim()}));
-                await api('/api/messages/edit', {
+                await api(withRoomQuery('/api/messages/edit'), {
                     method: 'POST',
                     body: JSON.stringify({message_id: id, ciphertext: enc.ciphertext, nonce: enc.nonce})
                 });
@@ -421,7 +421,7 @@ function bindChatActions() {
             if (delBtn) {
                 const id = delBtn.getAttribute('data-delete-msg') || '';
                 if (!confirm('Delete this message?')) return;
-                await api('/api/messages/delete', {method: 'POST', body: JSON.stringify({message_id: id})});
+                await api(withRoomQuery('/api/messages/delete'), {method: 'POST', body: JSON.stringify({message_id: id})});
                 return;
             }
             if (await chatHandleExtendedMessageAction(target, {onPinsChanged: renderPinnedBar})) {
@@ -546,6 +546,174 @@ function bindChatActions() {
     renderPinnedBar();
     updateJumpLatestVisibility();
     refreshMembers();
+}
+
+async function switchActiveRoom(nextRoomID) {
+    const roomID = String(nextRoomID || 'main').trim() || 'main';
+    if (roomID === String(activeRoomID || '')) return;
+    activeRoomID = roomID;
+    try {
+        localStorage.setItem('veil.activeRoomID', activeRoomID);
+    } catch {
+    }
+    if (ws) {
+        try {
+            ws.close();
+        } catch {
+        }
+    }
+    await refreshRoomName();
+    await refreshMembers();
+    if (currentView === VIEW_CHAT) {
+        await loadHistory();
+        ensureSocket();
+    }
+}
+
+function bindUserMenuActions() {
+    const menuToggle = document.querySelector('[data-user-menu-toggle]');
+    const menu = document.querySelector('[data-user-menu-panel]');
+    if (!menuToggle || !menu) return;
+    const closeMenu = () => {
+        menu.classList.remove('open');
+        menuToggle.setAttribute('aria-expanded', 'false');
+    };
+    if (!window.__veilUserMenuGlobalBound) {
+        window.__veilUserMenuGlobalBound = true;
+        document.addEventListener('click', async (e) => {
+            const rawTarget = e.target;
+            const target = rawTarget instanceof Element ? rawTarget : (rawTarget && rawTarget.parentElement ? rawTarget.parentElement : null);
+            if (!target) return;
+            const activeToggle = document.querySelector('[data-user-menu-toggle]');
+            const activeMenu = document.querySelector('[data-user-menu-panel]');
+            if (!activeToggle || !activeMenu) return;
+            const toggle = target.closest('[data-user-menu-toggle]');
+            if (toggle) {
+                e.preventDefault();
+                const open = !activeMenu.classList.contains('open');
+                activeMenu.classList.toggle('open', open);
+                activeToggle.setAttribute('aria-expanded', String(open));
+                return;
+            }
+            const menuBtn = target.closest('button[data-user-view]');
+            if (menuBtn && activeMenu.contains(menuBtn)) {
+                e.preventDefault();
+                const next = String(menuBtn.getAttribute('data-user-view') || VIEW_CHAT);
+                if (next !== currentView) {
+                    currentView = next;
+                    await renderMain();
+                } else {
+                    activeMenu.classList.remove('open');
+                    activeToggle.setAttribute('aria-expanded', 'false');
+                }
+                return;
+            }
+            if (!activeMenu.contains(target)) {
+                activeMenu.classList.remove('open');
+                activeToggle.setAttribute('aria-expanded', 'false');
+            }
+        }, {capture: true});
+    } else {
+        closeMenu();
+    }
+    menu.querySelectorAll('button[data-user-view]').forEach((btn) => {
+        btn.onclick = async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const next = String(btn.getAttribute('data-user-view') || VIEW_CHAT);
+            if (next !== currentView) {
+                currentView = next;
+                await renderMain();
+                return;
+            }
+            closeMenu();
+        };
+    });
+}
+
+function bindSidebarChannelActions() {
+    document.querySelectorAll('button[data-sidebar-room-id]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+            await switchActiveRoom(btn.getAttribute('data-sidebar-room-id') || 'main');
+            if (window.matchMedia && window.matchMedia(MOBILE_SIDEBAR_QUERY).matches) {
+                sidebarOpen = false;
+                persistSidebarOpenState();
+                syncSidebarLayoutState();
+            }
+            if (currentView !== VIEW_CHAT) {
+                currentView = VIEW_CHAT;
+            }
+            await renderMain();
+        });
+    });
+}
+
+function persistSidebarOpenState() {
+    try {
+        localStorage.setItem(SIDEBAR_OPEN_KEY, sidebarOpen ? '1' : '0');
+    } catch {
+    }
+}
+
+function syncSidebarLayoutState() {
+    const shell = document.querySelector('.chat-shell');
+    if (!shell) return;
+    shell.classList.toggle('sidebar-open', sidebarOpen);
+    shell.classList.toggle('sidebar-collapsed', !sidebarOpen);
+    const toggle = document.querySelector('[data-sidebar-toggle]');
+    if (toggle) toggle.setAttribute('aria-expanded', sidebarOpen ? 'true' : 'false');
+}
+
+function bindSidebarToggleActions() {
+    const shell = document.querySelector('.chat-shell');
+    if (!shell) return;
+    const toggle = shell.querySelector('[data-sidebar-toggle]');
+    const backdrop = shell.querySelector('[data-sidebar-backdrop]');
+    const closeSidebar = () => {
+        if (!sidebarOpen) return;
+        sidebarOpen = false;
+        persistSidebarOpenState();
+        syncSidebarLayoutState();
+    };
+    if (toggle) {
+        toggle.addEventListener('click', (e) => {
+            e.preventDefault();
+            sidebarOpen = !sidebarOpen;
+            persistSidebarOpenState();
+            syncSidebarLayoutState();
+        });
+    }
+    if (backdrop) {
+        backdrop.addEventListener('click', (e) => {
+            e.preventDefault();
+            closeSidebar();
+        });
+    }
+    if (!window.__veilSidebarGlobalBound) {
+        window.__veilSidebarGlobalBound = true;
+        document.addEventListener('keydown', (e) => {
+            if (e.key !== 'Escape') return;
+            closeSidebar();
+        });
+    }
+    syncSidebarLayoutState();
+}
+
+function refreshSidebarChannelsInPlace() {
+    const nav = document.querySelector('.channels-nav');
+    if (!nav) return;
+    const rooms = (availableRooms.length ? availableRooms : [{id: activeRoomID || 'main', name: roomName || 'Room Chat'}]);
+    nav.innerHTML = rooms.map((room) => roomNavButtonHTML(room)).join('');
+    bindSidebarChannelActions();
+}
+
+async function pollRoomsForUnread() {
+    const shell = document.querySelector('.chat-shell');
+    if (!shell) return;
+    const before = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || '')]));
+    await refreshRooms();
+    const after = JSON.stringify((availableRooms || []).map((room) => [String(room.id || ''), Number(room.unread_count || 0), String(room.name || '')]));
+    if (before !== after) refreshSidebarChannelsInPlace();
 }
 
 function bindKeyActions() {
@@ -730,6 +898,8 @@ function bindThemeActions() {
 
 function bindProfileActions() {
     const status = $('profileStatus');
+    const displayNameInput = $('profile-display-name');
+    const displayNameSaveBtn = $('profileDisplayNameSave');
     const avatarFileInput = $('profile-avatar-file');
     const avatarClearBtn = $('profileAvatarClear');
     const avatarCropper = $('avatarCropper');
@@ -1028,6 +1198,44 @@ function bindProfileActions() {
             setStatus(status, e.message || 'Failed to apply background.', 'err');
         }
     };
+    const saveDisplayName = async () => {
+        if (!displayNameInput) return;
+        const nextName = String(displayNameInput.value || '').trim();
+        if (!nextName) {
+            setStatus(status, 'Display name is required.', 'err');
+            return;
+        }
+        if (nextName.length > 48) {
+            setStatus(status, 'Display name must be 48 characters or fewer.', 'err');
+            return;
+        }
+        const r = await api('/api/profile/name', {method: 'POST', body: JSON.stringify({display_name: nextName})});
+        if (!r.ok) {
+            setStatus(status, r.data.error || 'Failed to save display name.', 'err');
+            return;
+        }
+        currentDisplayName = String((r.data && r.data.display_name) || nextName).trim();
+        displayNameInput.value = currentDisplayName;
+        registerDisplayName(currentDisplayName);
+        persistIdentity();
+        refreshTopProfileChip();
+        refreshProfilePreviewAvatar();
+        await refreshMembers();
+        if (currentView === VIEW_CHAT) await loadHistory();
+        await renderMain();
+        setStatus(status, 'Display name saved for everyone.', 'ok');
+    };
+
+    if (displayNameSaveBtn) {
+        displayNameSaveBtn.onclick = saveDisplayName;
+    }
+    if (displayNameInput) {
+        displayNameInput.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            await saveDisplayName();
+        });
+    }
 
     if (avatarFileInput) {
         avatarFileInput.addEventListener('change', async () => {
@@ -1245,7 +1453,7 @@ function bindProfileActions() {
 }
 
 async function refreshCustomMediaAssets() {
-    const r = await api('/api/custom-media');
+    const r = await api(withRoomQuery('/api/custom-media'));
     if (!r.ok) return false;
     const items = Array.isArray(r.data.items) ? r.data.items : [];
     customEmojiMap = new Map();
@@ -1273,6 +1481,10 @@ function bindControlActions() {
     const roomStatusTextAdminInput = $('roomStatusTextAdminInput');
     const saveRoomStatusTextAdminBtn = $('saveRoomStatusTextAdmin');
     const roomStatusTextAdminStatus = $('roomStatusTextAdminStatus');
+    const newRoomIDInput = $('newRoomIDInput');
+    const newRoomNameInput = $('newRoomNameInput');
+    const createRoomBtn = $('createRoomBtn');
+    const createRoomStatus = $('createRoomStatus');
     const auditStatus = $('auditStatus');
     const auditList = $('auditList');
     const messageStatus = $('messageAdminStatus');
@@ -1288,7 +1500,7 @@ function bindControlActions() {
 
     const refreshCustomMediaAdminList = async () => {
         if (!customMediaList) return;
-        const r = await api('/api/custom-media');
+        const r = await api(withRoomQuery('/api/custom-media'));
         if (!r.ok) {
             if (customMediaStatus) {
                 customMediaStatus.textContent = r.data.error || 'Failed to load custom media.';
@@ -1306,7 +1518,7 @@ function bindControlActions() {
                 const kind = String(btn.getAttribute('data-delete-custom-kind') || '');
                 if (!name || !kind) return;
                 if (!confirm(`Delete ${kind} "${name}"?`)) return;
-                const del = await api(`/api/admin/custom-media/${encodeURIComponent(name)}?kind=${encodeURIComponent(kind)}`, {method: 'DELETE'});
+                const del = await api(withRoomQuery(`/api/admin/custom-media/${encodeURIComponent(name)}?kind=${encodeURIComponent(kind)}`), {method: 'DELETE'});
                 if (!del.ok) {
                     if (customMediaStatus) {
                         customMediaStatus.textContent = del.data.error || 'Delete failed.';
@@ -1326,7 +1538,7 @@ function bindControlActions() {
 
     const refreshInvites = async () => {
         if (!inviteList) return;
-        const r = await api('/api/admin/invites');
+        const r = await api(withRoomQuery('/api/admin/invites'));
         if (!r.ok) {
             inviteList.innerHTML = `<div class="muted">${esc(r.data.error || 'failed to load invites')}</div>`;
             return;
@@ -1352,7 +1564,7 @@ function bindControlActions() {
         inviteList.querySelectorAll('button[data-revoke-invite]').forEach((btn) => {
             btn.addEventListener('click', async () => {
                 const inviteID = btn.getAttribute('data-revoke-invite');
-                const resp = await api('/api/admin/revoke-invite', {
+                const resp = await api(withRoomQuery('/api/admin/revoke-invite'), {
                     method: 'POST',
                     body: JSON.stringify({invite_id: inviteID})
                 });
@@ -1368,7 +1580,7 @@ function bindControlActions() {
 
     const refreshMessageStats = async () => {
         if (!messageStatus) return;
-        const r = await api('/api/admin/messages/stats');
+        const r = await api(withRoomQuery('/api/admin/messages/stats'));
         if (!r.ok) {
             messageStatus.textContent = r.data.error || 'failed to load message stats';
             messageStatus.className = 'status err';
@@ -1379,7 +1591,7 @@ function bindControlActions() {
     };
     const refreshAuditLog = async () => {
         if (!auditList || !auditStatus) return;
-        const r = await api('/api/admin/audit');
+        const r = await api(withRoomQuery('/api/admin/audit'));
         if (!r.ok) {
             auditStatus.textContent = r.data.error || 'failed to load audit log';
             auditStatus.className = 'status err';
@@ -1399,7 +1611,7 @@ function bindControlActions() {
 
     if (inviteBtn) {
         inviteBtn.onclick = async () => {
-            const r = await api('/api/invite', {method: 'POST'});
+            const r = await api(withRoomQuery('/api/invite'), {method: 'POST'});
             if (inviteOut) {
                 if (r.ok) {
                     const url = `${location.origin}${r.data.invite_link}`;
@@ -1419,14 +1631,14 @@ function bindControlActions() {
     }
     if (revokeUnusedBtn) {
         revokeUnusedBtn.onclick = async () => {
-            const r = await api('/api/admin/revoke-unused-invites', {method: 'POST', body: JSON.stringify({})});
+            const r = await api(withRoomQuery('/api/admin/revoke-unused-invites'), {method: 'POST', body: JSON.stringify({})});
             if (inviteOut) inviteOut.textContent = r.ok ? `Revoked ${r.data.revoked} unused invites` : (r.data.error || 'failed');
             refreshInvites();
         };
     }
     if (purgeUsedRevokedBtn) {
         purgeUsedRevokedBtn.onclick = async () => {
-            const r = await api('/api/admin/purge-used-revoked-invites', {method: 'POST', body: JSON.stringify({})});
+            const r = await api(withRoomQuery('/api/admin/purge-used-revoked-invites'), {method: 'POST', body: JSON.stringify({})});
             if (inviteOut) inviteOut.textContent = r.ok ? `Purged ${r.data.purged} used/revoked invites` : (r.data.error || 'failed');
             refreshInvites();
         };
@@ -1441,7 +1653,7 @@ function bindControlActions() {
                 }
                 return;
             }
-            const r = await api('/api/admin/room-name', {method: 'POST', body: JSON.stringify({room_name: nextName})});
+            const r = await api(withRoomQuery('/api/admin/room-name'), {method: 'POST', body: JSON.stringify({room_name: nextName})});
             if (!r.ok) {
                 if (roomNameStatus) {
                     roomNameStatus.textContent = r.data.error || 'failed';
@@ -1462,7 +1674,7 @@ function bindControlActions() {
     if (saveRoomStatusTextAdminBtn) {
         saveRoomStatusTextAdminBtn.onclick = async () => {
             const nextText = String((roomStatusTextAdminInput && roomStatusTextAdminInput.value) || '').trim();
-            const r = await api('/api/admin/room-status-text', {method: 'POST', body: JSON.stringify({room_status_text: nextText})});
+            const r = await api(withRoomQuery('/api/admin/room-status-text'), {method: 'POST', body: JSON.stringify({room_status_text: nextText})});
             if (!r.ok) {
                 if (roomStatusTextAdminStatus) {
                     roomStatusTextAdminStatus.textContent = r.data.error || 'failed';
@@ -1478,6 +1690,35 @@ function bindControlActions() {
             }
         };
     }
+    if (createRoomBtn) {
+        createRoomBtn.onclick = async () => {
+            const roomID = String((newRoomIDInput && newRoomIDInput.value) || '').trim();
+            const roomDisplayName = String((newRoomNameInput && newRoomNameInput.value) || '').trim();
+            if (!roomID || !roomDisplayName) {
+                if (createRoomStatus) {
+                    createRoomStatus.textContent = 'Enter room id and room name.';
+                    createRoomStatus.className = 'status err';
+                }
+                return;
+            }
+            const r = await api('/api/rooms', {method: 'POST', body: JSON.stringify({room_id: roomID, room_name: roomDisplayName, status_text: DEFAULT_ROOM_STATUS_TEXT})});
+            if (!r.ok) {
+                if (createRoomStatus) {
+                    createRoomStatus.textContent = r.data.error || 'failed';
+                    createRoomStatus.className = 'status err';
+                }
+                return;
+            }
+            await refreshRooms();
+            refreshSidebarChannelsInPlace();
+            if (createRoomStatus) {
+                createRoomStatus.textContent = `Created room ${roomID}.`;
+                createRoomStatus.className = 'status ok';
+            }
+            if (newRoomIDInput) newRoomIDInput.value = '';
+            if (newRoomNameInput) newRoomNameInput.value = '';
+        };
+    }
     if (retainMessagesBtn) {
         retainMessagesBtn.onclick = async () => {
             const keepLatest = Number((retainCountInput && retainCountInput.value) || 0);
@@ -1489,7 +1730,7 @@ function bindControlActions() {
                 return;
             }
             if (!confirm(`Keep only the latest ${keepLatest} messages? This cannot be undone.`)) return;
-            const r = await api('/api/admin/messages/retain', {
+            const r = await api(withRoomQuery('/api/admin/messages/retain'), {
                 method: 'POST',
                 body: JSON.stringify({keep_latest: keepLatest})
             });
@@ -1509,8 +1750,8 @@ function bindControlActions() {
     }
     if (clearMessagesBtn) {
         clearMessagesBtn.onclick = async () => {
-            if (!confirm('Delete all messages for all users? This is permanent.')) return;
-            const r = await api('/api/admin/messages/clear', {method: 'POST', body: JSON.stringify({})});
+            if (!confirm('Delete all messages in this room? This is permanent.')) return;
+            const r = await api(withRoomQuery('/api/admin/messages/clear'), {method: 'POST', body: JSON.stringify({})});
             if (!r.ok) {
                 if (messageStatus) {
                     messageStatus.textContent = r.data.error || 'failed';
@@ -1557,7 +1798,7 @@ function bindControlActions() {
                 }
                 return;
             }
-            const up = await api('/api/admin/custom-media', {
+            const up = await api(withRoomQuery('/api/admin/custom-media'), {
                 method: 'POST',
                 body: JSON.stringify({kind, name, data_url: dataURL})
             });
@@ -1598,51 +1839,15 @@ async function renderMain() {
         currentView = VIEW_CHAT;
     }
     await refreshCustomMediaAssets();
-    app.innerHTML = `<section class="chat-shell ${sidebarCollapsed ? 'sidebar-collapsed' : ''}"><div id="sidebarBackdrop" class="sidebar-backdrop ${sidebarCollapsed ? '' : 'open'}"></div>${navHTML()}${renderPanelHTML()}</section>`;
-
-    const sidebarToggle = $('sidebarToggle');
-    if (sidebarToggle) {
-        sidebarToggle.onclick = () => {
-            setSidebarCollapsed(!sidebarCollapsed);
-            renderMain();
-        };
-    }
-    const sidebarBackdrop = $('sidebarBackdrop');
-    if (sidebarBackdrop) {
-        sidebarBackdrop.onclick = () => {
-            if (shouldAutoCollapseSidebarOnNav()) {
-                setSidebarCollapsed(true);
-                renderMain();
-            }
-        };
-    }
-    $('tabChat').onclick = () => {
-        currentView = VIEW_CHAT;
-        if (shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true);
-        renderMain();
-    };
-    $('tabProfile').onclick = () => {
-        currentView = VIEW_PROFILE;
-        if (shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true);
-        renderMain();
-    };
-    $('tabKeys').onclick = () => {
-        currentView = VIEW_KEYS;
-        if (shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true);
-        renderMain();
-    };
-    $('tabTheme').onclick = () => {
-        currentView = VIEW_THEME;
-        if (shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true);
-        renderMain();
-    };
-    const tabControl = $('tabControl');
-    if (tabControl) {
-        tabControl.onclick = () => {
-            currentView = VIEW_CONTROL;
-            if (shouldAutoCollapseSidebarOnNav()) setSidebarCollapsed(true);
-            renderMain();
-        };
+    app.innerHTML = `<section class="chat-shell"><button class="sidebar-backdrop" data-sidebar-backdrop type="button" aria-label="Close sidebar"></button>${navHTML()}${renderPanelHTML()}</section>`;
+    syncSidebarLayoutState();
+    bindSidebarToggleActions();
+    bindUserMenuActions();
+    bindSidebarChannelActions();
+    if (!window.__veilRoomsPollTimer) {
+        window.__veilRoomsPollTimer = setInterval(() => {
+            pollRoomsForUnread();
+        }, 12000);
     }
 
     if (currentView === VIEW_CHAT) {

@@ -2,7 +2,7 @@ package db
 
 import "strings"
 
-func (s *Store) ToggleMessageReaction(messageID, userID, emoji string) (int, bool, error) {
+func (s *Store) ToggleMessageReaction(roomID, messageID, userID, emoji string) (int, bool, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return 0, false, err
@@ -10,7 +10,7 @@ func (s *Store) ToggleMessageReaction(messageID, userID, emoji string) (int, boo
 	defer tx.Rollback()
 
 	var existing int
-	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?", messageID, userID, emoji).Scan(&existing); err != nil {
+	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions r JOIN messages m ON m.id=r.message_id WHERE r.message_id=? AND m.room_id=? AND r.user_id=? AND r.emoji=?", messageID, roomID, userID, emoji).Scan(&existing); err != nil {
 		return 0, false, err
 	}
 	active := false
@@ -25,7 +25,7 @@ func (s *Store) ToggleMessageReaction(messageID, userID, emoji string) (int, boo
 		active = true
 	}
 	var count int
-	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions WHERE message_id=? AND emoji=?", messageID, emoji).Scan(&count); err != nil {
+	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions r JOIN messages m ON m.id=r.message_id WHERE r.message_id=? AND m.room_id=? AND r.emoji=?", messageID, roomID, emoji).Scan(&count); err != nil {
 		return 0, false, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -34,9 +34,9 @@ func (s *Store) ToggleMessageReaction(messageID, userID, emoji string) (int, boo
 	return count, active, nil
 }
 
-func (s *Store) MessageExists(messageID string) (bool, error) {
+func (s *Store) MessageExists(roomID, messageID string) (bool, error) {
 	var c int
-	if err := s.DB.QueryRow("SELECT COUNT(*) FROM messages WHERE id=?", messageID).Scan(&c); err != nil {
+	if err := s.DB.QueryRow("SELECT COUNT(*) FROM messages WHERE id=? AND room_id=?", messageID, roomID).Scan(&c); err != nil {
 		return false, err
 	}
 	return c > 0, nil

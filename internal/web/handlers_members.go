@@ -7,7 +7,11 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	users, err := s.Store.ListUsers()
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	users, err := s.Store.ListUsersByRoom(roomID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to list members"})
 		return
@@ -15,10 +19,12 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	presence := s.presenceSnapshot()
 	members := make([]map[string]any, 0, len(users))
 	for _, user := range users {
+		roomRole, _ := s.Store.GetRoomRole(roomID, user.ID)
 		members = append(members, map[string]any{
 			"id":                 user.ID,
 			"display_name":       user.DisplayName,
 			"role":               user.Role,
+			"room_role":          roomRole,
 			"chat_color":         user.ChatColor,
 			"avatar_url":         user.AvatarURL,
 			"avatar_ring_color":  user.AvatarRingColor,
@@ -29,5 +35,5 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 			"online":             presence[user.ID] > 0,
 		})
 	}
-	writeJSON(w, 200, map[string]any{"members": members, "me": u.ID})
+	writeJSON(w, 200, map[string]any{"members": members, "me": u.ID, "room_id": roomID})
 }

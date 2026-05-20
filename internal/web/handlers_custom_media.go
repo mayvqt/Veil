@@ -18,15 +18,20 @@ var customMediaDataURLPattern = regexp.MustCompile(`^data:(image/(png|jpeg|webp|
 var customMediaNamePattern = regexp.MustCompile(`^[a-z0-9_-]{1,32}$`)
 
 func (s *Server) listCustomMedia(w http.ResponseWriter, r *http.Request) {
-	if _, ok := s.requireAPIUser(w, r); !ok {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
 		return
 	}
-	items, err := s.readCustomMediaItems()
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
+	items, err := s.readCustomMediaItems(roomID)
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to list custom media"})
 		return
 	}
-	writeJSON(w, 200, map[string]any{"items": items})
+	writeJSON(w, 200, map[string]any{"items": items, "room_id": roomID})
 }
 
 func (s *Server) uploadCustomMedia(w http.ResponseWriter, r *http.Request) {
@@ -34,8 +39,8 @@ func (s *Server) uploadCustomMedia(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !isAdminRole(u.Role) {
-		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomManager(w, u, roomID) {
 		return
 	}
 
@@ -88,7 +93,8 @@ func (s *Server) uploadCustomMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	prefix := kind + "_" + name + "_"
+	safeRoomID := sanitizeCustomMediaRoomID(roomID)
+	prefix := customMediaPrefix(safeRoomID, kind, name)
 	if _, err := removeCustomMediaByPrefix(s.MediaDir, prefix); err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to replace existing custom media"})
 		return
@@ -106,13 +112,14 @@ func (s *Server) uploadCustomMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	base = "/" + strings.Trim(base, "/")
 	publicURL := fmt.Sprintf("%s/%s?v=%d", base, fileName, time.Now().Unix())
-	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "custom_media_upload", kind+":"+name, "")
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "custom_media_upload", kind+":"+name, "room="+roomID)
 	writeJSON(w, 200, map[string]any{
-		"ok":    true,
-		"kind":  kind,
-		"name":  name,
-		"url":   publicURL,
-		"token": ":" + name + ":",
+		"ok":      true,
+		"room_id": roomID,
+		"kind":    kind,
+		"name":    name,
+		"url":     publicURL,
+		"token":   ":" + name + ":",
 	})
 }
 
@@ -121,8 +128,8 @@ func (s *Server) deleteCustomMedia(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !isAdminRole(u.Role) {
-		writeJSON(w, 403, map[string]string{"error": "forbidden"})
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomManager(w, u, roomID) {
 		return
 	}
 	kind := strings.ToLower(cleanInput(r.URL.Query().Get("kind"), 12))
@@ -135,13 +142,13 @@ func (s *Server) deleteCustomMedia(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid name"})
 		return
 	}
-	n, err := removeCustomMediaByPrefix(s.MediaDir, kind+"_"+name+"_")
+	n, err := removeCustomMediaByPrefix(s.MediaDir, customMediaPrefix(sanitizeCustomMediaRoomID(roomID), kind, name))
 	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to delete custom media"})
 		return
 	}
-	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "custom_media_delete", kind+":"+name, "")
-	writeJSON(w, 200, map[string]any{"ok": true, "deleted": n})
+	_ = s.Store.AddAdminAudit(u.ID, u.DisplayName, "custom_media_delete", kind+":"+name, "room="+roomID)
+	writeJSON(w, 200, map[string]any{"ok": true, "room_id": roomID, "deleted": n})
 }
 
 func removeCustomMediaByPrefix(dir, prefix string) (int, error) {
@@ -169,7 +176,7 @@ func removeCustomMediaByPrefix(dir, prefix string) (int, error) {
 	return deleted, nil
 }
 
-func (s *Server) readCustomMediaItems() ([]map[string]string, error) {
+func (s *Server) readCustomMediaItems(roomID string) ([]map[string]string, error) {
 	entries, err := os.ReadDir(s.MediaDir)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -183,13 +190,21 @@ func (s *Server) readCustomMediaItems() ([]map[string]string, error) {
 	}
 	base = "/" + strings.Trim(base, "/")
 	items := make([]map[string]string, 0, len(entries))
+	safeRoomID := sanitizeCustomMediaRoomID(roomID)
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
 		}
 		fileName := entry.Name()
-		kind, name := parseCustomMediaName(fileName)
+		fileRoomID, kind, name := parseCustomMediaName(fileName)
 		if kind == "" || name == "" {
+			continue
+		}
+		// Legacy files without explicit room prefix are treated as main-room assets.
+		if fileRoomID == "" {
+			fileRoomID = "main"
+		}
+		if fileRoomID != safeRoomID {
 			continue
 		}
 		items = append(items, map[string]string{
@@ -208,15 +223,29 @@ func (s *Server) readCustomMediaItems() ([]map[string]string, error) {
 	return items, nil
 }
 
-func parseCustomMediaName(fileName string) (string, string) {
+func parseCustomMediaName(fileName string) (string, string, string) {
 	name := strings.TrimSpace(fileName)
 	if strings.HasPrefix(name, "emoji_") {
-		return "emoji", parseCustomMediaStem(strings.TrimPrefix(name, "emoji_"))
+		return "", "emoji", parseCustomMediaStem(strings.TrimPrefix(name, "emoji_"))
 	}
 	if strings.HasPrefix(name, "sticker_") {
-		return "sticker", parseCustomMediaStem(strings.TrimPrefix(name, "sticker_"))
+		return "", "sticker", parseCustomMediaStem(strings.TrimPrefix(name, "sticker_"))
 	}
-	return "", ""
+	if strings.HasPrefix(name, "room_") {
+		rest := strings.TrimPrefix(name, "room_")
+		parts := strings.SplitN(rest, "_", 2)
+		if len(parts) != 2 {
+			return "", "", ""
+		}
+		roomID := sanitizeCustomMediaRoomID(parts[0])
+		switch {
+		case strings.HasPrefix(parts[1], "emoji_"):
+			return roomID, "emoji", parseCustomMediaStem(strings.TrimPrefix(parts[1], "emoji_"))
+		case strings.HasPrefix(parts[1], "sticker_"):
+			return roomID, "sticker", parseCustomMediaStem(strings.TrimPrefix(parts[1], "sticker_"))
+		}
+	}
+	return "", "", ""
 }
 
 func parseCustomMediaStem(input string) string {
@@ -232,4 +261,25 @@ func parseCustomMediaStem(input string) string {
 		return ""
 	}
 	return core
+}
+
+func sanitizeCustomMediaRoomID(roomID string) string {
+	v := strings.TrimSpace(strings.ToLower(roomID))
+	if v == "" {
+		return "main"
+	}
+	out := make([]rune, 0, len(v))
+	for _, r := range v {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+			out = append(out, r)
+		}
+	}
+	if len(out) == 0 {
+		return "main"
+	}
+	return string(out)
+}
+
+func customMediaPrefix(roomID, kind, name string) string {
+	return fmt.Sprintf("room_%s_%s_%s_", roomID, kind, name)
 }

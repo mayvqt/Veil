@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS devices (
 
 CREATE TABLE IF NOT EXISTS messages (
   id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL DEFAULT 'main',
   sender_id TEXT NOT NULL,
   ciphertext TEXT NOT NULL,
   nonce TEXT NOT NULL,
@@ -75,11 +76,47 @@ CREATE TABLE IF NOT EXISTS messages (
   FOREIGN KEY(sender_id) REFERENCES users(id)
 );
 
+CREATE TABLE IF NOT EXISTS rooms (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  status_text TEXT NOT NULL DEFAULT 'encrypted room',
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS room_memberships (
+  room_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  joined_at TEXT NOT NULL,
+  PRIMARY KEY (room_id, user_id),
+  FOREIGN KEY(room_id) REFERENCES rooms(id),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS room_roles (
+  room_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  role TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (room_id, user_id),
+  FOREIGN KEY(room_id) REFERENCES rooms(id),
+  FOREIGN KEY(user_id) REFERENCES users(id)
+);
+
 CREATE TABLE IF NOT EXISTS message_receipts (
   user_id TEXT PRIMARY KEY,
   last_seen_rowid INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL,
   FOREIGN KEY(user_id) REFERENCES users(id)
+);
+CREATE TABLE IF NOT EXISTS message_receipts_v2 (
+  room_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  last_seen_rowid INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (room_id, user_id),
+  FOREIGN KEY(user_id) REFERENCES users(id),
+  FOREIGN KEY(room_id) REFERENCES rooms(id)
 );
 
 CREATE TABLE IF NOT EXISTS message_reactions (
@@ -94,6 +131,7 @@ CREATE TABLE IF NOT EXISTS message_reactions (
 
 CREATE TABLE IF NOT EXISTS pinned_messages (
   message_id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL DEFAULT 'main',
   pinned_by TEXT NOT NULL,
   pinned_at TEXT NOT NULL,
   FOREIGN KEY(message_id) REFERENCES messages(id),
@@ -112,6 +150,7 @@ CREATE TABLE IF NOT EXISTS admin_audit (
 
 CREATE TABLE IF NOT EXISTS invites (
   id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL DEFAULT 'main',
   token_hash TEXT NOT NULL,
   created_by TEXT NOT NULL,
   expires_at TEXT NOT NULL,
@@ -128,6 +167,10 @@ CREATE INDEX IF NOT EXISTS idx_message_reactions_user_id ON message_reactions(us
 CREATE INDEX IF NOT EXISTS idx_admin_audit_created_at ON admin_audit(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_invites_token_hash ON invites(token_hash);
 CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_at);
+CREATE INDEX IF NOT EXISTS idx_room_memberships_user_id ON room_memberships(user_id);
+CREATE INDEX IF NOT EXISTS idx_room_roles_user_id ON room_roles(user_id);
+CREATE INDEX IF NOT EXISTS idx_receipts_v2_user_room ON message_receipts_v2(user_id, room_id);
+CREATE INDEX IF NOT EXISTS idx_pinned_messages_room_pinned_at ON pinned_messages(room_id, pinned_at DESC);
 `)
 	if err != nil {
 		return err
@@ -153,6 +196,21 @@ CREATE INDEX IF NOT EXISTS idx_users_active_created_at ON users(active, created_
 	if err := ensureMessagesColumns(db); err != nil {
 		return err
 	}
+	if err := ensureMessagesIndexes(db); err != nil {
+		return err
+	}
+	if err := ensurePinnedMessagesColumns(db); err != nil {
+		return err
+	}
+	if err := ensureInvitesColumns(db); err != nil {
+		return err
+	}
+	if err := ensureDefaultRooms(db); err != nil {
+		return err
+	}
+	if err := backfillMessageReceiptsV2(db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -160,7 +218,7 @@ func now() string { return time.Now().UTC().Format(time.RFC3339) }
 
 func tableColumns(db *sql.DB, table string) (map[string]struct{}, error) {
 	switch table {
-	case "messages", "room_state", "users":
+	case "messages", "room_state", "users", "pinned_messages", "invites":
 	default:
 		return nil, fmt.Errorf("unsupported table for migration: %s", table)
 	}
@@ -214,9 +272,27 @@ func ensureUsersActiveColumn(db *sql.DB) error {
 
 func ensureMessagesColumns(db *sql.DB) error {
 	return addMissingColumns(db, "messages", []columnDef{
+		{name: "room_id", columnDef: "TEXT NOT NULL DEFAULT 'main'"},
 		{name: "reply_to_id", columnDef: "TEXT"},
 		{name: "edited_at", columnDef: "TEXT"},
 		{name: "deleted_at", columnDef: "TEXT"},
+	})
+}
+
+func ensureMessagesIndexes(db *sql.DB) error {
+	_, err := db.Exec("CREATE INDEX IF NOT EXISTS idx_messages_room_created_at ON messages(room_id, created_at DESC)")
+	return err
+}
+
+func ensurePinnedMessagesColumns(db *sql.DB) error {
+	return addMissingColumns(db, "pinned_messages", []columnDef{
+		{name: "room_id", columnDef: "TEXT NOT NULL DEFAULT 'main'"},
+	})
+}
+
+func ensureInvitesColumns(db *sql.DB) error {
+	return addMissingColumns(db, "invites", []columnDef{
+		{name: "room_id", columnDef: "TEXT NOT NULL DEFAULT 'main'"},
 	})
 }
 
@@ -268,4 +344,28 @@ func backfillUsersChatColors(db *sql.DB) error {
 		}
 	}
 	return nil
+}
+
+func ensureDefaultRooms(db *sql.DB) error {
+	_, err := db.Exec(`
+INSERT OR IGNORE INTO rooms (id, name, status_text, created_by, created_at)
+SELECT ?, COALESCE(NULLIF(TRIM(room_name), ''), 'Room Chat'), COALESCE(NULLIF(TRIM(room_status_text), ''), ?), 'system', ?
+FROM room_state WHERE id=1;
+
+INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
+SELECT ?, id, ? FROM users WHERE active=1;
+
+UPDATE messages SET room_id=? WHERE TRIM(COALESCE(room_id,''))='';
+UPDATE pinned_messages SET room_id=? WHERE TRIM(COALESCE(room_id,''))='';
+UPDATE invites SET room_id=? WHERE TRIM(COALESCE(room_id,''))='';
+`, DefaultRoomID, DefaultRoomStatusText, now(), DefaultRoomID, now(), DefaultRoomID, DefaultRoomID, DefaultRoomID)
+	return err
+}
+
+func backfillMessageReceiptsV2(db *sql.DB) error {
+	_, err := db.Exec(`
+INSERT OR IGNORE INTO message_receipts_v2 (room_id, user_id, last_seen_rowid, updated_at)
+SELECT ?, user_id, last_seen_rowid, updated_at FROM message_receipts
+`, DefaultRoomID)
+	return err
 }

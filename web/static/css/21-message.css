@@ -73,7 +73,7 @@
 }
 
 .reaction-chip.mine {
-    border-color: var(--accent);
+    border-color: var(--accent-2);
     background: color-mix(in srgb, var(--accent-soft) 80%, transparent);
 }
 
@@ -160,20 +160,22 @@
     position: relative;
     width: 100%;
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr);
+    grid-template-columns: 42px minmax(0, 1fr);
     grid-template-rows: auto auto auto;
-    column-gap: 10px;
+    column-gap: 12px;
     row-gap: 0;
     word-break: break-word;
     align-items: start;
-    padding: 5px 0 7px;
+    padding: 6px 8px 8px;
+    border-radius: 10px;
     transform-origin: 0 50%;
     transition: transform .2s ease, filter .2s ease;
 }
 
 .line:hover {
     transform: translateX(1px);
-    filter: brightness(1.02);
+    filter: brightness(1.03);
+    background: color-mix(in srgb, var(--surface-2) 44%, transparent);
 }
 
 .line-enter {
@@ -186,8 +188,8 @@
 }
 
 .line-avatar {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: 999px;
     display: grid;
     place-items: center;
@@ -211,8 +213,8 @@
 }
 
 .line-avatar-img {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: 999px;
     object-fit: cover;
     margin-top: 1px;
@@ -241,7 +243,7 @@
 
 .line-time {
     color: var(--quiet);
-    font-size: .74rem;
+    font-size: .72rem;
     font-weight: 500;
     white-space: nowrap;
     transform: translateY(1px);

@@ -1,10 +1,19 @@
 package db
 
 const DefaultRoomStatusText = "encrypted room"
+const DefaultRoomID = "main"
 
 type RoomInfo struct {
+	ID         string `json:"room_id"`
 	Name       string `json:"room_name"`
 	StatusText string `json:"room_status_text"`
+}
+
+type Room struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	StatusText  string `json:"status_text"`
+	UnreadCount int64  `json:"unread_count"`
 }
 
 type User struct {
@@ -53,9 +62,15 @@ type MessageReactions struct {
 
 type InviteInfo struct {
 	ID        string `json:"id"`
+	RoomID    string `json:"room_id"`
 	ExpiresAt string `json:"expires_at"`
 	MaxUses   int    `json:"max_uses"`
 	Uses      int    `json:"uses"`
 	Revoked   bool   `json:"revoked"`
 	CreatedAt string `json:"created_at"`
+}
+
+type InviteMatch struct {
+	ID     string
+	RoomID string
 }

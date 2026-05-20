@@ -22,6 +22,10 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	roomID := roomIDFromRequest(r)
+	if !s.requireRoomMembership(w, u.ID, roomID) {
+		return
+	}
 	upgrader := websocket.Upgrader{
 		CheckOrigin:     s.checkWebSocketOrigin,
 		ReadBufferSize:  1024,
@@ -44,12 +48,12 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 	defer s.Hub.Remove(out)
 	connected := s.trackPresenceConnect(u.ID)
 	if connected {
-		s.Hub.Broadcast(chat.Outbound{Type: "presence", Data: map[string]string{"user_id": u.ID, "display_name": u.DisplayName, "online": "1"}})
+		s.Hub.Broadcast(chat.Outbound{Type: "presence", Data: map[string]string{"room_id": roomID, "user_id": u.ID, "display_name": u.DisplayName, "online": "1"}})
 	}
 	defer func() {
 		disconnected := s.trackPresenceDisconnect(u.ID)
 		if disconnected {
-			s.Hub.Broadcast(chat.Outbound{Type: "presence", Data: map[string]string{"user_id": u.ID, "display_name": u.DisplayName, "online": "0"}})
+			s.Hub.Broadcast(chat.Outbound{Type: "presence", Data: map[string]string{"room_id": roomID, "user_id": u.ID, "display_name": u.DisplayName, "online": "0"}})
 		}
 	}()
 
@@ -65,6 +69,9 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 				if !ok {
 					_ = c.WriteMessage(websocket.CloseMessage, []byte{})
 					return
+				}
+				if msgRoomID := strings.TrimSpace(msg.Data["room_id"]); msgRoomID != "" && msgRoomID != roomID {
+					continue
 				}
 				if err := c.WriteJSON(msg); err != nil {
 					return
@@ -96,7 +103,7 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		}
 		msgType := strings.TrimSpace(in.Type)
 		if msgType == "typing" {
-			s.Hub.Broadcast(chat.Outbound{Type: "typing", Data: map[string]string{"user_id": u.ID, "display_name": u.DisplayName, "typing": boolToFlag(in.Typing)}})
+			s.Hub.Broadcast(chat.Outbound{Type: "typing", Data: map[string]string{"room_id": roomID, "user_id": u.ID, "display_name": u.DisplayName, "typing": boolToFlag(in.Typing)}})
 			continue
 		}
 		active, err := s.Store.IsUserActive(u.ID)
@@ -110,17 +117,19 @@ func (s *Server) ws(w http.ResponseWriter, r *http.Request) {
 		if strings.TrimSpace(in.Ciphertext) == "" || strings.TrimSpace(in.Nonce) == "" {
 			continue
 		}
-		msg, err := s.Store.SaveMessage(u.ID, u.DisplayName, in.Ciphertext, in.Nonce, cleanInput(in.ReplyToID, maxReplyToIDLen))
+		msg, err := s.Store.SaveMessage(roomID, u.ID, u.DisplayName, in.Ciphertext, in.Nonce, cleanInput(in.ReplyToID, maxReplyToIDLen))
 		if err != nil {
 			continue
 		}
 		if s.RetainDays > 0 {
-			_ = s.Store.PruneMessagesOlderThan(s.RetainDays)
+			_ = s.Store.PruneMessagesOlderThanInRoom(roomID, s.RetainDays)
 		}
 		if s.RetainCount > 0 {
-			_ = s.Store.PruneMessagesToLimit(s.RetainCount)
+			_ = s.Store.PruneMessagesToLimitInRoom(roomID, s.RetainCount)
 		}
-		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: outboundMessageData(msg, cleanInput(in.ClientMsgID, maxMessageIDLen))})
+		data := outboundMessageData(msg, cleanInput(in.ClientMsgID, maxMessageIDLen))
+		data["room_id"] = roomID
+		s.Hub.Broadcast(chat.Outbound{Type: "message", Data: data})
 	}
 }
 

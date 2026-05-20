@@ -33,7 +33,7 @@ function bindReactionPickerHandlers() {
             closeReactionPicker();
             if (!messageID || !emoji) return;
             try {
-                await api("/api/messages/react", {
+                await api(withRoomQuery("/api/messages/react"), {
                     method: "POST",
                     body: JSON.stringify({message_id: messageID, emoji}),
                 });
@@ -207,7 +207,7 @@ async function chatHandleExtendedMessageAction(target, {onPinsChanged} = {}) {
         // Treat chip clicks as "join this reaction" so counts stack naturally.
         // If already reacted, ignore instead of toggling off.
         if (mine[emoji]) return true;
-        await api("/api/messages/react", {
+        await api(withRoomQuery("/api/messages/react"), {
             method: "POST",
             body: JSON.stringify({message_id: id, emoji}),
         });
@@ -218,7 +218,7 @@ async function chatHandleExtendedMessageAction(target, {onPinsChanged} = {}) {
     if (pinBtn) {
         const id = pinBtn.getAttribute("data-pin-msg") || "";
         const pin = pinBtn.textContent.trim().toLowerCase() === "pin";
-        const r = await api("/api/admin/pin-message", {
+        const r = await api(withRoomQuery("/api/admin/pin-message"), {
             method: "POST",
             body: JSON.stringify({message_id: id, pin}),
         });

@@ -8,6 +8,7 @@ const (
 	maxPublicKeyLen    = 4096
 	maxRoomKeyEncLen   = 256
 	maxInviteIDLen     = 128
+	maxUserIDLen       = 128
 	maxMessageIDLen    = 128
 	maxNonceLen        = 128
 	maxReplyToIDLen    = 128
