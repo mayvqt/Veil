@@ -19,18 +19,24 @@ type Room struct {
 }
 
 type User struct {
-	ID               string `json:"id"`
-	DisplayName      string `json:"display_name"`
-	Role             string `json:"role"`
-	RoomRole         string `json:"room_role,omitempty"`
-	StatusText       string `json:"status_text"`
-	ChatColor        string `json:"chat_color"`
-	AvatarURL        string `json:"avatar_url"`
-	AvatarRingColor  string `json:"avatar_ring_color"`
-	AvatarRingColor2 string `json:"avatar_ring_color2"`
-	AvatarRingColor3 string `json:"avatar_ring_color3"`
-	AvatarRingColor4 string `json:"avatar_ring_color4"`
-	AvatarRingMode   string `json:"avatar_ring_mode"`
+	ID                   string `json:"id"`
+	DisplayName          string `json:"display_name"`
+	Role                 string `json:"role"`
+	RoomRole             string `json:"room_role,omitempty"`
+	StatusText           string `json:"status_text"`
+	ChatColor            string `json:"chat_color"`
+	AvatarURL            string `json:"avatar_url"`
+	AvatarRingColor      string `json:"avatar_ring_color"`
+	AvatarRingColor2     string `json:"avatar_ring_color2"`
+	AvatarRingColor3     string `json:"avatar_ring_color3"`
+	AvatarRingColor4     string `json:"avatar_ring_color4"`
+	AvatarRingMode       string `json:"avatar_ring_mode"`
+	ProfileAbout         string `json:"profile_about"`
+	ProfileAccent        string `json:"profile_accent"`
+	ProfileBannerURL     string `json:"profile_banner_url"`
+	ProfileCardBgURL     string `json:"profile_card_bg_url"`
+	ProfileBannerOpacity int    `json:"profile_banner_opacity"`
+	ProfileCardBgOpacity int    `json:"profile_card_bg_opacity"`
 }
 
 type Message struct {

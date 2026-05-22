@@ -25,6 +25,7 @@ func (s *Server) Routes() http.Handler {
 	r.Post("/api/profile/color", s.updateProfileColor)
 	r.Post("/api/profile/avatar", s.updateProfileAvatar)
 	r.Post("/api/profile/avatar-ring", s.updateProfileAvatarRing)
+	r.Post("/api/profile/card", s.updateProfileCard)
 
 	r.Get("/api/messages", s.listMessages)
 	r.Get("/api/rooms", s.listRooms)

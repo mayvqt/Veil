@@ -354,11 +354,11 @@ SELECT id, ?, ? FROM rooms`, u.ID, now()); err != nil {
 
 func (s *Store) FindUserByCredential(credentialID string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
+SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none'), COALESCE(u.profile_about,''), COALESCE(u.profile_accent,''), COALESCE(u.profile_banner_url,''), COALESCE(u.profile_card_bg_url,''), COALESCE(u.profile_banner_opacity,100), COALESCE(u.profile_card_bg_opacity,100)
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode, &u.ProfileAbout, &u.ProfileAccent, &u.ProfileBannerURL, &u.ProfileCardBgURL, &u.ProfileBannerOpacity, &u.ProfileCardBgOpacity); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -369,14 +369,14 @@ WHERE d.credential_id=? AND u.active=1 LIMIT 1`, credentialID)
 
 func (s *Store) FindUserByCredentialSecret(credentialID, deviceSecretHash string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
+SELECT u.id, u.display_name, u.role, COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none'), COALESCE(u.profile_about,''), COALESCE(u.profile_accent,''), COALESCE(u.profile_banner_url,''), COALESCE(u.profile_card_bg_url,''), COALESCE(u.profile_banner_opacity,100), COALESCE(u.profile_card_bg_opacity,100)
 FROM users u JOIN devices d ON d.user_id=u.id
 WHERE d.credential_id=? AND u.active=1 AND (
   COALESCE(d.device_secret_hash,'')='' OR d.device_secret_hash=?
 )
 LIMIT 1`, credentialID, deviceSecretHash)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode, &u.ProfileAbout, &u.ProfileAccent, &u.ProfileBannerURL, &u.ProfileCardBgURL, &u.ProfileBannerOpacity, &u.ProfileCardBgOpacity); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -387,11 +387,11 @@ LIMIT 1`, credentialID, deviceSecretHash)
 
 func (s *Store) GetActiveUser(userID string) (*User, error) {
 	row := s.DB.QueryRow(`
-SELECT id, display_name, role, COALESCE(status_text,''), chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none')
+SELECT id, display_name, role, COALESCE(status_text,''), chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none'), COALESCE(profile_about,''), COALESCE(profile_accent,''), COALESCE(profile_banner_url,''), COALESCE(profile_card_bg_url,''), COALESCE(profile_banner_opacity,100), COALESCE(profile_card_bg_opacity,100)
 FROM users
 WHERE id=? AND active=1`, userID)
 	u := &User{}
-	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+	if err := row.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode, &u.ProfileAbout, &u.ProfileAccent, &u.ProfileBannerURL, &u.ProfileCardBgURL, &u.ProfileBannerOpacity, &u.ProfileCardBgOpacity); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
@@ -401,7 +401,7 @@ WHERE id=? AND active=1`, userID)
 }
 
 func (s *Store) ListUsers() ([]User, error) {
-	rows, err := s.DB.Query("SELECT id, display_name, role, COALESCE(status_text,''), chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none') FROM users WHERE active=1 ORDER BY created_at ASC")
+	rows, err := s.DB.Query("SELECT id, display_name, role, COALESCE(status_text,''), chat_color, COALESCE(avatar_url,''), COALESCE(avatar_ring_color,''), COALESCE(avatar_ring_color2,''), COALESCE(avatar_ring_color3,''), COALESCE(avatar_ring_color4,''), COALESCE(avatar_ring_mode,'none'), COALESCE(profile_about,''), COALESCE(profile_accent,''), COALESCE(profile_banner_url,''), COALESCE(profile_card_bg_url,''), COALESCE(profile_banner_opacity,100), COALESCE(profile_card_bg_opacity,100) FROM users WHERE active=1 ORDER BY created_at ASC")
 	if err != nil {
 		return nil, err
 	}
@@ -410,7 +410,7 @@ func (s *Store) ListUsers() ([]User, error) {
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode, &u.ProfileAbout, &u.ProfileAccent, &u.ProfileBannerURL, &u.ProfileCardBgURL, &u.ProfileBannerOpacity, &u.ProfileCardBgOpacity); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -420,7 +420,7 @@ func (s *Store) ListUsers() ([]User, error) {
 
 func (s *Store) ListUsersByRoom(roomID string) ([]User, error) {
 	rows, err := s.DB.Query(`
-SELECT u.id, u.display_name, u.role, COALESCE(rr.role,''), COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none')
+SELECT u.id, u.display_name, u.role, COALESCE(rr.role,''), COALESCE(u.status_text,''), u.chat_color, COALESCE(u.avatar_url,''), COALESCE(u.avatar_ring_color,''), COALESCE(u.avatar_ring_color2,''), COALESCE(u.avatar_ring_color3,''), COALESCE(u.avatar_ring_color4,''), COALESCE(u.avatar_ring_mode,'none'), COALESCE(u.profile_about,''), COALESCE(u.profile_accent,''), COALESCE(u.profile_banner_url,''), COALESCE(u.profile_card_bg_url,''), COALESCE(u.profile_banner_opacity,100), COALESCE(u.profile_card_bg_opacity,100)
 FROM users u
 JOIN room_memberships rm ON rm.user_id=u.id
 LEFT JOIN room_roles rr ON rr.room_id=rm.room_id AND rr.user_id=u.id
@@ -434,7 +434,7 @@ ORDER BY rm.joined_at ASC`, roomID)
 	users := make([]User, 0)
 	for rows.Next() {
 		var u User
-		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.RoomRole, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode); err != nil {
+		if err := rows.Scan(&u.ID, &u.DisplayName, &u.Role, &u.RoomRole, &u.StatusText, &u.ChatColor, &u.AvatarURL, &u.AvatarRingColor, &u.AvatarRingColor2, &u.AvatarRingColor3, &u.AvatarRingColor4, &u.AvatarRingMode, &u.ProfileAbout, &u.ProfileAccent, &u.ProfileBannerURL, &u.ProfileCardBgURL, &u.ProfileBannerOpacity, &u.ProfileCardBgOpacity); err != nil {
 			return nil, err
 		}
 		users = append(users, u)
@@ -540,6 +540,11 @@ func (s *Store) SetUserStatusText(userID, statusText string) error {
 	return err
 }
 
+func (s *Store) SetUserProfileCard(userID, about, accent, bannerURL, cardBgURL string, bannerOpacity, cardBgOpacity int) error {
+	_, err := s.DB.Exec("UPDATE users SET profile_about=?, profile_accent=?, profile_banner_url=?, profile_card_bg_url=?, profile_banner_opacity=?, profile_card_bg_opacity=? WHERE id=? AND active=1", strings.TrimSpace(about), strings.TrimSpace(accent), strings.TrimSpace(bannerURL), strings.TrimSpace(cardBgURL), bannerOpacity, cardBgOpacity, userID)
+	return err
+}
+
 func (s *Store) SetRoomPinned(roomID string, pinned bool) error {
 	value := 0
 	if pinned {
@@ -603,13 +608,27 @@ func (s *Store) GetUserAvatarURL(userID string) (string, error) {
 	return avatarURL, nil
 }
 
+func (s *Store) GetUserProfileMedia(userID string) (string, string, int, int, error) {
+	var bannerURL, cardBgURL string
+	var bannerOpacity, cardBgOpacity int
+	if err := s.DB.QueryRow("SELECT COALESCE(profile_banner_url,''), COALESCE(profile_card_bg_url,''), COALESCE(profile_banner_opacity,100), COALESCE(profile_card_bg_opacity,100) FROM users WHERE id=?", userID).Scan(&bannerURL, &cardBgURL, &bannerOpacity, &cardBgOpacity); err != nil {
+		return "", "", 100, 100, err
+	}
+	return bannerURL, cardBgURL, bannerOpacity, cardBgOpacity, nil
+}
+
 func (s *Store) ClearUserAvatarURL(userID string) error {
 	_, err := s.DB.Exec("UPDATE users SET avatar_url='' WHERE id=?", userID)
 	return err
 }
 
 func (s *Store) ListActiveAvatarURLs() ([]string, error) {
-	rows, err := s.DB.Query("SELECT COALESCE(avatar_url,'') FROM users WHERE active=1 AND TRIM(COALESCE(avatar_url,''))<>''")
+	rows, err := s.DB.Query(`
+SELECT COALESCE(avatar_url,'') FROM users WHERE active=1 AND TRIM(COALESCE(avatar_url,''))<>''
+UNION ALL
+SELECT COALESCE(profile_banner_url,'') FROM users WHERE active=1 AND TRIM(COALESCE(profile_banner_url,''))<>''
+UNION ALL
+SELECT COALESCE(profile_card_bg_url,'') FROM users WHERE active=1 AND TRIM(COALESCE(profile_card_bg_url,''))<>''`)
 	if err != nil {
 		return nil, err
 	}

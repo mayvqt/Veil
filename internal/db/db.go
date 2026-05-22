@@ -51,6 +51,12 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_ring_color3 TEXT NOT NULL DEFAULT '',
   avatar_ring_color4 TEXT NOT NULL DEFAULT '',
   avatar_ring_mode TEXT NOT NULL DEFAULT 'none',
+  profile_about TEXT NOT NULL DEFAULT '',
+  profile_accent TEXT NOT NULL DEFAULT '',
+  profile_banner_url TEXT NOT NULL DEFAULT '',
+  profile_card_bg_url TEXT NOT NULL DEFAULT '',
+  profile_banner_opacity INTEGER NOT NULL DEFAULT 100,
+  profile_card_bg_opacity INTEGER NOT NULL DEFAULT 100,
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
@@ -194,6 +200,9 @@ CREATE INDEX IF NOT EXISTS idx_pinned_messages_room_pinned_at ON pinned_messages
 	if err := ensureUsersStatusTextColumn(db); err != nil {
 		return err
 	}
+	if err := ensureUsersProfileCardColumns(db); err != nil {
+		return err
+	}
 	if err := ensureDevicesSecretHashColumn(db); err != nil {
 		return err
 	}
@@ -335,6 +344,17 @@ func ensureUsersAvatarRingColumns(db *sql.DB) error {
 
 func ensureUsersStatusTextColumn(db *sql.DB) error {
 	return addMissingColumns(db, "users", []columnDef{{name: "status_text", columnDef: "TEXT NOT NULL DEFAULT ''"}})
+}
+
+func ensureUsersProfileCardColumns(db *sql.DB) error {
+	return addMissingColumns(db, "users", []columnDef{
+		{name: "profile_about", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "profile_accent", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "profile_banner_url", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "profile_card_bg_url", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "profile_banner_opacity", columnDef: "INTEGER NOT NULL DEFAULT 100"},
+		{name: "profile_card_bg_opacity", columnDef: "INTEGER NOT NULL DEFAULT 100"},
+	})
 }
 
 func ensureDevicesSecretHashColumn(db *sql.DB) error {

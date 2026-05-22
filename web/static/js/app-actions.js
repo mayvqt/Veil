@@ -113,6 +113,18 @@ function bindChatActions() {
         chatRenderPinnedBar(pinnedBar, messages);
         renderPinPopover();
     };
+    if (!document.body.dataset.profileCardOutsideBound) {
+        document.body.dataset.profileCardOutsideBound = '1';
+        document.addEventListener('click', (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('.public-profile-popover') || target.closest('button[data-profile-user]')) return;
+            closePublicProfileCard();
+        });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closePublicProfileCard();
+        });
+    }
     const updateJumpLatestVisibility = () => {
         if (!messages || !jumpLatestBtn) return;
         const distanceFromBottom = messages.scrollHeight - messages.clientHeight - messages.scrollTop;
@@ -423,6 +435,13 @@ function bindChatActions() {
                 const action = emptyAction.getAttribute('data-empty-channel-action') || '';
                 if (action === 'rename') await renameChannelByID(activeRoomID, roomName, null);
                 if (action === 'topic') await editChannelTopicByID(activeRoomID, roomStatusText, null);
+                return;
+            }
+            const profileBtn = target.closest('button[data-profile-user]');
+            if (profileBtn) {
+                const userID = profileBtn.getAttribute('data-profile-user') || '';
+                const member = roomMembers.find((m) => String(m.id || '') === String(userID));
+                if (member) openPublicProfileCard(member, profileBtn);
                 return;
             }
             const replyBtn = target.closest('button[data-reply-msg]');
@@ -1234,6 +1253,29 @@ function bindProfileActions() {
     const statusTextInput = $('profile-status-text');
     const statusTextSaveBtn = $('profileStatusTextSave');
     const statusTextClearBtn = $('profileStatusTextClear');
+    const profileAboutInput = $('profile-about');
+    const profileAccentInput = $('profile-accent');
+    const profileBannerFileInput = $('profile-banner-file');
+    const profileBannerHint = $('profileBannerHint');
+    const profileBannerOpacityInput = $('profile-banner-opacity');
+    const profileCardBgFileInput = $('profile-card-bg-file');
+    const profileCardBgHint = $('profileCardBgHint');
+    const profileCardBgOpacityInput = $('profile-card-bg-opacity');
+    const profileCardSaveBtn = $('profileCardSave');
+    const profileBannerClearBtn = $('profileBannerClear');
+    const profileCardBgClearBtn = $('profileCardBgClear');
+    const bannerCropper = $('bannerCropper');
+    const bannerCropCanvas = $('bannerCropCanvas');
+    const bannerCropZoom = $('bannerCropZoom');
+    const bannerCropZoomLabel = $('bannerCropZoomLabel');
+    const bannerCropSaveBtn = $('bannerCropSave');
+    const bannerCropCancelBtn = $('bannerCropCancel');
+    const cardBgCropper = $('cardBgCropper');
+    const cardBgCropCanvas = $('cardBgCropCanvas');
+    const cardBgCropZoom = $('cardBgCropZoom');
+    const cardBgCropZoomLabel = $('cardBgCropZoomLabel');
+    const cardBgCropSaveBtn = $('cardBgCropSave');
+    const cardBgCropCancelBtn = $('cardBgCropCancel');
     const avatarFileInput = $('profile-avatar-file');
     const avatarClearBtn = $('profileAvatarClear');
     const avatarCropper = $('avatarCropper');
@@ -1283,7 +1325,45 @@ function bindProfileActions() {
         return raw;
     };
     const readAvatarDataURL = (file) => readProfileImageDataURL(file, 4 * 1024 * 1024);
+    const readBannerDataURL = (file) => readProfileImageDataURL(file, 4 * 1024 * 1024);
     const readBackgroundDataURL = (file) => readProfileImageDataURL(file, 2 * 1024 * 1024);
+    const setBannerHint = (text, tone = '') => {
+        if (!profileBannerHint) return;
+        profileBannerHint.textContent = text;
+        profileBannerHint.className = `file-feedback muted${tone ? ` ${tone}` : ''}`;
+    };
+    const setCardBgHint = (text, tone = '') => {
+        if (!profileCardBgHint) return;
+        profileCardBgHint.textContent = text;
+        profileCardBgHint.className = `file-feedback muted${tone ? ` ${tone}` : ''}`;
+    };
+    const percentValue = (input, fallback = 100) => Math.max(0, Math.min(100, Math.round(Number((input && input.value) ?? fallback))));
+    const syncProfileOpacityLabels = () => {
+        const bannerLabel = profileBannerOpacityInput && document.querySelector(`label[for="${cssEscape(profileBannerOpacityInput.id)}"] span`);
+        if (bannerLabel) bannerLabel.textContent = `${percentValue(profileBannerOpacityInput, currentProfileBannerOpacity)}%`;
+        const bgLabel = profileCardBgOpacityInput && document.querySelector(`label[for="${cssEscape(profileCardBgOpacityInput.id)}"] span`);
+        if (bgLabel) bgLabel.textContent = `${percentValue(profileCardBgOpacityInput, currentProfileCardBgOpacity)}%`;
+    };
+    const refreshProfileCardPreview = (overrides = {}) => {
+        const preview = $('profileCardPreview');
+        if (!preview) return;
+        const member = roomMembers.find((m) => String(m.id || '') === String(myUserID || '')) || {};
+        preview.innerHTML = profileCardHTML({
+            ...member,
+            display_name: currentDisplayName || 'member',
+            role: myRole || member.role || 'member',
+            status_text: currentStatusText || '',
+            chat_color: currentUserChatColor || member.chat_color || '',
+            profile_about: profileAboutInput ? String(profileAboutInput.value || '').trim() : currentProfileAbout,
+            profile_accent: normalizeHexColor((profileAccentInput && profileAccentInput.value) || '') || currentProfileAccent || currentUserChatColor,
+            profile_banner_url: currentProfileBannerURL || '',
+            profile_card_bg_url: currentProfileCardBgURL || '',
+            profile_banner_opacity: percentValue(profileBannerOpacityInput, currentProfileBannerOpacity),
+            profile_card_bg_opacity: percentValue(profileCardBgOpacityInput, currentProfileCardBgOpacity),
+            ...overrides,
+        });
+        syncProfileOpacityLabels();
+    };
     const readNotificationDataURL = async (file) => {
         if (!file) throw new Error('Select an audio file first.');
         const mime = normalizeMime(file.type);
@@ -1305,8 +1385,16 @@ function bindProfileActions() {
         return raw;
     };
     const avatarCropState = {image: null, zoom: 100, x: 0, y: 0};
+    const bannerCropState = {image: null, zoom: 100, x: 0, y: 0, fileName: '', fileSize: 0};
+    const cardBgCropState = {image: null, zoom: 100, x: 0, y: 0, fileName: '', fileSize: 0};
     const updateCropLabels = () => {
         if (avatarCropZoomLabel) avatarCropZoomLabel.textContent = `${avatarCropState.zoom}%`;
+    };
+    const updateBannerCropLabels = () => {
+        if (bannerCropZoomLabel) bannerCropZoomLabel.textContent = `${bannerCropState.zoom}%`;
+    };
+    const updateCardBgCropLabels = () => {
+        if (cardBgCropZoomLabel) cardBgCropZoomLabel.textContent = `${cardBgCropState.zoom}%`;
     };
     const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
     const cropShiftBoundsForSize = (size) => {
@@ -1405,6 +1493,182 @@ function bindProfileActions() {
         ctx.clip();
         ctx.drawImage(avatarCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
         ctx.restore();
+        return out.toDataURL('image/png');
+    };
+    const bannerCropRectForSize = (width, height) => {
+        const img = bannerCropState.image;
+        if (!img) return null;
+        const baseScale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+        const scale = baseScale * (bannerCropState.zoom / 100);
+        const drawW = img.naturalWidth * scale;
+        const drawH = img.naturalHeight * scale;
+        const maxX = Math.max(0, (drawW - width) / 2);
+        const maxY = Math.max(0, (drawH - height) / 2);
+        const shiftX = (bannerCropState.x / 100) * maxX;
+        const shiftY = (bannerCropState.y / 100) * maxY;
+        const dx = ((width - drawW) / 2) - shiftX;
+        const dy = ((height - drawH) / 2) - shiftY;
+        return {dx, dy, drawW, drawH};
+    };
+    const bannerCropShiftBoundsForSize = (width, height) => {
+        const img = bannerCropState.image;
+        if (!img) return {maxX: 0, maxY: 0};
+        const baseScale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+        const scale = baseScale * (bannerCropState.zoom / 100);
+        return {
+            maxX: Math.max(0, ((img.naturalWidth * scale) - width) / 2),
+            maxY: Math.max(0, ((img.naturalHeight * scale) - height) / 2),
+        };
+    };
+    const drawBannerCropPreview = () => {
+        if (!bannerCropCanvas || !bannerCropState.image) return;
+        const ctx = bannerCropCanvas.getContext('2d');
+        if (!ctx) return;
+        const width = bannerCropCanvas.width;
+        const height = bannerCropCanvas.height;
+        const rect = bannerCropRectForSize(width, height);
+        if (!rect) return;
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(bannerCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
+        ctx.fillStyle = 'rgba(0,0,0,0.18)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, width - 2, height - 2);
+        updateBannerCropLabels();
+    };
+    const resetBannerCropper = () => {
+        bannerCropState.image = null;
+        bannerCropState.zoom = 100;
+        bannerCropState.x = 0;
+        bannerCropState.y = 0;
+        bannerCropState.fileName = '';
+        bannerCropState.fileSize = 0;
+        if (bannerCropZoom) bannerCropZoom.value = '100';
+        updateBannerCropLabels();
+        if (bannerCropCanvas) {
+            const ctx = bannerCropCanvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, bannerCropCanvas.width, bannerCropCanvas.height);
+        }
+        if (bannerCropper) bannerCropper.style.display = 'none';
+    };
+    const openBannerCropper = async (file) => {
+        const raw = await readBannerDataURL(file);
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Could not decode image.'));
+            img.src = raw;
+        });
+        bannerCropState.image = img;
+        bannerCropState.zoom = 100;
+        bannerCropState.x = 0;
+        bannerCropState.y = 0;
+        bannerCropState.fileName = file.name || 'banner';
+        bannerCropState.fileSize = file.size || 0;
+        if (bannerCropZoom) bannerCropZoom.value = '100';
+        if (bannerCropper) bannerCropper.style.display = 'grid';
+        drawBannerCropPreview();
+    };
+    const buildCroppedBannerDataURL = () => {
+        if (!bannerCropState.image) throw new Error('Select a banner image first.');
+        const out = document.createElement('canvas');
+        out.width = 960;
+        out.height = 276;
+        const rect = bannerCropRectForSize(out.width, out.height);
+        if (!rect) throw new Error('Could not crop banner.');
+        const ctx = out.getContext('2d');
+        if (!ctx) throw new Error('Could not process banner.');
+        ctx.clearRect(0, 0, out.width, out.height);
+        ctx.drawImage(bannerCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
+        return out.toDataURL('image/png');
+    };
+    const cardBgCropRectForSize = (width, height) => {
+        const img = cardBgCropState.image;
+        if (!img) return null;
+        const baseScale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+        const scale = baseScale * (cardBgCropState.zoom / 100);
+        const drawW = img.naturalWidth * scale;
+        const drawH = img.naturalHeight * scale;
+        const maxX = Math.max(0, (drawW - width) / 2);
+        const maxY = Math.max(0, (drawH - height) / 2);
+        const shiftX = (cardBgCropState.x / 100) * maxX;
+        const shiftY = (cardBgCropState.y / 100) * maxY;
+        const dx = ((width - drawW) / 2) - shiftX;
+        const dy = ((height - drawH) / 2) - shiftY;
+        return {dx, dy, drawW, drawH};
+    };
+    const cardBgCropShiftBoundsForSize = (width, height) => {
+        const img = cardBgCropState.image;
+        if (!img) return {maxX: 0, maxY: 0};
+        const baseScale = Math.max(width / img.naturalWidth, height / img.naturalHeight);
+        const scale = baseScale * (cardBgCropState.zoom / 100);
+        return {
+            maxX: Math.max(0, ((img.naturalWidth * scale) - width) / 2),
+            maxY: Math.max(0, ((img.naturalHeight * scale) - height) / 2),
+        };
+    };
+    const drawCardBgCropPreview = () => {
+        if (!cardBgCropCanvas || !cardBgCropState.image) return;
+        const ctx = cardBgCropCanvas.getContext('2d');
+        if (!ctx) return;
+        const width = cardBgCropCanvas.width;
+        const height = cardBgCropCanvas.height;
+        const rect = cardBgCropRectForSize(width, height);
+        if (!rect) return;
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(cardBgCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
+        ctx.fillStyle = 'rgba(0,0,0,0.34)';
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(1, 1, width - 2, height - 2);
+        updateCardBgCropLabels();
+    };
+    const resetCardBgCropper = () => {
+        cardBgCropState.image = null;
+        cardBgCropState.zoom = 100;
+        cardBgCropState.x = 0;
+        cardBgCropState.y = 0;
+        cardBgCropState.fileName = '';
+        cardBgCropState.fileSize = 0;
+        if (cardBgCropZoom) cardBgCropZoom.value = '100';
+        updateCardBgCropLabels();
+        if (cardBgCropCanvas) {
+            const ctx = cardBgCropCanvas.getContext('2d');
+            if (ctx) ctx.clearRect(0, 0, cardBgCropCanvas.width, cardBgCropCanvas.height);
+        }
+        if (cardBgCropper) cardBgCropper.style.display = 'none';
+    };
+    const openCardBgCropper = async (file) => {
+        const raw = await readBannerDataURL(file);
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Could not decode image.'));
+            img.src = raw;
+        });
+        cardBgCropState.image = img;
+        cardBgCropState.zoom = 100;
+        cardBgCropState.x = 0;
+        cardBgCropState.y = 0;
+        cardBgCropState.fileName = file.name || 'background';
+        cardBgCropState.fileSize = file.size || 0;
+        if (cardBgCropZoom) cardBgCropZoom.value = '100';
+        if (cardBgCropper) cardBgCropper.style.display = 'grid';
+        drawCardBgCropPreview();
+    };
+    const buildCroppedCardBgDataURL = () => {
+        if (!cardBgCropState.image) throw new Error('Select a card background first.');
+        const out = document.createElement('canvas');
+        out.width = 960;
+        out.height = 660;
+        const rect = cardBgCropRectForSize(out.width, out.height);
+        if (!rect) throw new Error('Could not crop card background.');
+        const ctx = out.getContext('2d');
+        if (!ctx) throw new Error('Could not process card background.');
+        ctx.clearRect(0, 0, out.width, out.height);
+        ctx.drawImage(cardBgCropState.image, rect.dx, rect.dy, rect.drawW, rect.drawH);
         return out.toDataURL('image/png');
     };
 
@@ -1577,6 +1841,44 @@ function bindProfileActions() {
         await refreshMembers();
         setStatus(status, currentStatusText ? 'Status saved.' : 'Status cleared.', 'ok');
     };
+    const saveProfileCard = async (bannerURL = undefined, cardBgURL = undefined) => {
+        const about = String((profileAboutInput && profileAboutInput.value) || '').trim();
+        if (about.length > 240) {
+            setStatus(status, 'Profile note must be 240 characters or fewer.', 'err');
+            return;
+        }
+        const accent = normalizeHexColor((profileAccentInput && profileAccentInput.value) || '') || '';
+        const bannerOpacity = percentValue(profileBannerOpacityInput, currentProfileBannerOpacity);
+        const cardBgOpacity = percentValue(profileCardBgOpacityInput, currentProfileCardBgOpacity);
+        const payload = {profile_about: about, profile_accent: accent, profile_banner_opacity: bannerOpacity, profile_card_bg_opacity: cardBgOpacity};
+        if (bannerURL !== undefined) payload.profile_banner_url = bannerURL || '';
+        if (cardBgURL !== undefined) payload.profile_card_bg_url = cardBgURL || '';
+        const r = await api('/api/profile/card', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        if (!r.ok) {
+            setStatus(status, r.data.error || 'Failed to save profile card.', 'err');
+            return;
+        }
+        currentProfileAbout = String((r.data && r.data.profile_about) || about);
+        currentProfileAccent = normalizeHexColor((r.data && r.data.profile_accent) || accent);
+        currentProfileBannerURL = String((r.data && r.data.profile_banner_url) || '');
+        currentProfileCardBgURL = String((r.data && r.data.profile_card_bg_url) || '');
+        currentProfileBannerOpacity = Math.max(0, Math.min(100, Number((r.data && r.data.profile_banner_opacity) ?? bannerOpacity)));
+        currentProfileCardBgOpacity = Math.max(0, Math.min(100, Number((r.data && r.data.profile_card_bg_opacity) ?? cardBgOpacity)));
+        if (profileBannerOpacityInput) profileBannerOpacityInput.value = String(currentProfileBannerOpacity);
+        if (profileCardBgOpacityInput) profileCardBgOpacityInput.value = String(currentProfileCardBgOpacity);
+        if (profileAboutInput) profileAboutInput.value = currentProfileAbout;
+        if (profileAccentInput && currentProfileAccent) profileAccentInput.value = currentProfileAccent;
+        if (profileBannerFileInput) profileBannerFileInput.value = '';
+        if (profileCardBgFileInput) profileCardBgFileInput.value = '';
+        setBannerHint(currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.', 'ok');
+        setCardBgHint(currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.', 'ok');
+        refreshProfileCardPreview();
+        await refreshMembers();
+        setStatus(status, 'Profile card saved for everyone.', 'ok');
+    };
 
     if (displayNameSaveBtn) {
         displayNameSaveBtn.onclick = saveDisplayName;
@@ -1600,6 +1902,232 @@ function bindProfileActions() {
             ev.preventDefault();
             await saveStatusText();
         });
+    }
+    if (profileCardSaveBtn) {
+        profileCardSaveBtn.onclick = async () => saveProfileCard();
+    }
+    if (profileAboutInput) {
+        profileAboutInput.addEventListener('input', () => refreshProfileCardPreview());
+    }
+    if (profileAccentInput) {
+        profileAccentInput.addEventListener('input', () => refreshProfileCardPreview());
+    }
+    if (profileBannerOpacityInput) {
+        profileBannerOpacityInput.addEventListener('input', () => refreshProfileCardPreview());
+    }
+    if (profileCardBgOpacityInput) {
+        profileCardBgOpacityInput.addEventListener('input', () => refreshProfileCardPreview());
+    }
+    if (profileAboutInput) {
+        profileAboutInput.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter' || !ev.ctrlKey) return;
+            ev.preventDefault();
+            await saveProfileCard();
+        });
+    }
+    if (profileBannerFileInput) {
+        profileBannerFileInput.addEventListener('change', async () => {
+            const file = profileBannerFileInput.files && profileBannerFileInput.files[0];
+            if (!file) {
+                setBannerHint(currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.');
+                return;
+            }
+            setBannerHint(`Selected ${file.name || 'banner'} (${formatBytes(file.size)}). Adjust crop and save.`);
+            try {
+                await openBannerCropper(file);
+                setStatus(status, 'Adjust crop and save your card banner.', 'ok');
+            } catch (e) {
+                if (profileBannerFileInput) profileBannerFileInput.value = '';
+                resetBannerCropper();
+                setBannerHint(e.message || 'Failed to process banner.', 'err');
+                setStatus(status, e.message || 'Failed to process banner.', 'err');
+            }
+        });
+    }
+    if (bannerCropZoom) {
+        bannerCropZoom.addEventListener('input', () => {
+            bannerCropState.zoom = Number(bannerCropZoom.value || 100);
+            bannerCropState.x = clamp(bannerCropState.x, -100, 100);
+            bannerCropState.y = clamp(bannerCropState.y, -100, 100);
+            drawBannerCropPreview();
+        });
+    }
+    if (bannerCropCanvas) {
+        let bannerDragStart = null;
+        const stopBannerDrag = () => {
+            bannerDragStart = null;
+            bannerCropCanvas.classList.remove('dragging');
+        };
+        const startBannerDrag = (ev) => {
+            if (!bannerCropState.image) return;
+            bannerDragStart = {
+                x: ev.clientX,
+                y: ev.clientY,
+                startCropX: bannerCropState.x,
+                startCropY: bannerCropState.y,
+            };
+            bannerCropCanvas.classList.add('dragging');
+        };
+        const moveBannerDrag = (ev) => {
+            if (!bannerDragStart || !bannerCropState.image) return;
+            const bounds = bannerCropShiftBoundsForSize(bannerCropCanvas.width, bannerCropCanvas.height);
+            const deltaX = ev.clientX - bannerDragStart.x;
+            const deltaY = ev.clientY - bannerDragStart.y;
+            const nextX = bounds.maxX > 0 ? bannerDragStart.startCropX - ((deltaX / bounds.maxX) * 100) : 0;
+            const nextY = bounds.maxY > 0 ? bannerDragStart.startCropY - ((deltaY / bounds.maxY) * 100) : 0;
+            bannerCropState.x = clamp(nextX, -100, 100);
+            bannerCropState.y = clamp(nextY, -100, 100);
+            drawBannerCropPreview();
+        };
+        bannerCropCanvas.addEventListener('pointerdown', (ev) => {
+            startBannerDrag(ev);
+            bannerCropCanvas.setPointerCapture(ev.pointerId);
+        });
+        bannerCropCanvas.addEventListener('pointermove', moveBannerDrag);
+        bannerCropCanvas.addEventListener('pointerup', stopBannerDrag);
+        bannerCropCanvas.addEventListener('pointercancel', stopBannerDrag);
+        bannerCropCanvas.addEventListener('lostpointercapture', stopBannerDrag);
+        bannerCropCanvas.addEventListener('wheel', (ev) => {
+            if (!bannerCropState.image) return;
+            ev.preventDefault();
+            const delta = ev.deltaY > 0 ? -5 : 5;
+            bannerCropState.zoom = clamp(bannerCropState.zoom + delta, 100, 300);
+            if (bannerCropZoom) bannerCropZoom.value = String(Math.round(bannerCropState.zoom));
+            drawBannerCropPreview();
+        }, {passive: false});
+    }
+    if (bannerCropCancelBtn) {
+        bannerCropCancelBtn.onclick = () => {
+            resetBannerCropper();
+            if (profileBannerFileInput) profileBannerFileInput.value = '';
+            setBannerHint(currentProfileBannerURL ? 'Current banner saved.' : 'Banner selection canceled.');
+            setStatus(status, 'Card banner selection canceled.');
+        };
+    }
+    if (bannerCropSaveBtn) {
+        bannerCropSaveBtn.onclick = async () => {
+            try {
+                const bannerURL = buildCroppedBannerDataURL();
+                refreshProfileCardPreview({profile_banner_url: bannerURL});
+                setBannerHint(`Uploading ${bannerCropState.fileName || 'banner'}...`);
+                await saveProfileCard(bannerURL, undefined);
+                setBannerHint(`Saved ${bannerCropState.fileName || 'banner'}${bannerCropState.fileSize ? ` (${formatBytes(bannerCropState.fileSize)})` : ''}.`, 'ok');
+                resetBannerCropper();
+            } catch (e) {
+                setBannerHint(e.message || 'Failed to crop banner.', 'err');
+                setStatus(status, e.message || 'Failed to crop banner.', 'err');
+            }
+        };
+    }
+    if (profileCardBgFileInput) {
+        profileCardBgFileInput.addEventListener('change', async () => {
+            const file = profileCardBgFileInput.files && profileCardBgFileInput.files[0];
+            if (!file) {
+                setCardBgHint(currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.');
+                return;
+            }
+            setCardBgHint(`Selected ${file.name || 'background'} (${formatBytes(file.size)}). Adjust crop and save.`);
+            try {
+                await openCardBgCropper(file);
+                setStatus(status, 'Adjust crop and save your card background.', 'ok');
+            } catch (e) {
+                if (profileCardBgFileInput) profileCardBgFileInput.value = '';
+                resetCardBgCropper();
+                setCardBgHint(e.message || 'Failed to process card background.', 'err');
+                setStatus(status, e.message || 'Failed to process card background.', 'err');
+            }
+        });
+    }
+    if (cardBgCropZoom) {
+        cardBgCropZoom.addEventListener('input', () => {
+            cardBgCropState.zoom = Number(cardBgCropZoom.value || 100);
+            cardBgCropState.x = clamp(cardBgCropState.x, -100, 100);
+            cardBgCropState.y = clamp(cardBgCropState.y, -100, 100);
+            drawCardBgCropPreview();
+        });
+    }
+    if (cardBgCropCanvas) {
+        let cardBgDragStart = null;
+        const stopCardBgDrag = () => {
+            cardBgDragStart = null;
+            cardBgCropCanvas.classList.remove('dragging');
+        };
+        const startCardBgDrag = (ev) => {
+            if (!cardBgCropState.image) return;
+            cardBgDragStart = {
+                x: ev.clientX,
+                y: ev.clientY,
+                startCropX: cardBgCropState.x,
+                startCropY: cardBgCropState.y,
+            };
+            cardBgCropCanvas.classList.add('dragging');
+        };
+        const moveCardBgDrag = (ev) => {
+            if (!cardBgDragStart || !cardBgCropState.image) return;
+            const bounds = cardBgCropShiftBoundsForSize(cardBgCropCanvas.width, cardBgCropCanvas.height);
+            const deltaX = ev.clientX - cardBgDragStart.x;
+            const deltaY = ev.clientY - cardBgDragStart.y;
+            const nextX = bounds.maxX > 0 ? cardBgDragStart.startCropX - ((deltaX / bounds.maxX) * 100) : 0;
+            const nextY = bounds.maxY > 0 ? cardBgDragStart.startCropY - ((deltaY / bounds.maxY) * 100) : 0;
+            cardBgCropState.x = clamp(nextX, -100, 100);
+            cardBgCropState.y = clamp(nextY, -100, 100);
+            drawCardBgCropPreview();
+        };
+        cardBgCropCanvas.addEventListener('pointerdown', (ev) => {
+            startCardBgDrag(ev);
+            cardBgCropCanvas.setPointerCapture(ev.pointerId);
+        });
+        cardBgCropCanvas.addEventListener('pointermove', moveCardBgDrag);
+        cardBgCropCanvas.addEventListener('pointerup', stopCardBgDrag);
+        cardBgCropCanvas.addEventListener('pointercancel', stopCardBgDrag);
+        cardBgCropCanvas.addEventListener('lostpointercapture', stopCardBgDrag);
+        cardBgCropCanvas.addEventListener('wheel', (ev) => {
+            if (!cardBgCropState.image) return;
+            ev.preventDefault();
+            const delta = ev.deltaY > 0 ? -5 : 5;
+            cardBgCropState.zoom = clamp(cardBgCropState.zoom + delta, 100, 300);
+            if (cardBgCropZoom) cardBgCropZoom.value = String(Math.round(cardBgCropState.zoom));
+            drawCardBgCropPreview();
+        }, {passive: false});
+    }
+    if (cardBgCropCancelBtn) {
+        cardBgCropCancelBtn.onclick = () => {
+            resetCardBgCropper();
+            if (profileCardBgFileInput) profileCardBgFileInput.value = '';
+            setCardBgHint(currentProfileCardBgURL ? 'Current card background saved.' : 'Card background selection canceled.');
+            setStatus(status, 'Card background selection canceled.');
+        };
+    }
+    if (cardBgCropSaveBtn) {
+        cardBgCropSaveBtn.onclick = async () => {
+            try {
+                const cardBgURL = buildCroppedCardBgDataURL();
+                refreshProfileCardPreview({profile_card_bg_url: cardBgURL});
+                setCardBgHint(`Uploading ${cardBgCropState.fileName || 'background'}...`);
+                await saveProfileCard(undefined, cardBgURL);
+                setCardBgHint(`Saved ${cardBgCropState.fileName || 'background'}${cardBgCropState.fileSize ? ` (${formatBytes(cardBgCropState.fileSize)})` : ''}.`, 'ok');
+                resetCardBgCropper();
+            } catch (e) {
+                setCardBgHint(e.message || 'Failed to crop card background.', 'err');
+                setStatus(status, e.message || 'Failed to crop card background.', 'err');
+            }
+        };
+    }
+    if (profileBannerClearBtn) {
+        profileBannerClearBtn.onclick = async () => {
+            setBannerHint('Clearing banner...');
+            resetBannerCropper();
+            refreshProfileCardPreview({profile_banner_url: ''});
+            await saveProfileCard('', undefined);
+        };
+    }
+    if (profileCardBgClearBtn) {
+        profileCardBgClearBtn.onclick = async () => {
+            setCardBgHint('Clearing card background...');
+            resetCardBgCropper();
+            refreshProfileCardPreview({profile_card_bg_url: ''});
+            await saveProfileCard(undefined, '');
+        };
     }
 
     if (avatarFileInput) {

@@ -205,11 +205,40 @@
     margin-top: 1px;
 }
 
+.line-avatar-button {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    align-self: start;
+    width: 38px;
+    height: 38px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.line-avatar-button:hover,
+.line-avatar-button:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--accent) 62%, transparent);
+    outline-offset: 3px;
+}
+
 .line > .avatar-ring {
     grid-column: 1;
     grid-row: 1 / span 4;
     align-self: start;
     margin-top: 1px;
+}
+
+.line > .line-avatar-button {
+    margin-top: 1px;
+}
+
+.line > .line-avatar-button .avatar-ring {
+    margin-top: 0;
 }
 
 .line > .avatar-ring .line-avatar,

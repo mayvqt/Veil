@@ -343,6 +343,19 @@ function profilePanelHTML() {
     const ringAlpha3 = String(hexColorAlpha(currentAvatarRingColor3));
     const ringAlpha4 = String(hexColorAlpha(currentAvatarRingColor4));
     const profilePreview = avatarMarkup(currentDisplayName || 'member', avatarURL, member);
+    const profileCardPreviewMember = {
+        ...member,
+        display_name: currentDisplayName || 'member',
+        role: myRole || member.role || 'member',
+        status_text: currentStatusText || '',
+        chat_color: currentUserChatColor || member.chat_color || '',
+        profile_about: currentProfileAbout || '',
+        profile_accent: currentProfileAccent || currentUserChatColor || member.chat_color || '',
+        profile_banner_url: currentProfileBannerURL || '',
+        profile_card_bg_url: currentProfileCardBgURL || '',
+        profile_banner_opacity: currentProfileBannerOpacity,
+        profile_card_bg_opacity: currentProfileCardBgOpacity,
+    };
     return `
     <section class="main utility">
       ${viewTopbarHTML('Profile', 'Identity, media, and alerts', `<span class="muted">${esc(currentDisplayName || 'member')}</span>`)}
@@ -368,6 +381,74 @@ function profilePanelHTML() {
             <button id="profileStatusTextSave" class="secondary">Save Status</button>
             <button id="profileStatusTextClear" class="secondary">Clear</button>
           </div>
+          `)}
+          ${settingsSectionHTML('Profile Card', `
+          <div id="profileCardPreview" class="profile-card-preview">${profileCardHTML(profileCardPreviewMember)}</div>
+          <div class="theme-row file-row">
+            <label for="profile-about">Profile Note<span>Shown on avatar click</span></label>
+            <textarea id="profile-about" maxlength="240" rows="3" placeholder="A short note for your profile card">${esc(currentProfileAbout || '')}</textarea>
+          </div>
+          <div class="theme-row">
+            <label for="profile-accent">Card Accent<span>Shown on your profile card</span></label>
+            <input id="profile-accent" type="color" value="${esc(currentProfileAccent || currentUserChatColor || userColor(currentDisplayName || ''))}"/>
+          </div>
+          <div class="theme-row file-row">
+            <label for="profile-banner-file">Card Banner<span>PNG, JPEG, WebP, or GIF</span></label>
+            <input id="profile-banner-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+          </div>
+          <div id="profileBannerHint" class="file-feedback muted">${currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.'}</div>
+          <div class="theme-row wide-control compact-control">
+            <label for="profile-banner-opacity">Banner Opacity<span>${esc(String(currentProfileBannerOpacity))}%</span></label>
+            <input id="profile-banner-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileBannerOpacity))}"/>
+          </div>
+          <div id="bannerCropper" class="avatar-cropper banner-cropper" style="display:none;">
+            <div class="avatar-cropper-preview-wrap banner-cropper-preview-wrap">
+              <canvas id="bannerCropCanvas" width="320" height="92" aria-label="Card banner crop preview"></canvas>
+            </div>
+            <div class="avatar-cropper-controls">
+              <div class="theme-row wide-control">
+                <label for="bannerCropZoom">Zoom<span id="bannerCropZoomLabel">100%</span></label>
+                <input id="bannerCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+              </div>
+              <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
+            </div>
+            <div class="theme-actions settings-footer">
+              <button id="bannerCropSave">Save Cropped Banner</button>
+              <button id="bannerCropCancel" class="secondary">Cancel</button>
+            </div>
+          </div>
+          <div class="theme-row file-row">
+            <label for="profile-card-bg-file">Card Background<span>PNG, JPEG, WebP, or GIF</span></label>
+            <input id="profile-card-bg-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+          </div>
+          <div id="profileCardBgHint" class="file-feedback muted">${currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.'}</div>
+          <div class="theme-row wide-control compact-control">
+            <label for="profile-card-bg-opacity">Background Opacity<span>${esc(String(currentProfileCardBgOpacity))}%</span></label>
+            <input id="profile-card-bg-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileCardBgOpacity))}"/>
+          </div>
+          <div id="cardBgCropper" class="avatar-cropper card-bg-cropper" style="display:none;">
+            <div class="avatar-cropper-preview-wrap card-bg-cropper-preview-wrap">
+              <canvas id="cardBgCropCanvas" width="320" height="220" aria-label="Card background crop preview"></canvas>
+            </div>
+            <div class="avatar-cropper-controls">
+              <div class="theme-row wide-control">
+                <label for="cardBgCropZoom">Zoom<span id="cardBgCropZoomLabel">100%</span></label>
+                <input id="cardBgCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+              </div>
+              <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
+            </div>
+            <div class="theme-actions settings-footer">
+              <button id="cardBgCropSave">Save Cropped Background</button>
+              <button id="cardBgCropCancel" class="secondary">Cancel</button>
+            </div>
+          </div>
+          <div class="theme-actions settings-footer">
+            <button id="profileCardSave" class="secondary">Save Card</button>
+            <button id="profileBannerClear" class="secondary">Clear Banner</button>
+            <button id="profileCardBgClear" class="secondary">Clear Background</button>
+          </div>
+          `)}
+          ${settingsSectionHTML('Chat Appearance', `
           <div class="theme-row">
             <label for="profile-chat-color">Name Color<span>Shown in chat</span></label>
             <input id="profile-chat-color" type="color" value="${esc(currentUserChatColor || userColor(currentDisplayName || ''))}"/>
@@ -397,10 +478,12 @@ function profilePanelHTML() {
           </div>
           `)}
           ${settingsSectionHTML('Avatar Ring', `
+          <div class="profile-subhead"><strong>Ring Controls</strong><span>Glow around your profile picture in chat and profile cards.</span></div>
           <div class="settings-list">
             ${switchControlHTML('profileAvatarRingEnabled', 'Use avatar ring', ringEnabled)}
           </div>
           ${settingsDetailsHTML('Ring style', `
+            <div class="profile-subhead compact"><strong>Primary Glow</strong><span>Main ring colors and opacity.</span></div>
             <div class="ring-settings">
               <div class="theme-row">
                 <label for="profile-avatar-ring-color">Primary<span>Color</span></label>
@@ -418,6 +501,7 @@ function profilePanelHTML() {
                 <label for="profile-avatar-ring-alpha2">Secondary Opacity<span>${esc(ringAlpha2)}%</span></label>
                 <input id="profile-avatar-ring-alpha2" type="range" min="0" max="100" step="1" value="${esc(ringAlpha2)}"/>
               </div>
+              <div class="profile-subhead compact ring-subhead"><strong>Rainbow Colors</strong><span>Used when the animation is set to Rainbow.</span></div>
               <div class="theme-row">
                 <label for="profile-avatar-ring-color3">Rainbow 3<span>Color</span></label>
                 <input id="profile-avatar-ring-color3" type="color" value="${esc(hexColorBase(currentAvatarRingColor3 || '#57db84', '#57db84'))}"/>
@@ -434,6 +518,7 @@ function profilePanelHTML() {
                 <label for="profile-avatar-ring-alpha4">Rainbow 4 Opacity<span>${esc(ringAlpha4)}%</span></label>
                 <input id="profile-avatar-ring-alpha4" type="range" min="0" max="100" step="1" value="${esc(ringAlpha4)}"/>
               </div>
+              <div class="profile-subhead compact ring-subhead"><strong>Animation</strong><span>Choose how the ring moves.</span></div>
               <div class="theme-row wide-control">
                 <label for="profile-avatar-ring-mode">Animation<span>Mode</span></label>
                 <select id="profile-avatar-ring-mode">

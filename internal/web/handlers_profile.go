@@ -214,3 +214,116 @@ func (s *Server) updateProfileAvatarRing(w http.ResponseWriter, r *http.Request)
 	}
 	writeJSON(w, 200, map[string]any{"ok": true, "avatar_ring_color": color, "avatar_ring_color2": color2, "avatar_ring_color3": color3, "avatar_ring_color4": color4, "avatar_ring_mode": mode})
 }
+
+func (s *Server) updateProfileCard(w http.ResponseWriter, r *http.Request) {
+	u, ok := s.requireAPIUser(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		About         string  `json:"profile_about"`
+		Accent        string  `json:"profile_accent"`
+		BannerURL     *string `json:"profile_banner_url"`
+		CardBgURL     *string `json:"profile_card_bg_url"`
+		BannerOpacity *int    `json:"profile_banner_opacity"`
+		CardBgOpacity *int    `json:"profile_card_bg_opacity"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
+		return
+	}
+	about := cleanTextInput(req.About, maxProfileAboutLen)
+	accent := strings.ToLower(cleanInput(req.Accent, 7))
+	if accent != "" && !chatColorHexPattern.MatchString(accent) {
+		writeJSON(w, 400, map[string]string{"error": "profile_accent must be empty or a hex color like #aabbcc"})
+		return
+	}
+	previousBannerURL, previousCardBgURL, previousBannerOpacity, previousCardBgOpacity, _ := s.Store.GetUserProfileMedia(u.ID)
+	bannerOpacity := boundedPercent(req.BannerOpacity, previousBannerOpacity)
+	cardBgOpacity := boundedPercent(req.CardBgOpacity, previousCardBgOpacity)
+	bannerURL, bannerErrCode, bannerErr := s.profileCardMediaURL(u.ID, req.BannerURL, previousBannerURL, "profile_banner", "banner")
+	if bannerErr != "" {
+		writeJSON(w, bannerErrCode, map[string]string{"error": bannerErr})
+		return
+	}
+	cardBgURL, bgErrCode, bgErr := s.profileCardMediaURL(u.ID, req.CardBgURL, previousCardBgURL, "profile_bg", "card background")
+	if bgErr != "" {
+		writeJSON(w, bgErrCode, map[string]string{"error": bgErr})
+		return
+	}
+	if err := s.Store.SetUserProfileCard(u.ID, about, accent, bannerURL, cardBgURL, bannerOpacity, cardBgOpacity); err != nil {
+		writeJSON(w, 500, map[string]string{"error": "failed to update profile card"})
+		return
+	}
+	if previousBannerURL != bannerURL || previousCardBgURL != cardBgURL {
+		if previousBannerURL != bannerURL {
+			removeAvatarFileIfLocal(s.AvatarDir, previousBannerURL)
+		}
+		if previousCardBgURL != cardBgURL {
+			removeAvatarFileIfLocal(s.AvatarDir, previousCardBgURL)
+		}
+		s.pruneUnusedAvatarFiles()
+	}
+	writeJSON(w, 200, map[string]any{"ok": true, "profile_about": about, "profile_accent": accent, "profile_banner_url": bannerURL, "profile_card_bg_url": cardBgURL, "profile_banner_opacity": bannerOpacity, "profile_card_bg_opacity": cardBgOpacity})
+}
+
+func boundedPercent(in *int, fallback int) int {
+	if fallback < 0 || fallback > 100 {
+		fallback = 100
+	}
+	if in == nil {
+		return fallback
+	}
+	if *in < 0 {
+		return 0
+	}
+	if *in > 100 {
+		return 100
+	}
+	return *in
+}
+
+func (s *Server) profileCardMediaURL(userID string, incoming *string, previousURL, namePrefix, label string) (string, int, string) {
+	if incoming == nil {
+		return previousURL, 0, ""
+	}
+	raw := strings.TrimSpace(cleanInput(*incoming, maxAvatarURLLen))
+	if raw == "" || raw == previousURL {
+		return raw, 0, ""
+	}
+	matches := avatarDataURLPattern.FindStringSubmatch(raw)
+	if len(matches) != 4 {
+		return "", 400, fmt.Sprintf("%s must be a base64 data URL for png/jpeg/webp/gif", label)
+	}
+	mime := matches[1]
+	decoded, err := base64.StdEncoding.DecodeString(matches[3])
+	if err != nil {
+		return "", 400, fmt.Sprintf("%s data is not valid base64", label)
+	}
+	if len(decoded) == 0 || len(decoded) > 4*1024*1024 {
+		return "", 400, fmt.Sprintf("%s image must be between 1 byte and 4MB", label)
+	}
+	ext := ".png"
+	switch mime {
+	case "image/jpeg":
+		ext = ".jpg"
+	case "image/webp":
+		ext = ".webp"
+	case "image/gif":
+		ext = ".gif"
+	}
+	if err := os.MkdirAll(s.AvatarDir, 0o755); err != nil {
+		return "", 500, "failed to prepare profile media storage"
+	}
+	baseName := fmt.Sprintf("%s_%s_%d%s", namePrefix, strings.ReplaceAll(userID, "-", ""), time.Now().UnixNano(), ext)
+	fullPath := filepath.Join(s.AvatarDir, baseName)
+	if err := os.WriteFile(fullPath, decoded, 0o644); err != nil {
+		return "", 500, fmt.Sprintf("failed to save %s", label)
+	}
+	base := strings.TrimSpace(s.AvatarURLBase)
+	if base == "" {
+		base = "/avatars"
+	}
+	base = "/" + strings.Trim(base, "/")
+	return fmt.Sprintf("%s/%s?v=%d", base, baseName, time.Now().Unix()), 0, ""
+}
