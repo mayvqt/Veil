@@ -278,6 +278,50 @@ func TestProfileNameEndpointPersistsName(t *testing.T) {
 	}
 }
 
+func TestProfileStatusEndpointAllows120Characters(t *testing.T) {
+	srv, h := testServer(t)
+	addUser(t, srv.Store, "u1", "alice", "member")
+	token := sessionToken(srv.Secret, "u1")
+
+	status120 := strings.Repeat("a", 120)
+	rr := doReq(t, h, http.MethodPost, "/api/profile/status", token, map[string]any{"status_text": status120})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile status status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var got string
+	if err := srv.Store.DB.QueryRow("SELECT status_text FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != status120 {
+		t.Fatalf("expected 120-character status to persist, got length %d", len(got))
+	}
+
+	status121 := strings.Repeat("b", 121)
+	rr = doReq(t, h, http.MethodPost, "/api/profile/status", token, map[string]any{"status_text": status121})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile status trim status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := srv.Store.DB.QueryRow("SELECT status_text FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != strings.Repeat("b", 120) {
+		t.Fatalf("expected status to trim to 120 characters, got length %d", len(got))
+	}
+
+	status120Unicode := strings.Repeat("å", 120)
+	rr = doReq(t, h, http.MethodPost, "/api/profile/status", token, map[string]any{"status_text": status120Unicode})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("unicode profile status status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	if err := srv.Store.DB.QueryRow("SELECT status_text FROM users WHERE id='u1'").Scan(&got); err != nil {
+		t.Fatal(err)
+	}
+	if got != status120Unicode {
+		t.Fatalf("expected 120-character unicode status to persist, got %d characters", len([]rune(got)))
+	}
+}
+
 func TestProfileAvatarRingEndpointPersistsRing(t *testing.T) {
 	srv, h := testServer(t)
 	addUser(t, srv.Store, "u1", "alice", "member")

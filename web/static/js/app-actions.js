@@ -42,6 +42,7 @@ function bindChatActions() {
         activeMemberPopover = memberPopover;
         memberToggle.addEventListener('click', () => {
             memberPopover.classList.toggle('open');
+            if (memberPopover.classList.contains('open')) scheduleMemberStatusOverflowUpdate();
         });
         if (!memberOutsideHandlerBound) {
             memberOutsideHandlerBound = true;

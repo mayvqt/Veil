@@ -52,7 +52,7 @@ func (s *Server) updateProfileStatus(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
 		return
 	}
-	statusText := cleanInput(req.StatusText, maxRoomStatusLen)
+	statusText := cleanTextInput(req.StatusText, maxProfileStatusLen)
 	if err := s.Store.SetUserStatusText(u.ID, statusText); err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to update status"})
 		return

@@ -275,6 +275,16 @@ function refreshProfilePreviewAvatar() {
     if (nextAvatar) avatar.replaceWith(nextAvatar);
 }
 
+let memberStatusOverflowFrame = 0;
+
+function scheduleMemberStatusOverflowUpdate() {
+    if (memberStatusOverflowFrame) return;
+    memberStatusOverflowFrame = requestAnimationFrame(() => {
+        memberStatusOverflowFrame = 0;
+        updateMemberStatusOverflow();
+    });
+}
+
 function renderMembersList() {
     const countEl = document.getElementById('memberCount');
     const toggleEl = document.getElementById('memberToggle');
@@ -310,9 +320,29 @@ function renderMembersList() {
         const status = String(m.status_text || '').trim();
         const globalRoleBadge = roleBadgeHTML(m.role);
         const roomRoleBadge = roleBadgeHTML(roomRole);
-        return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online ? 'on' : 'off'}" aria-hidden="true"></span>${avatar}<span class="member-copy"><span class="member-name">${esc(name)}${self ? ' (you)' : ''}${globalRoleBadge}${roomRoleBadge}</span>${status ? `<span class="member-status">${esc(status)}</span>` : ''}</span></div>`;
+        return `<div class="member-row${showAvatars ? '' : ' no-avatar'}"><span class="member-dot ${online ? 'on' : 'off'}" aria-hidden="true"></span>${avatar}<span class="member-copy"><span class="member-name">${esc(name)}${self ? ' (you)' : ''}${globalRoleBadge}${roomRoleBadge}</span>${status ? `<span class="member-status"><span class="member-status-text">${esc(status)}</span></span>` : ''}</span></div>`;
     }).join('');
+    scheduleMemberStatusOverflowUpdate();
 }
+
+function updateMemberStatusOverflow() {
+    document.querySelectorAll('.member-status').forEach((statusEl) => {
+        const textEl = statusEl.querySelector('.member-status-text');
+        if (!textEl) return;
+        statusEl.classList.remove('is-overflowing');
+        statusEl.style.removeProperty('--member-status-scroll-distance');
+        statusEl.style.removeProperty('--member-status-scroll-duration');
+        const distance = Math.ceil(textEl.scrollWidth - statusEl.clientWidth);
+        if (distance <= 1) return;
+        statusEl.classList.add('is-overflowing');
+        statusEl.style.setProperty('--member-status-scroll-distance', `${distance}px`);
+        statusEl.style.setProperty('--member-status-scroll-duration', `${Math.min(14, Math.max(5, distance / 24))}s`);
+    });
+}
+
+window.addEventListener('resize', () => {
+    scheduleMemberStatusOverflowUpdate();
+});
 
 async function renderAdminUsers() {
     const box = document.getElementById('adminUsers');

@@ -47,6 +47,13 @@ func TestCleanInputTrimAndMaxLen(t *testing.T) {
 	}
 }
 
+func TestCleanTextInputTrimAndMaxRunes(t *testing.T) {
+	got := cleanTextInput("  åßcd  ", 3)
+	if got != "åßc" {
+		t.Fatalf("expected åßc, got %q", got)
+	}
+}
+
 func TestSecurityHeadersMiddleware(t *testing.T) {
 	h := securityHeaders(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

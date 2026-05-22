@@ -165,6 +165,37 @@
     line-height: 1.2;
 }
 
+.member-status {
+    display: block;
+}
+
+.member-status-text {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: top;
+}
+
+.member-row:hover .member-status.is-overflowing .member-status-text,
+.member-row:focus-within .member-status.is-overflowing .member-status-text {
+    max-width: none;
+    animation: member-status-scroll var(--member-status-scroll-duration, 8s) ease-in-out infinite alternate;
+}
+
+@keyframes member-status-scroll {
+    to {
+        transform: translateX(calc(-1 * var(--member-status-scroll-distance, 0px)));
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .member-row:hover .member-status.is-overflowing .member-status-text,
+    .member-row:focus-within .member-status.is-overflowing .member-status-text {
+        animation: none;
+    }
+}
+
 .channel-rename,
 .channel-delete,
 .channel-pin,

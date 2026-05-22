@@ -40,6 +40,18 @@ func cleanInput(value string, maxLen int) string {
 	return value
 }
 
+func cleanTextInput(value string, maxLen int) string {
+	value = strings.TrimSpace(value)
+	count := 0
+	for i := range value {
+		if count == maxLen {
+			return value[:i]
+		}
+		count++
+	}
+	return value
+}
+
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
