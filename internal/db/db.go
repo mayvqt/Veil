@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS messages (
   reply_to_id TEXT,
   edited_at TEXT,
   deleted_at TEXT,
+  deleted_by_id TEXT NOT NULL DEFAULT '',
+  deleted_by_name TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL,
   FOREIGN KEY(sender_id) REFERENCES users(id)
 );
@@ -298,6 +300,8 @@ func ensureMessagesColumns(db *sql.DB) error {
 		{name: "reply_to_id", columnDef: "TEXT"},
 		{name: "edited_at", columnDef: "TEXT"},
 		{name: "deleted_at", columnDef: "TEXT"},
+		{name: "deleted_by_id", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "deleted_by_name", columnDef: "TEXT NOT NULL DEFAULT ''"},
 	})
 }
 

@@ -956,7 +956,9 @@ function drawMessage(record, text) {
     const headerHTML = messageHeaderHTML(name, ts, c, senderRoles);
     const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
     if (deleted) {
-        return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name, '[message deleted]', ts, c, senderRoles)}${statusHTML}${reactionHTML}${actions}</div>`;
+        const deletedBy = String(record.deleted_by_name || '').trim() || String(record.display_name || '').trim();
+        const deletedLabel = deletedBy ? `[message deleted by ${deletedBy}]` : '[message deleted]';
+        return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name, deletedLabel, ts, c, senderRoles)}${statusHTML}${reactionHTML}${actions}</div>`;
     }
     if (payload.type === 'file') {
         const src = `data:${payload.mime};base64,${payload.data}`;

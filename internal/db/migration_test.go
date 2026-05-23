@@ -46,7 +46,7 @@ CREATE TABLE invites (id TEXT PRIMARY KEY, token_hash TEXT NOT NULL, created_by 
 		}
 		cols[name] = true
 	}
-	if !cols["reply_to_id"] || !cols["edited_at"] || !cols["deleted_at"] {
+	if !cols["reply_to_id"] || !cols["edited_at"] || !cols["deleted_at"] || !cols["deleted_by_id"] || !cols["deleted_by_name"] {
 		t.Fatalf("expected migrated message columns, got %#v", cols)
 	}
 	var statusText string

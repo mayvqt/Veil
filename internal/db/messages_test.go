@@ -117,16 +117,42 @@ func TestEditDeleteMessageOwnershipAndState(t *testing.T) {
 		t.Fatalf("expected sql.ErrNoRows for non-owner edit, got %v", err)
 	}
 
-	deleted, err := s.DeleteMessage(DefaultRoomID, msg.ID, "u1")
+	deleted, err := s.DeleteMessage(DefaultRoomID, msg.ID, "u1", "alice", false)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if deleted.DeletedAt == "" {
 		t.Fatalf("expected deleted_at to be set, got %#v", deleted)
 	}
+	if deleted.DeletedByID != "u1" || deleted.DeletedByName != "alice" {
+		t.Fatalf("expected deleted_by metadata to be set, got %#v", deleted)
+	}
 
 	if _, err := s.EditMessage(DefaultRoomID, msg.ID, "u1", "x", "y"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("expected sql.ErrNoRows editing deleted message, got %v", err)
+	}
+}
+
+func TestDeleteMessageAllowsPrivilegedActor(t *testing.T) {
+	s := makeStore(t)
+	insertUser(t, s, "u1", "alice", "member")
+	insertUser(t, s, "admin", "root", "admin")
+
+	msg, err := s.SaveMessage(DefaultRoomID, "u1", "alice", "ct1", "n1", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := s.DeleteMessage(DefaultRoomID, msg.ID, "admin", "root", false); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("expected sql.ErrNoRows for non-owner delete without privilege, got %v", err)
+	}
+
+	deleted, err := s.DeleteMessage(DefaultRoomID, msg.ID, "admin", "root", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted.DeletedByID != "admin" || deleted.DeletedByName != "root" {
+		t.Fatalf("expected privileged actor metadata to be set, got %#v", deleted)
 	}
 }
 

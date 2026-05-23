@@ -56,6 +56,8 @@ type Message struct {
 	ReplyToID        string `json:"reply_to_id"`
 	EditedAt         string `json:"edited_at"`
 	DeletedAt        string `json:"deleted_at"`
+	DeletedByID      string `json:"deleted_by_id"`
+	DeletedByName    string `json:"deleted_by_name"`
 	CreatedAt        string `json:"created_at"`
 }
 

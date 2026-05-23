@@ -86,8 +86,10 @@ func TestHealthEndpointIncludesVersion(t *testing.T) {
 
 func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	srv, h := testServer(t)
+	addUser(t, srv.Store, "root", "root", "root_admin")
 	addUser(t, srv.Store, "u1", "alice", "member")
 	addUser(t, srv.Store, "u2", "bob", "member")
+	rootTok := sessionToken(srv.Secret, "root")
 	tokU1 := sessionToken(srv.Secret, "u1")
 	tokU2 := sessionToken(srv.Secret, "u2")
 
@@ -145,6 +147,22 @@ func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	rr = doReq(t, h, http.MethodPost, "/api/messages/delete", tokU1, map[string]any{"message_id": m1.ID})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("delete status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	adminDeleted, err := srv.Store.SaveMessage(db.DefaultRoomID, "u2", "bob", "ct3", "n3", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr = doReq(t, h, http.MethodPost, "/api/messages/delete", rootTok, map[string]any{"message_id": adminDeleted.ID})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("admin delete status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	got, err := srv.Store.ListRecentMessages(db.DefaultRoomID, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0]["deleted_by_id"] != "root" || got[0]["deleted_by_name"] != "root" {
+		t.Fatalf("expected admin deleter metadata on listed message, got %#v", got)
 	}
 }
 

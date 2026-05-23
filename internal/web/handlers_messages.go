@@ -172,7 +172,7 @@ func (s *Server) deleteMessage(w http.ResponseWriter, r *http.Request) {
 	if !s.requireRoomMembership(w, u.ID, roomID) {
 		return
 	}
-	msg, err := s.Store.DeleteMessage(roomID, req.MessageID, u.ID)
+	msg, err := s.Store.DeleteMessage(roomID, req.MessageID, u.ID, u.DisplayName, isAdminRole(u.Role))
 	if err != nil {
 		writeJSON(w, 404, map[string]string{"error": "message not found"})
 		return
