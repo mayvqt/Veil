@@ -441,7 +441,7 @@ function bindChatActions() {
             if (profileBtn) {
                 const userID = profileBtn.getAttribute('data-profile-user') || '';
                 const member = roomMembers.find((m) => String(m.id || '') === String(userID));
-                if (member) openPublicProfileCard(member, profileBtn);
+                if (member) togglePublicProfileCard(member, profileBtn);
                 return;
             }
             const replyBtn = target.closest('button[data-reply-msg]');
@@ -1327,6 +1327,7 @@ function bindProfileActions() {
     const readAvatarDataURL = (file) => readProfileImageDataURL(file, 4 * 1024 * 1024);
     const readBannerDataURL = (file) => readProfileImageDataURL(file, 4 * 1024 * 1024);
     const readBackgroundDataURL = (file) => readProfileImageDataURL(file, 2 * 1024 * 1024);
+    const isAnimatedGifFile = (file) => normalizeMime(file && file.type) === 'image/gif';
     const setBannerHint = (text, tone = '') => {
         if (!profileBannerHint) return;
         profileBannerHint.textContent = text;
@@ -1859,7 +1860,7 @@ function bindProfileActions() {
         });
         if (!r.ok) {
             setStatus(status, r.data.error || 'Failed to save profile card.', 'err');
-            return;
+            return false;
         }
         currentProfileAbout = String((r.data && r.data.profile_about) || about);
         currentProfileAccent = normalizeHexColor((r.data && r.data.profile_accent) || accent);
@@ -1878,6 +1879,21 @@ function bindProfileActions() {
         refreshProfileCardPreview();
         await refreshMembers();
         setStatus(status, 'Profile card saved for everyone.', 'ok');
+        return true;
+    };
+    const saveAnimatedProfileCardGIF = async ({file, name, readDataURL, setHint, resetCropper, fileInput, previewKey, save}) => {
+        try {
+            resetCropper();
+            const dataURL = await readDataURL(file);
+            refreshProfileCardPreview({[previewKey]: dataURL});
+            setHint(`Uploading animated GIF ${file.name || name}...`);
+            const saved = await save(dataURL);
+            if (saved) setHint(`Saved animated GIF ${file.name || name}${file.size ? ` (${formatBytes(file.size)})` : ''}.`, 'ok');
+        } catch (e) {
+            if (fileInput) fileInput.value = '';
+            setHint(e.message || `Failed to process ${name} GIF.`, 'err');
+            setStatus(status, e.message || `Failed to process ${name} GIF.`, 'err');
+        }
     };
 
     if (displayNameSaveBtn) {
@@ -1930,6 +1946,19 @@ function bindProfileActions() {
             const file = profileBannerFileInput.files && profileBannerFileInput.files[0];
             if (!file) {
                 setBannerHint(currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.');
+                return;
+            }
+            if (isAnimatedGifFile(file)) {
+                await saveAnimatedProfileCardGIF({
+                    file,
+                    name: 'banner',
+                    readDataURL: readBannerDataURL,
+                    setHint: setBannerHint,
+                    resetCropper: resetBannerCropper,
+                    fileInput: profileBannerFileInput,
+                    previewKey: 'profile_banner_url',
+                    save: (dataURL) => saveProfileCard(dataURL, undefined),
+                });
                 return;
             }
             setBannerHint(`Selected ${file.name || 'banner'} (${formatBytes(file.size)}). Adjust crop and save.`);
@@ -2024,6 +2053,19 @@ function bindProfileActions() {
             const file = profileCardBgFileInput.files && profileCardBgFileInput.files[0];
             if (!file) {
                 setCardBgHint(currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.');
+                return;
+            }
+            if (isAnimatedGifFile(file)) {
+                await saveAnimatedProfileCardGIF({
+                    file,
+                    name: 'card background',
+                    readDataURL: readBackgroundDataURL,
+                    setHint: setCardBgHint,
+                    resetCropper: resetCardBgCropper,
+                    fileInput: profileCardBgFileInput,
+                    previewKey: 'profile_card_bg_url',
+                    save: (dataURL) => saveProfileCard(undefined, dataURL),
+                });
                 return;
             }
             setCardBgHint(`Selected ${file.name || 'background'} (${formatBytes(file.size)}). Adjust crop and save.`);

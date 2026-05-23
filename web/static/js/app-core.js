@@ -20,6 +20,7 @@ let activeMemberToggle = null;
 let activePinPopover = null;
 let activePinToggle = null;
 let activePublicProfileCard = null;
+let activePublicProfileAnchor = null;
 let activeMentionPicker = null;
 let activeMentionInput = null;
 let activeMentionClose = null;
@@ -881,11 +882,23 @@ function openPublicProfileCard(member, anchorEl) {
     pop.style.left = `${Math.max(10, left)}px`;
     pop.style.top = `${Math.max(10, top)}px`;
     activePublicProfileCard = pop;
+    activePublicProfileAnchor = anchorEl;
+    activePublicProfileAnchor.setAttribute('aria-expanded', 'true');
 }
 
 function closePublicProfileCard() {
     if (activePublicProfileCard) activePublicProfileCard.remove();
+    if (activePublicProfileAnchor) activePublicProfileAnchor.setAttribute('aria-expanded', 'false');
     activePublicProfileCard = null;
+    activePublicProfileAnchor = null;
+}
+
+function togglePublicProfileCard(member, anchorEl) {
+    if (activePublicProfileCard && activePublicProfileAnchor === anchorEl) {
+        closePublicProfileCard();
+        return;
+    }
+    openPublicProfileCard(member, anchorEl);
 }
 
 function isAvatarImageURL(value) {
@@ -952,7 +965,7 @@ function drawMessage(record, text) {
     const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}" title="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}" aria-label="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}">${ICON_PIN}</button>` : '';
     const actions = `<span class="line-actions"><button class="tiny-action" data-react-msg="${esc(messageID)}" title="Add reaction" aria-label="Add reaction">${ICON_REACT}</button><button class="tiny-action" data-reply-msg="${esc(messageID)}" title="Reply" aria-label="Reply">${ICON_REPLY}</button>${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}" title="Edit message" aria-label="Edit message">${ICON_EDIT}</button>` : ''}${pinBtn}${canDelete ? `<button class="tiny-action danger" data-delete-msg="${esc(messageID)}" title="Delete message" aria-label="Delete message">${ICON_DELETE}</button>` : ''}</span>`;
     const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
-    const avatarHTML = showAvatars ? `<button class="line-avatar-button" type="button" data-profile-user="${esc(senderID)}" aria-label="Open ${esc(name || 'member')} profile">${avatarMarkup(name, record.avatar_url || '', record)}</button>` : '';
+    const avatarHTML = showAvatars ? `<button class="line-avatar-button" type="button" data-profile-user="${esc(senderID)}" aria-label="Open ${esc(name || 'member')} profile" aria-expanded="false">${avatarMarkup(name, record.avatar_url || '', record)}</button>` : '';
     const headerHTML = messageHeaderHTML(name, ts, c, senderRoles);
     const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
     if (deleted) {
