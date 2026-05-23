@@ -715,10 +715,13 @@ func TestProfileCardEndpointPersistsMediaAndOpacity(t *testing.T) {
 	rr := doReq(t, h, http.MethodPost, "/api/profile/card", token, map[string]any{
 		"profile_about":           " hello card ",
 		"profile_accent":          "#aabbcc",
+		"profile_status_color":    "#33ccff",
+		"profile_note_color":      "#ffee88",
 		"profile_banner_url":      smallPNG,
 		"profile_card_bg_url":     smallPNG,
 		"profile_banner_opacity":  -10,
 		"profile_card_bg_opacity": 140,
+		"profile_disable_banner":  true,
 	})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("profile card save status=%d body=%s", rr.Code, rr.Body.String())
@@ -732,10 +735,15 @@ func TestProfileCardEndpointPersistsMediaAndOpacity(t *testing.T) {
 	if body["profile_banner_opacity"] != float64(0) || body["profile_card_bg_opacity"] != float64(100) {
 		t.Fatalf("expected clamped opacity values, got %#v", body)
 	}
+	if body["profile_disable_banner"] != true {
+		t.Fatalf("expected disable banner true, got %#v", body["profile_disable_banner"])
+	}
 
 	rr = doReq(t, h, http.MethodPost, "/api/profile/card", token, map[string]any{
 		"profile_about":           "note only",
 		"profile_accent":          "#112233",
+		"profile_status_color":    "#445566",
+		"profile_note_color":      "#778899",
 		"profile_banner_opacity":  45,
 		"profile_card_bg_opacity": 55,
 	})
@@ -760,7 +768,7 @@ func TestProfileCardEndpointPersistsMediaAndOpacity(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected member object, got %#v", members[0])
 	}
-	if member["profile_about"] != "note only" || member["profile_banner_opacity"] != float64(45) || member["profile_card_bg_opacity"] != float64(55) {
+	if member["profile_about"] != "note only" || member["profile_status_color"] != "#445566" || member["profile_note_color"] != "#778899" || member["profile_banner_opacity"] != float64(45) || member["profile_card_bg_opacity"] != float64(55) || member["profile_disable_banner"] != true {
 		t.Fatalf("expected profile card fields in members response, got %#v", member)
 	}
 
@@ -770,6 +778,12 @@ func TestProfileCardEndpointPersistsMediaAndOpacity(t *testing.T) {
 	})
 	if rr.Code != http.StatusBadRequest {
 		t.Fatalf("expected invalid accent 400, got %d body=%s", rr.Code, rr.Body.String())
+	}
+	rr = doReq(t, h, http.MethodPost, "/api/profile/card", token, map[string]any{
+		"profile_note_color": "not-a-color",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid note color 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 

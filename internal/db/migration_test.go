@@ -123,6 +123,20 @@ INSERT INTO users (id, display_name, role, active, created_at) VALUES ('u1','ali
 	if ringColor != "" || ringColor2 != "" || ringColor3 != "" || ringColor4 != "" || ringMode != "none" {
 		t.Fatalf("expected migrated avatar ring defaults empty/empty/empty/empty/none, got %q/%q/%q/%q/%q", ringColor, ringColor2, ringColor3, ringColor4, ringMode)
 	}
+	var statusColor, noteColor string
+	if err := dbRaw.QueryRow("SELECT COALESCE(profile_status_color,''), COALESCE(profile_note_color,'') FROM users WHERE id='u1'").Scan(&statusColor, &noteColor); err != nil {
+		t.Fatal(err)
+	}
+	if statusColor != "" || noteColor != "" {
+		t.Fatalf("expected migrated profile text color defaults empty/empty, got %q/%q", statusColor, noteColor)
+	}
+	var disableBanner int
+	if err := dbRaw.QueryRow("SELECT COALESCE(profile_disable_banner,0) FROM users WHERE id='u1'").Scan(&disableBanner); err != nil {
+		t.Fatal(err)
+	}
+	if disableBanner != 0 {
+		t.Fatalf("expected migrated profile disable banner default 0, got %d", disableBanner)
+	}
 }
 
 func TestMigrateBackfillsActiveUsersIntoExistingRooms(t *testing.T) {
