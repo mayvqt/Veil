@@ -86,8 +86,10 @@ func TestHealthEndpointIncludesVersion(t *testing.T) {
 
 func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	srv, h := testServer(t)
+	addUser(t, srv.Store, "root", "root", "root_admin")
 	addUser(t, srv.Store, "u1", "alice", "member")
 	addUser(t, srv.Store, "u2", "bob", "member")
+	rootTok := sessionToken(srv.Secret, "root")
 	tokU1 := sessionToken(srv.Secret, "u1")
 	tokU2 := sessionToken(srv.Secret, "u2")
 
@@ -145,6 +147,22 @@ func TestMessagesEndpoints_ListReadEditDelete(t *testing.T) {
 	rr = doReq(t, h, http.MethodPost, "/api/messages/delete", tokU1, map[string]any{"message_id": m1.ID})
 	if rr.Code != http.StatusOK {
 		t.Fatalf("delete status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	adminDeleted, err := srv.Store.SaveMessage(db.DefaultRoomID, "u2", "bob", "ct3", "n3", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rr = doReq(t, h, http.MethodPost, "/api/messages/delete", rootTok, map[string]any{"message_id": adminDeleted.ID})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("admin delete status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	got, err := srv.Store.ListRecentMessages(db.DefaultRoomID, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0]["deleted_by_id"] != "root" || got[0]["deleted_by_name"] != "root" {
+		t.Fatalf("expected admin deleter metadata on listed message, got %#v", got)
 	}
 }
 
@@ -684,6 +702,74 @@ func TestProfileAvatarEndpointPersistsAvatar(t *testing.T) {
 	}
 	if len(entries) != 0 {
 		t.Fatalf("expected avatar files cleaned on clear, got %d", len(entries))
+	}
+}
+
+func TestProfileCardEndpointPersistsMediaAndOpacity(t *testing.T) {
+	srv, h := testServer(t)
+	srv.AvatarDir = t.TempDir()
+	addUser(t, srv.Store, "u1", "alice", "member")
+	token := sessionToken(srv.Secret, "u1")
+	smallPNG := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2jvKsAAAAASUVORK5CYII="
+
+	rr := doReq(t, h, http.MethodPost, "/api/profile/card", token, map[string]any{
+		"profile_about":           " hello card ",
+		"profile_accent":          "#aabbcc",
+		"profile_banner_url":      smallPNG,
+		"profile_card_bg_url":     smallPNG,
+		"profile_banner_opacity":  -10,
+		"profile_card_bg_opacity": 140,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile card save status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	body := decodeBody(t, rr)
+	bannerURL, _ := body["profile_banner_url"].(string)
+	cardBgURL, _ := body["profile_card_bg_url"].(string)
+	if !strings.HasPrefix(bannerURL, "/avatars/") || !strings.HasPrefix(cardBgURL, "/avatars/") {
+		t.Fatalf("expected stored media URLs, got banner=%q bg=%q", bannerURL, cardBgURL)
+	}
+	if body["profile_banner_opacity"] != float64(0) || body["profile_card_bg_opacity"] != float64(100) {
+		t.Fatalf("expected clamped opacity values, got %#v", body)
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/card", token, map[string]any{
+		"profile_about":           "note only",
+		"profile_accent":          "#112233",
+		"profile_banner_opacity":  45,
+		"profile_card_bg_opacity": 55,
+	})
+	if rr.Code != http.StatusOK {
+		t.Fatalf("profile card note-only save status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	body = decodeBody(t, rr)
+	if body["profile_banner_url"] != bannerURL || body["profile_card_bg_url"] != cardBgURL {
+		t.Fatalf("expected media URLs preserved, got %#v", body)
+	}
+
+	rr = doReq(t, h, http.MethodGet, "/api/members", token, nil)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("members status=%d body=%s", rr.Code, rr.Body.String())
+	}
+	membersBody := decodeBody(t, rr)
+	members, ok := membersBody["members"].([]any)
+	if !ok || len(members) != 1 {
+		t.Fatalf("expected one member, got %#v", membersBody["members"])
+	}
+	member, ok := members[0].(map[string]any)
+	if !ok {
+		t.Fatalf("expected member object, got %#v", members[0])
+	}
+	if member["profile_about"] != "note only" || member["profile_banner_opacity"] != float64(45) || member["profile_card_bg_opacity"] != float64(55) {
+		t.Fatalf("expected profile card fields in members response, got %#v", member)
+	}
+
+	rr = doReq(t, h, http.MethodPost, "/api/profile/card", token, map[string]any{
+		"profile_about":  "bad",
+		"profile_accent": "not-a-color",
+	})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("expected invalid accent 400, got %d body=%s", rr.Code, rr.Body.String())
 	}
 }
 

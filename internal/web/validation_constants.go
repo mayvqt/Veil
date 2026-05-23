@@ -4,6 +4,7 @@ const (
 	maxRoomNameLen      = 80
 	maxRoomStatusLen    = 48
 	maxProfileStatusLen = 120
+	maxProfileAboutLen  = 240
 	maxDisplayNameLen   = 48
 	maxCredentialIDLen  = 128
 	maxDeviceSecretLen  = 128

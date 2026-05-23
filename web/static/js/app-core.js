@@ -19,6 +19,7 @@ let activeMemberPopover = null;
 let activeMemberToggle = null;
 let activePinPopover = null;
 let activePinToggle = null;
+let activePublicProfileCard = null;
 let activeMentionPicker = null;
 let activeMentionInput = null;
 let activeMentionClose = null;
@@ -44,6 +45,12 @@ let currentAvatarRingColor2 = '';
 let currentAvatarRingColor3 = '';
 let currentAvatarRingColor4 = '';
 let currentAvatarRingMode = 'none';
+let currentProfileAbout = '';
+let currentProfileAccent = '';
+let currentProfileBannerURL = '';
+let currentProfileCardBgURL = '';
+let currentProfileBannerOpacity = 100;
+let currentProfileCardBgOpacity = 100;
 const knownDisplayNames = new Set();
 
 const PASTELS = ['#8bd8bd', '#ffd166', '#f4978e', '#90dbf4', '#c1d37f', '#ffb86b', '#b8f2e6', '#f7aef8'];
@@ -777,21 +784,45 @@ async function unwrapRoomKeyWithPassphrase(cfg, passphrase) {
     return bytesToHex(roomBytes);
 }
 
-function messageHeaderHTML(name, ts = '', color = '') {
-    const c = color || userColor(name);
-    return `<span class="line-header"><span class="line-user" data-user-name="${esc(name)}" style="color:${esc(c)}">${esc(name)}</span><span class="line-time">${esc(fmtTime(ts))}</span></span>`;
+function rolesForSender(record = {}) {
+    const senderID = String(record.sender_id || '').trim();
+    const roles = [];
+    const addRole = (value) => {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (!normalized) return;
+        if (normalized !== 'root_admin' && normalized !== 'admin' && normalized !== 'moderator') return;
+        if (!roles.includes(normalized)) roles.push(normalized);
+    };
+    if (senderID) {
+        const member = roomMembers.find((m) => String(m.id || '') === senderID);
+        addRole(member?.role);
+        addRole(member?.room_role);
+        if (roles.length) return roles;
+    }
+    addRole(record.role);
+    addRole(record.room_role);
+    return roles;
 }
 
-function roleBadgeHTML(role) {
+function messageHeaderHTML(name, ts = '', color = '', roles = []) {
+    const c = color || userColor(name);
+    const roleHTML = (Array.isArray(roles) ? roles : [])
+        .map((role) => roleBadgeHTML(role, 'line-role'))
+        .join('');
+    return `<span class="line-header"><span class="line-user" data-user-name="${esc(name)}" style="color:${esc(c)}">${esc(name)}</span>${roleHTML}<span class="line-time">${esc(fmtTime(ts))}</span></span>`;
+}
+
+function roleBadgeHTML(role, extraClass = '') {
     const normalized = String(role || '').trim().toLowerCase();
-    if (normalized === 'root_admin') return '<span class="role-badge role-badge-root">Root Admin</span>';
-    if (normalized === 'admin') return '<span class="role-badge role-badge-admin">Admin</span>';
-    if (normalized === 'moderator') return '<span class="role-badge role-badge-mod">Moderator</span>';
+    const classes = extraClass ? `role-badge ${extraClass}` : 'role-badge';
+    if (normalized === 'root_admin') return `<span class="${classes} role-badge-root">Root Admin</span>`;
+    if (normalized === 'admin') return `<span class="${classes} role-badge-admin">Admin</span>`;
+    if (normalized === 'moderator') return `<span class="${classes} role-badge-mod">Moderator</span>`;
     return '';
 }
 
-function drawLine(name, text, ts = '', color = '') {
-    return `${messageHeaderHTML(name, ts, color)}<span class="line-text">${renderRichText(text)}</span>`;
+function drawLine(name, text, ts = '', color = '', roles = []) {
+    return `${messageHeaderHTML(name, ts, color, roles)}<span class="line-text">${renderRichText(text)}</span>`;
 }
 
 function avatarMarkup(name, avatarURL = '', record = {}) {
@@ -804,6 +835,57 @@ function avatarMarkup(name, avatarURL = '', record = {}) {
     }
     const bg = userColor(clean || '?');
     return `<span class="${ring.className}"${ring.style}><span class="line-avatar" aria-hidden="true" style="background:${esc(bg)}">${esc(initial)}</span></span>`;
+}
+
+function profileCardHTML(member = {}) {
+    const name = String(member.display_name || 'member');
+    const role = String(member.room_role || member.role || 'member');
+    const accent = normalizeHexColor(member.profile_accent || '') || normalizeHexColor(member.chat_color || '') || userColor(name);
+    const status = String(member.status_text || '').trim();
+    const about = String(member.profile_about || '').trim();
+    const bannerURL = String(member.profile_banner_url || '').trim();
+    const cardBgURL = String(member.profile_card_bg_url || '').trim();
+    const bannerOpacity = Math.max(0, Math.min(100, Number(member.profile_banner_opacity ?? 100)));
+    const cardBgOpacity = Math.max(0, Math.min(100, Number(member.profile_card_bg_opacity ?? 100)));
+    const avatar = avatarMarkup(name, member.avatar_url || '', member);
+    const roleBadges = `${roleBadgeHTML(member.role)}${roleBadgeHTML(member.room_role)}`;
+    const bannerImage = isAvatarImageURL(bannerURL) ? `url('${esc(bannerURL)}')` : 'none';
+    const cardBgImage = isAvatarImageURL(cardBgURL) ? `url('${esc(cardBgURL)}')` : 'none';
+    return `
+      <div class="public-profile-card" style="--profile-card-accent:${esc(accent)};--profile-banner-image:${bannerImage};--profile-card-bg-image:${cardBgImage};--profile-banner-opacity:${esc(String(bannerOpacity / 100))};--profile-card-bg-opacity:${esc(String(cardBgOpacity / 100))}">
+        <div class="public-profile-banner"></div>
+        <div class="public-profile-body">
+          <div class="public-profile-avatar">${avatar}</div>
+          <div class="public-profile-name"><strong>${esc(name)}</strong>${roleBadges}</div>
+          <div class="public-profile-role">${esc(role || 'member')}</div>
+          ${status ? `<div class="public-profile-status">${esc(status)}</div>` : ''}
+          <div class="public-profile-about">${about ? renderRichText(about) : '<span class="muted">No profile note yet.</span>'}</div>
+        </div>
+      </div>`;
+}
+
+function openPublicProfileCard(member, anchorEl) {
+    closePublicProfileCard();
+    if (!member || !anchorEl) return;
+    const pop = document.createElement('div');
+    pop.className = 'public-profile-popover open';
+    pop.innerHTML = profileCardHTML(member);
+    document.body.appendChild(pop);
+    const rect = anchorEl.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    const gap = 10;
+    let left = rect.left;
+    let top = rect.bottom + gap;
+    if (left + popRect.width > window.innerWidth - 10) left = window.innerWidth - popRect.width - 10;
+    if (top + popRect.height > window.innerHeight - 10) top = Math.max(10, rect.top - popRect.height - gap);
+    pop.style.left = `${Math.max(10, left)}px`;
+    pop.style.top = `${Math.max(10, top)}px`;
+    activePublicProfileCard = pop;
+}
+
+function closePublicProfileCard() {
+    if (activePublicProfileCard) activePublicProfileCard.remove();
+    activePublicProfileCard = null;
 }
 
 function isAvatarImageURL(value) {
@@ -856,6 +938,7 @@ function drawMessage(record, text) {
     const rowID = Number(record.row_id || 0);
     const isMine = !!myUserID && senderID === myUserID;
     const c = normalizeHexColor(record.chat_color || '') || userColor(name);
+    const senderRoles = rolesForSender(record);
     const payload = parseMessagePayload(text);
     const replyToID = String(record.reply_to_id || payload.replyToID || '');
     const deleted = String(record.deleted_at || '').trim() !== '';
@@ -869,11 +952,13 @@ function drawMessage(record, text) {
     const pinBtn = isAdminRole(myRole) ? `<button class="tiny-action" data-pin-msg="${esc(messageID)}" title="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}" aria-label="${pinnedMessageIDs.has(messageID) ? 'Unpin message' : 'Pin message'}">${ICON_PIN}</button>` : '';
     const actions = `<span class="line-actions"><button class="tiny-action" data-react-msg="${esc(messageID)}" title="Add reaction" aria-label="Add reaction">${ICON_REACT}</button><button class="tiny-action" data-reply-msg="${esc(messageID)}" title="Reply" aria-label="Reply">${ICON_REPLY}</button>${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}" title="Edit message" aria-label="Edit message">${ICON_EDIT}</button>` : ''}${pinBtn}${canDelete ? `<button class="tiny-action danger" data-delete-msg="${esc(messageID)}" title="Delete message" aria-label="Delete message">${ICON_DELETE}</button>` : ''}</span>`;
     const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
-    const avatarHTML = showAvatars ? avatarMarkup(name, record.avatar_url || '', record) : '';
-    const headerHTML = messageHeaderHTML(name, ts, c);
+    const avatarHTML = showAvatars ? `<button class="line-avatar-button" type="button" data-profile-user="${esc(senderID)}" aria-label="Open ${esc(name || 'member')} profile">${avatarMarkup(name, record.avatar_url || '', record)}</button>` : '';
+    const headerHTML = messageHeaderHTML(name, ts, c, senderRoles);
     const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
     if (deleted) {
-        return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name, '[message deleted]', ts, c)}${statusHTML}${reactionHTML}${actions}</div>`;
+        const deletedBy = String(record.deleted_by_name || '').trim() || String(record.display_name || '').trim();
+        const deletedLabel = deletedBy ? `[message deleted by ${deletedBy}]` : '[message deleted]';
+        return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name, deletedLabel, ts, c, senderRoles)}${statusHTML}${reactionHTML}${actions}</div>`;
     }
     if (payload.type === 'file') {
         const src = `data:${payload.mime};base64,${payload.data}`;

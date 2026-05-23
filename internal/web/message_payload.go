@@ -25,6 +25,8 @@ func outboundMessageData(msg *db.Message, clientMsgID string) map[string]string 
 		"reply_to_id":        msg.ReplyToID,
 		"edited_at":          msg.EditedAt,
 		"deleted_at":         msg.DeletedAt,
+		"deleted_by_id":      msg.DeletedByID,
+		"deleted_by_name":    msg.DeletedByName,
 		"client_msg_id":      clientMsgID,
 	}
 }

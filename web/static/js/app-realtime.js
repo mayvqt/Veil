@@ -245,6 +245,12 @@ async function refreshMembers() {
         currentAvatarRingColor3 = normalizeHexColorAlpha(me.avatar_ring_color3 || '');
         currentAvatarRingColor4 = normalizeHexColorAlpha(me.avatar_ring_color4 || '');
         currentAvatarRingMode = normalizeAvatarRingMode(me.avatar_ring_mode || '');
+        currentProfileAbout = String(me.profile_about || '');
+        currentProfileAccent = normalizeHexColor(me.profile_accent || '');
+        currentProfileBannerURL = String(me.profile_banner_url || '');
+        currentProfileCardBgURL = String(me.profile_card_bg_url || '');
+        currentProfileBannerOpacity = Math.max(0, Math.min(100, Number(me.profile_banner_opacity ?? 100)));
+        currentProfileCardBgOpacity = Math.max(0, Math.min(100, Number(me.profile_card_bg_opacity ?? 100)));
         const selfColor = normalizeHexColor(me.chat_color || '');
         if (selfColor) currentUserChatColor = selfColor;
     }
