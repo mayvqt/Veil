@@ -995,11 +995,13 @@
     justify-content: center;
     border-radius: 999px;
     border: 1px solid var(--line);
-    padding: 1px 7px;
-    font-size: .64rem;
-    line-height: 1.2;
+    padding: 2px 8px;
+    font-size: .67rem;
+    line-height: 1.15;
+    font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: .45px;
+    letter-spacing: 0;
     color: var(--muted);
     background: color-mix(in srgb, var(--surface) 72%, transparent);
     white-space: nowrap;

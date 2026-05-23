@@ -784,21 +784,45 @@ async function unwrapRoomKeyWithPassphrase(cfg, passphrase) {
     return bytesToHex(roomBytes);
 }
 
-function messageHeaderHTML(name, ts = '', color = '') {
-    const c = color || userColor(name);
-    return `<span class="line-header"><span class="line-user" data-user-name="${esc(name)}" style="color:${esc(c)}">${esc(name)}</span><span class="line-time">${esc(fmtTime(ts))}</span></span>`;
+function rolesForSender(record = {}) {
+    const senderID = String(record.sender_id || '').trim();
+    const roles = [];
+    const addRole = (value) => {
+        const normalized = String(value || '').trim().toLowerCase();
+        if (!normalized) return;
+        if (normalized !== 'root_admin' && normalized !== 'admin' && normalized !== 'moderator') return;
+        if (!roles.includes(normalized)) roles.push(normalized);
+    };
+    if (senderID) {
+        const member = roomMembers.find((m) => String(m.id || '') === senderID);
+        addRole(member?.role);
+        addRole(member?.room_role);
+        if (roles.length) return roles;
+    }
+    addRole(record.role);
+    addRole(record.room_role);
+    return roles;
 }
 
-function roleBadgeHTML(role) {
+function messageHeaderHTML(name, ts = '', color = '', roles = []) {
+    const c = color || userColor(name);
+    const roleHTML = (Array.isArray(roles) ? roles : [])
+        .map((role) => roleBadgeHTML(role, 'line-role'))
+        .join('');
+    return `<span class="line-header"><span class="line-user" data-user-name="${esc(name)}" style="color:${esc(c)}">${esc(name)}</span>${roleHTML}<span class="line-time">${esc(fmtTime(ts))}</span></span>`;
+}
+
+function roleBadgeHTML(role, extraClass = '') {
     const normalized = String(role || '').trim().toLowerCase();
-    if (normalized === 'root_admin') return '<span class="role-badge role-badge-root">Root Admin</span>';
-    if (normalized === 'admin') return '<span class="role-badge role-badge-admin">Admin</span>';
-    if (normalized === 'moderator') return '<span class="role-badge role-badge-mod">Moderator</span>';
+    const classes = extraClass ? `role-badge ${extraClass}` : 'role-badge';
+    if (normalized === 'root_admin') return `<span class="${classes} role-badge-root">Root Admin</span>`;
+    if (normalized === 'admin') return `<span class="${classes} role-badge-admin">Admin</span>`;
+    if (normalized === 'moderator') return `<span class="${classes} role-badge-mod">Moderator</span>`;
     return '';
 }
 
-function drawLine(name, text, ts = '', color = '') {
-    return `${messageHeaderHTML(name, ts, color)}<span class="line-text">${renderRichText(text)}</span>`;
+function drawLine(name, text, ts = '', color = '', roles = []) {
+    return `${messageHeaderHTML(name, ts, color, roles)}<span class="line-text">${renderRichText(text)}</span>`;
 }
 
 function avatarMarkup(name, avatarURL = '', record = {}) {
@@ -914,6 +938,7 @@ function drawMessage(record, text) {
     const rowID = Number(record.row_id || 0);
     const isMine = !!myUserID && senderID === myUserID;
     const c = normalizeHexColor(record.chat_color || '') || userColor(name);
+    const senderRoles = rolesForSender(record);
     const payload = parseMessagePayload(text);
     const replyToID = String(record.reply_to_id || payload.replyToID || '');
     const deleted = String(record.deleted_at || '').trim() !== '';
@@ -928,10 +953,10 @@ function drawMessage(record, text) {
     const actions = `<span class="line-actions"><button class="tiny-action" data-react-msg="${esc(messageID)}" title="Add reaction" aria-label="Add reaction">${ICON_REACT}</button><button class="tiny-action" data-reply-msg="${esc(messageID)}" title="Reply" aria-label="Reply">${ICON_REPLY}</button>${isMine ? `<button class="tiny-action" data-edit-msg="${esc(messageID)}" title="Edit message" aria-label="Edit message">${ICON_EDIT}</button>` : ''}${pinBtn}${canDelete ? `<button class="tiny-action danger" data-delete-msg="${esc(messageID)}" title="Delete message" aria-label="Delete message">${ICON_DELETE}</button>` : ''}</span>`;
     const lineClass = `line${showAvatars ? '' : ' no-avatar'}`;
     const avatarHTML = showAvatars ? `<button class="line-avatar-button" type="button" data-profile-user="${esc(senderID)}" aria-label="Open ${esc(name || 'member')} profile">${avatarMarkup(name, record.avatar_url || '', record)}</button>` : '';
-    const headerHTML = messageHeaderHTML(name, ts, c);
+    const headerHTML = messageHeaderHTML(name, ts, c, senderRoles);
     const pinBadge = pinnedMessageIDs.has(messageID) ? `<span class="reply-snippet">Pinned</span>` : '';
     if (deleted) {
-        return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name, '[message deleted]', ts, c)}${statusHTML}${reactionHTML}${actions}</div>`;
+        return `<div class="${lineClass}" data-msg-id="${esc(messageID)}" data-row-id="${esc(String(rowID))}" data-sender-id="${esc(senderID)}">${avatarHTML}${drawLine(name, '[message deleted]', ts, c, senderRoles)}${statusHTML}${reactionHTML}${actions}</div>`;
     }
     if (payload.type === 'file') {
         const src = `data:${payload.mime};base64,${payload.data}`;

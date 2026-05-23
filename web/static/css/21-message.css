@@ -313,6 +313,11 @@
     white-space: nowrap;
 }
 
+.line-role.role-badge {
+    flex: 0 0 auto;
+    margin-left: 1px;
+}
+
 .line-text {
     color: var(--ink);
 }
