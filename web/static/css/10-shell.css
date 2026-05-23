@@ -946,8 +946,11 @@
 }
 
 .public-profile-card.no-banner .public-profile-body {
-    min-height: 206px;
     padding-top: 14px;
+}
+
+.public-profile-popover .public-profile-card.no-banner .public-profile-body {
+    min-height: 206px;
 }
 
 .public-profile-card.no-banner .public-profile-avatar {

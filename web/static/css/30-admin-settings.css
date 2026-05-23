@@ -346,7 +346,9 @@
 
 .profile-card-preview {
     display: grid;
+    align-items: start;
     justify-items: start;
+    min-height: 238px;
 }
 
 .profile-card-preview .public-profile-card {
@@ -484,6 +486,7 @@
 }
 
 .switch-control {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
@@ -499,10 +502,14 @@
 
 .switch-control input {
     position: absolute;
-    inline-size: 1px;
-    block-size: 1px;
+    right: 10px;
+    top: 50%;
+    inline-size: 44px;
+    block-size: 24px;
+    margin: 0;
     opacity: 0;
-    pointer-events: none;
+    transform: translateY(-50%);
+    cursor: pointer;
 }
 
 .switch-track {
