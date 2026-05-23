@@ -441,7 +441,7 @@ function bindChatActions() {
             if (profileBtn) {
                 const userID = profileBtn.getAttribute('data-profile-user') || '';
                 const member = roomMembers.find((m) => String(m.id || '') === String(userID));
-                if (member) openPublicProfileCard(member, profileBtn);
+                if (member) togglePublicProfileCard(member, profileBtn);
                 return;
             }
             const replyBtn = target.closest('button[data-reply-msg]');
