@@ -34,10 +34,13 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 			"avatar_ring_mode":        user.AvatarRingMode,
 			"profile_about":           user.ProfileAbout,
 			"profile_accent":          user.ProfileAccent,
+			"profile_status_color":    user.ProfileStatusColor,
+			"profile_note_color":      user.ProfileNoteColor,
 			"profile_banner_url":      user.ProfileBannerURL,
 			"profile_card_bg_url":     user.ProfileCardBgURL,
 			"profile_banner_opacity":  user.ProfileBannerOpacity,
 			"profile_card_bg_opacity": user.ProfileCardBgOpacity,
+			"profile_disable_banner":  user.ProfileDisableBanner,
 			"online":                  presence[user.ID] > 0,
 		})
 	}

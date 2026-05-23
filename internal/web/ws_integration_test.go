@@ -31,6 +31,9 @@ func TestWebSocketTypingAndMessageBroadcast(t *testing.T) {
 	if _, err := store.DB.Exec("INSERT INTO users (id, display_name, role, active, created_at) VALUES (?, ?, ?, 1, ?)", "u1", "alice", "member", time.Now().UTC().Format(time.RFC3339)); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := store.DB.Exec("INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at) VALUES (?, ?, ?)", db.DefaultRoomID, "u1", time.Now().UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
 	srv := New(store)
 	srv.Secret = "test-secret"
 	srv.SessionMaxAge = 24 * time.Hour

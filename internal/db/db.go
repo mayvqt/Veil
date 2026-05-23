@@ -53,10 +53,13 @@ CREATE TABLE IF NOT EXISTS users (
   avatar_ring_mode TEXT NOT NULL DEFAULT 'none',
   profile_about TEXT NOT NULL DEFAULT '',
   profile_accent TEXT NOT NULL DEFAULT '',
+  profile_status_color TEXT NOT NULL DEFAULT '',
+  profile_note_color TEXT NOT NULL DEFAULT '',
   profile_banner_url TEXT NOT NULL DEFAULT '',
   profile_card_bg_url TEXT NOT NULL DEFAULT '',
   profile_banner_opacity INTEGER NOT NULL DEFAULT 100,
   profile_card_bg_opacity INTEGER NOT NULL DEFAULT 100,
+  profile_disable_banner INTEGER NOT NULL DEFAULT 0,
   active INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
@@ -354,10 +357,13 @@ func ensureUsersProfileCardColumns(db *sql.DB) error {
 	return addMissingColumns(db, "users", []columnDef{
 		{name: "profile_about", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "profile_accent", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "profile_status_color", columnDef: "TEXT NOT NULL DEFAULT ''"},
+		{name: "profile_note_color", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "profile_banner_url", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "profile_card_bg_url", columnDef: "TEXT NOT NULL DEFAULT ''"},
 		{name: "profile_banner_opacity", columnDef: "INTEGER NOT NULL DEFAULT 100"},
 		{name: "profile_card_bg_opacity", columnDef: "INTEGER NOT NULL DEFAULT 100"},
+		{name: "profile_disable_banner", columnDef: "INTEGER NOT NULL DEFAULT 0"},
 	})
 }
 

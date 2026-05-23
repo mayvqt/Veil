@@ -33,10 +33,13 @@ type User struct {
 	AvatarRingMode       string `json:"avatar_ring_mode"`
 	ProfileAbout         string `json:"profile_about"`
 	ProfileAccent        string `json:"profile_accent"`
+	ProfileStatusColor   string `json:"profile_status_color"`
+	ProfileNoteColor     string `json:"profile_note_color"`
 	ProfileBannerURL     string `json:"profile_banner_url"`
 	ProfileCardBgURL     string `json:"profile_card_bg_url"`
 	ProfileBannerOpacity int    `json:"profile_banner_opacity"`
 	ProfileCardBgOpacity int    `json:"profile_card_bg_opacity"`
+	ProfileDisableBanner bool   `json:"profile_disable_banner"`
 }
 
 type Message struct {

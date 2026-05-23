@@ -351,10 +351,13 @@ function profilePanelHTML() {
         chat_color: currentUserChatColor || member.chat_color || '',
         profile_about: currentProfileAbout || '',
         profile_accent: currentProfileAccent || currentUserChatColor || member.chat_color || '',
+        profile_status_color: currentProfileStatusColor || '',
+        profile_note_color: currentProfileNoteColor || '',
         profile_banner_url: currentProfileBannerURL || '',
         profile_card_bg_url: currentProfileCardBgURL || '',
         profile_banner_opacity: currentProfileBannerOpacity,
         profile_card_bg_opacity: currentProfileCardBgOpacity,
+        profile_disable_banner: !!currentProfileDisableBanner,
     };
     return `
     <section class="main utility">
@@ -370,15 +373,11 @@ function profilePanelHTML() {
             <label for="profile-display-name">Display Name<span>Shown to everyone</span></label>
             <input id="profile-display-name" type="text" maxlength="48" value="${esc(currentDisplayName || '')}" placeholder="Display name"/>
           </div>
-          <div class="theme-actions settings-footer">
-            <button id="profileDisplayNameSave" class="secondary">Save Name</button>
-          </div>
           <div class="theme-row file-row">
             <label for="profile-status-text">Status<span>Shown in member lists</span></label>
             <input id="profile-status-text" type="text" maxlength="120" value="${esc(currentStatusText || '')}" placeholder="Available, focusing, away..."/>
           </div>
           <div class="theme-actions settings-footer">
-            <button id="profileStatusTextSave" class="secondary">Save Status</button>
             <button id="profileStatusTextClear" class="secondary">Clear</button>
           </div>
           `)}
@@ -387,6 +386,14 @@ function profilePanelHTML() {
           <div class="theme-row file-row">
             <label for="profile-about">Profile Note<span>Shown on avatar click</span></label>
             <textarea id="profile-about" maxlength="240" rows="3" placeholder="A short note for your profile card">${esc(currentProfileAbout || '')}</textarea>
+          </div>
+          <div class="theme-row">
+            <label for="profile-status-color">Status Text Color<span>Profile card status bubble</span></label>
+            <input id="profile-status-color" type="color" value="${esc(currentProfileStatusColor || '#a8b4c8')}"/>
+          </div>
+          <div class="theme-row">
+            <label for="profile-note-color">Note Text Color<span>Profile card note body</span></label>
+            <input id="profile-note-color" type="color" value="${esc(currentProfileNoteColor || '#e8edf5')}"/>
           </div>
           <div class="theme-row">
             <label for="profile-accent">Card Accent<span>Shown on your profile card</span></label>
@@ -401,6 +408,8 @@ function profilePanelHTML() {
             <label for="profile-banner-opacity">Banner Opacity<span>${esc(String(currentProfileBannerOpacity))}%</span></label>
             <input id="profile-banner-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileBannerOpacity))}"/>
           </div>
+          ${switchControlHTML('profile-disable-banner', 'Disable Banner', currentProfileDisableBanner)}
+          <div class="file-feedback muted">Use only the background image (great for larger GIFs).</div>
           <div id="bannerCropper" class="avatar-cropper banner-cropper" style="display:none;">
             <div class="avatar-cropper-preview-wrap banner-cropper-preview-wrap">
               <canvas id="bannerCropCanvas" width="320" height="92" aria-label="Card banner crop preview"></canvas>
@@ -413,7 +422,7 @@ function profilePanelHTML() {
               <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
             </div>
             <div class="theme-actions settings-footer">
-              <button id="bannerCropSave">Save Cropped Banner</button>
+              <button id="bannerCropSave">Apply Banner Crop</button>
               <button id="bannerCropCancel" class="secondary">Cancel</button>
             </div>
           </div>
@@ -438,12 +447,11 @@ function profilePanelHTML() {
               <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
             </div>
             <div class="theme-actions settings-footer">
-              <button id="cardBgCropSave">Save Cropped Background</button>
+              <button id="cardBgCropSave">Apply Background Crop</button>
               <button id="cardBgCropCancel" class="secondary">Cancel</button>
             </div>
           </div>
           <div class="theme-actions settings-footer">
-            <button id="profileCardSave" class="secondary">Save Card</button>
             <button id="profileBannerClear" class="secondary">Clear Banner</button>
             <button id="profileCardBgClear" class="secondary">Clear Background</button>
           </div>
@@ -469,7 +477,7 @@ function profilePanelHTML() {
               <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
             </div>
             <div class="theme-actions settings-footer">
-              <button id="avatarCropSave">Save Cropped Picture</button>
+              <button id="avatarCropSave">Apply Picture Crop</button>
               <button id="avatarCropCancel" class="secondary">Cancel</button>
             </div>
           </div>

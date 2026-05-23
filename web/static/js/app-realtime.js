@@ -247,10 +247,13 @@ async function refreshMembers() {
         currentAvatarRingMode = normalizeAvatarRingMode(me.avatar_ring_mode || '');
         currentProfileAbout = String(me.profile_about || '');
         currentProfileAccent = normalizeHexColor(me.profile_accent || '');
+        currentProfileStatusColor = normalizeHexColor(me.profile_status_color || '');
+        currentProfileNoteColor = normalizeHexColor(me.profile_note_color || '');
         currentProfileBannerURL = String(me.profile_banner_url || '');
         currentProfileCardBgURL = String(me.profile_card_bg_url || '');
         currentProfileBannerOpacity = Math.max(0, Math.min(100, Number(me.profile_banner_opacity ?? 100)));
         currentProfileCardBgOpacity = Math.max(0, Math.min(100, Number(me.profile_card_bg_opacity ?? 100)));
+        currentProfileDisableBanner = !!me.profile_disable_banner;
         const selfColor = normalizeHexColor(me.chat_color || '');
         if (selfColor) currentUserChatColor = selfColor;
     }

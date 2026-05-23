@@ -223,10 +223,13 @@ func (s *Server) updateProfileCard(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		About         string  `json:"profile_about"`
 		Accent        string  `json:"profile_accent"`
+		StatusColor   *string `json:"profile_status_color"`
+		NoteColor     *string `json:"profile_note_color"`
 		BannerURL     *string `json:"profile_banner_url"`
 		CardBgURL     *string `json:"profile_card_bg_url"`
 		BannerOpacity *int    `json:"profile_banner_opacity"`
 		CardBgOpacity *int    `json:"profile_card_bg_opacity"`
+		DisableBanner *bool   `json:"profile_disable_banner"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		writeJSON(w, 400, map[string]string{"error": "invalid payload"})
@@ -236,6 +239,22 @@ func (s *Server) updateProfileCard(w http.ResponseWriter, r *http.Request) {
 	accent := strings.ToLower(cleanInput(req.Accent, 7))
 	if accent != "" && !chatColorHexPattern.MatchString(accent) {
 		writeJSON(w, 400, map[string]string{"error": "profile_accent must be empty or a hex color like #aabbcc"})
+		return
+	}
+	statusColor := strings.ToLower(cleanInput(u.ProfileStatusColor, 7))
+	if req.StatusColor != nil {
+		statusColor = strings.ToLower(cleanInput(*req.StatusColor, 7))
+	}
+	if statusColor != "" && !chatColorHexPattern.MatchString(statusColor) {
+		writeJSON(w, 400, map[string]string{"error": "profile_status_color must be empty or a hex color like #aabbcc"})
+		return
+	}
+	noteColor := strings.ToLower(cleanInput(u.ProfileNoteColor, 7))
+	if req.NoteColor != nil {
+		noteColor = strings.ToLower(cleanInput(*req.NoteColor, 7))
+	}
+	if noteColor != "" && !chatColorHexPattern.MatchString(noteColor) {
+		writeJSON(w, 400, map[string]string{"error": "profile_note_color must be empty or a hex color like #aabbcc"})
 		return
 	}
 	previousBannerURL, previousCardBgURL, previousBannerOpacity, previousCardBgOpacity, _ := s.Store.GetUserProfileMedia(u.ID)
@@ -251,7 +270,11 @@ func (s *Server) updateProfileCard(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, bgErrCode, map[string]string{"error": bgErr})
 		return
 	}
-	if err := s.Store.SetUserProfileCard(u.ID, about, accent, bannerURL, cardBgURL, bannerOpacity, cardBgOpacity); err != nil {
+	disableBanner := u.ProfileDisableBanner
+	if req.DisableBanner != nil {
+		disableBanner = *req.DisableBanner
+	}
+	if err := s.Store.SetUserProfileCard(u.ID, about, accent, statusColor, noteColor, bannerURL, cardBgURL, bannerOpacity, cardBgOpacity, disableBanner); err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to update profile card"})
 		return
 	}
@@ -264,7 +287,7 @@ func (s *Server) updateProfileCard(w http.ResponseWriter, r *http.Request) {
 		}
 		s.pruneUnusedAvatarFiles()
 	}
-	writeJSON(w, 200, map[string]any{"ok": true, "profile_about": about, "profile_accent": accent, "profile_banner_url": bannerURL, "profile_card_bg_url": cardBgURL, "profile_banner_opacity": bannerOpacity, "profile_card_bg_opacity": cardBgOpacity})
+	writeJSON(w, 200, map[string]any{"ok": true, "profile_about": about, "profile_accent": accent, "profile_status_color": statusColor, "profile_note_color": noteColor, "profile_banner_url": bannerURL, "profile_card_bg_url": cardBgURL, "profile_banner_opacity": bannerOpacity, "profile_card_bg_opacity": cardBgOpacity, "profile_disable_banner": disableBanner})
 }
 
 func boundedPercent(in *int, fallback int) int {

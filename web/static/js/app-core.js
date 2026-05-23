@@ -21,6 +21,7 @@ let activePinPopover = null;
 let activePinToggle = null;
 let activePublicProfileCard = null;
 let activePublicProfileAnchor = null;
+let profileStatusOverflowFrame = 0;
 let activeMentionPicker = null;
 let activeMentionInput = null;
 let activeMentionClose = null;
@@ -48,10 +49,13 @@ let currentAvatarRingColor4 = '';
 let currentAvatarRingMode = 'none';
 let currentProfileAbout = '';
 let currentProfileAccent = '';
+let currentProfileStatusColor = '';
+let currentProfileNoteColor = '';
 let currentProfileBannerURL = '';
 let currentProfileCardBgURL = '';
 let currentProfileBannerOpacity = 100;
 let currentProfileCardBgOpacity = 100;
+let currentProfileDisableBanner = false;
 const knownDisplayNames = new Set();
 
 const PASTELS = ['#8bd8bd', '#ffd166', '#f4978e', '#90dbf4', '#c1d37f', '#ffb86b', '#b8f2e6', '#f7aef8'];
@@ -840,29 +844,56 @@ function avatarMarkup(name, avatarURL = '', record = {}) {
 
 function profileCardHTML(member = {}) {
     const name = String(member.display_name || 'member');
-    const role = String(member.room_role || member.role || 'member');
     const accent = normalizeHexColor(member.profile_accent || '') || normalizeHexColor(member.chat_color || '') || userColor(name);
     const status = String(member.status_text || '').trim();
     const about = String(member.profile_about || '').trim();
+    const statusColor = normalizeHexColor(member.profile_status_color || '') || '';
+    const noteColor = normalizeHexColor(member.profile_note_color || '') || '';
     const bannerURL = String(member.profile_banner_url || '').trim();
     const cardBgURL = String(member.profile_card_bg_url || '').trim();
     const bannerOpacity = Math.max(0, Math.min(100, Number(member.profile_banner_opacity ?? 100)));
     const cardBgOpacity = Math.max(0, Math.min(100, Number(member.profile_card_bg_opacity ?? 100)));
+    const disableBanner = !!member.profile_disable_banner;
     const avatar = avatarMarkup(name, member.avatar_url || '', member);
     const roleBadges = `${roleBadgeHTML(member.role)}${roleBadgeHTML(member.room_role)}`;
     const bannerImage = isAvatarImageURL(bannerURL) ? `url('${esc(bannerURL)}')` : 'none';
     const cardBgImage = isAvatarImageURL(cardBgURL) ? `url('${esc(cardBgURL)}')` : 'none';
     return `
-      <div class="public-profile-card" style="--profile-card-accent:${esc(accent)};--profile-banner-image:${bannerImage};--profile-card-bg-image:${cardBgImage};--profile-banner-opacity:${esc(String(bannerOpacity / 100))};--profile-card-bg-opacity:${esc(String(cardBgOpacity / 100))}">
+      <div class="public-profile-card${disableBanner ? ' no-banner' : ''}" style="--profile-card-accent:${esc(accent)};--profile-banner-image:${bannerImage};--profile-card-bg-image:${cardBgImage};--profile-banner-opacity:${esc(String(bannerOpacity / 100))};--profile-card-bg-opacity:${esc(String(cardBgOpacity / 100))}">
         <div class="public-profile-banner"></div>
         <div class="public-profile-body">
-          <div class="public-profile-avatar">${avatar}</div>
-          <div class="public-profile-name"><strong>${esc(name)}</strong>${roleBadges}</div>
-          <div class="public-profile-role">${esc(role || 'member')}</div>
-          ${status ? `<div class="public-profile-status">${esc(status)}</div>` : ''}
-          <div class="public-profile-about">${about ? renderRichText(about) : '<span class="muted">No profile note yet.</span>'}</div>
+          <div class="public-profile-header">
+            <div class="public-profile-avatar">${avatar}</div>
+            ${status ? `<div class="public-profile-status-bubble"${statusColor ? ` style="color:${esc(statusColor)}"` : ''}><span class="public-profile-status-bubble-text">${esc(status)}</span></div>` : ''}
+          </div>
+          <div class="public-profile-name"><span class="public-profile-identity"><strong>${esc(name)}</strong>${roleBadges}</span></div>
+          <div class="public-profile-about"${noteColor ? ` style="color:${esc(noteColor)}"` : ''}>${about ? renderRichText(about) : '<span class="muted">No profile note yet.</span>'}</div>
         </div>
       </div>`;
+}
+
+function scheduleProfileStatusOverflowUpdate() {
+    if (profileStatusOverflowFrame) return;
+    profileStatusOverflowFrame = requestAnimationFrame(() => {
+        profileStatusOverflowFrame = 0;
+        updateProfileStatusOverflow();
+    });
+}
+
+function updateProfileStatusOverflow() {
+    const root = activePublicProfileCard || document;
+    root.querySelectorAll('.public-profile-status-bubble').forEach((statusEl) => {
+        const textEl = statusEl.querySelector('.public-profile-status-bubble-text');
+        if (!textEl) return;
+        statusEl.classList.remove('is-overflowing');
+        statusEl.style.removeProperty('--profile-status-scroll-distance');
+        statusEl.style.removeProperty('--profile-status-scroll-duration');
+        const distance = Math.ceil(textEl.scrollWidth - statusEl.clientWidth);
+        if (distance <= 1) return;
+        statusEl.classList.add('is-overflowing');
+        statusEl.style.setProperty('--profile-status-scroll-distance', `${distance}px`);
+        statusEl.style.setProperty('--profile-status-scroll-duration', `${Math.min(14, Math.max(5, distance / 24))}s`);
+    });
 }
 
 function openPublicProfileCard(member, anchorEl) {
@@ -884,6 +915,7 @@ function openPublicProfileCard(member, anchorEl) {
     activePublicProfileCard = pop;
     activePublicProfileAnchor = anchorEl;
     activePublicProfileAnchor.setAttribute('aria-expanded', 'true');
+    scheduleProfileStatusOverflowUpdate();
 }
 
 function closePublicProfileCard() {
@@ -900,6 +932,10 @@ function togglePublicProfileCard(member, anchorEl) {
     }
     openPublicProfileCard(member, anchorEl);
 }
+
+window.addEventListener('resize', () => {
+    scheduleProfileStatusOverflowUpdate();
+});
 
 function isAvatarImageURL(value) {
     const src = String(value || '').trim();

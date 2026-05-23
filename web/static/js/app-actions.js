@@ -1249,19 +1249,19 @@ function bindThemeActions() {
 function bindProfileActions() {
     const status = $('profileStatus');
     const displayNameInput = $('profile-display-name');
-    const displayNameSaveBtn = $('profileDisplayNameSave');
     const statusTextInput = $('profile-status-text');
-    const statusTextSaveBtn = $('profileStatusTextSave');
     const statusTextClearBtn = $('profileStatusTextClear');
     const profileAboutInput = $('profile-about');
     const profileAccentInput = $('profile-accent');
+    const profileStatusColorInput = $('profile-status-color');
+    const profileNoteColorInput = $('profile-note-color');
     const profileBannerFileInput = $('profile-banner-file');
     const profileBannerHint = $('profileBannerHint');
     const profileBannerOpacityInput = $('profile-banner-opacity');
+    const profileDisableBannerInput = $('profile-disable-banner');
     const profileCardBgFileInput = $('profile-card-bg-file');
     const profileCardBgHint = $('profileCardBgHint');
     const profileCardBgOpacityInput = $('profile-card-bg-opacity');
-    const profileCardSaveBtn = $('profileCardSave');
     const profileBannerClearBtn = $('profileBannerClear');
     const profileCardBgClearBtn = $('profileCardBgClear');
     const bannerCropper = $('bannerCropper');
@@ -1338,6 +1338,32 @@ function bindProfileActions() {
         profileCardBgHint.textContent = text;
         profileCardBgHint.className = `file-feedback muted${tone ? ` ${tone}` : ''}`;
     };
+    let displayNameSaveTimer = 0;
+    let statusTextSaveTimer = 0;
+    let profileCardSaveTimer = 0;
+    let profileCardSaveInFlight = false;
+    let profileCardSaveQueued = false;
+    const clearAutoSave = (key) => {
+        if (key === 'displayName') {
+            clearTimeout(displayNameSaveTimer);
+            displayNameSaveTimer = 0;
+        }
+        if (key === 'statusText') {
+            clearTimeout(statusTextSaveTimer);
+            statusTextSaveTimer = 0;
+        }
+        if (key === 'profileCard') {
+            clearTimeout(profileCardSaveTimer);
+            profileCardSaveTimer = 0;
+        }
+    };
+    const scheduleAutoSave = (key, fn, delay = 650) => {
+        clearAutoSave(key);
+        const timer = window.setTimeout(fn, delay);
+        if (key === 'displayName') displayNameSaveTimer = timer;
+        if (key === 'statusText') statusTextSaveTimer = timer;
+        if (key === 'profileCard') profileCardSaveTimer = timer;
+    };
     const percentValue = (input, fallback = 100) => Math.max(0, Math.min(100, Math.round(Number((input && input.value) ?? fallback))));
     const syncProfileOpacityLabels = () => {
         const bannerLabel = profileBannerOpacityInput && document.querySelector(`label[for="${cssEscape(profileBannerOpacityInput.id)}"] span`);
@@ -1355,16 +1381,31 @@ function bindProfileActions() {
             role: myRole || member.role || 'member',
             status_text: currentStatusText || '',
             chat_color: currentUserChatColor || member.chat_color || '',
-            profile_about: profileAboutInput ? String(profileAboutInput.value || '').trim() : currentProfileAbout,
-            profile_accent: normalizeHexColor((profileAccentInput && profileAccentInput.value) || '') || currentProfileAccent || currentUserChatColor,
             profile_banner_url: currentProfileBannerURL || '',
             profile_card_bg_url: currentProfileCardBgURL || '',
-            profile_banner_opacity: percentValue(profileBannerOpacityInput, currentProfileBannerOpacity),
-            profile_card_bg_opacity: percentValue(profileCardBgOpacityInput, currentProfileCardBgOpacity),
+            ...profileCardDraft(),
             ...overrides,
         });
         syncProfileOpacityLabels();
     };
+    const profileCardDraft = () => ({
+        profile_about: profileAboutInput ? String(profileAboutInput.value || '').trim() : currentProfileAbout,
+        profile_accent: normalizeHexColor((profileAccentInput && profileAccentInput.value) || '') || '',
+        profile_status_color: normalizeHexColor((profileStatusColorInput && profileStatusColorInput.value) || '') || '',
+        profile_note_color: normalizeHexColor((profileNoteColorInput && profileNoteColorInput.value) || '') || '',
+        profile_banner_opacity: percentValue(profileBannerOpacityInput, currentProfileBannerOpacity),
+        profile_card_bg_opacity: percentValue(profileCardBgOpacityInput, currentProfileCardBgOpacity),
+        profile_disable_banner: !!(profileDisableBannerInput && profileDisableBannerInput.checked),
+    });
+    const profileCardDraftChanged = (draft) => (
+        draft.profile_about !== currentProfileAbout ||
+        draft.profile_accent !== currentProfileAccent ||
+        draft.profile_status_color !== currentProfileStatusColor ||
+        draft.profile_note_color !== currentProfileNoteColor ||
+        draft.profile_banner_opacity !== currentProfileBannerOpacity ||
+        draft.profile_card_bg_opacity !== currentProfileCardBgOpacity ||
+        draft.profile_disable_banner !== currentProfileDisableBanner
+    );
     const readNotificationDataURL = async (file) => {
         if (!file) throw new Error('Select an audio file first.');
         const mime = normalizeMime(file.type);
@@ -1809,6 +1850,7 @@ function bindProfileActions() {
             setStatus(status, 'Display name must be 48 characters or fewer.', 'err');
             return;
         }
+        if (nextName === currentDisplayName) return;
         const r = await api('/api/profile/name', {method: 'POST', body: JSON.stringify({display_name: nextName})});
         if (!r.ok) {
             setStatus(status, r.data.error || 'Failed to save display name.', 'err');
@@ -1822,7 +1864,6 @@ function bindProfileActions() {
         refreshProfilePreviewAvatar();
         await refreshMembers();
         if (currentView === VIEW_CHAT) await loadHistory();
-        await renderMain();
         setStatus(status, 'Display name saved for everyone.', 'ok');
     };
     const saveStatusText = async (nextValue = null) => {
@@ -1832,6 +1873,7 @@ function bindProfileActions() {
             setStatus(status, 'Status must be 120 characters or fewer.', 'err');
             return;
         }
+        if (nextStatus === currentStatusText) return;
         const r = await api('/api/profile/status', {method: 'POST', body: JSON.stringify({status_text: nextStatus})});
         if (!r.ok) {
             setStatus(status, r.data.error || 'Failed to save status.', 'err');
@@ -1843,43 +1885,73 @@ function bindProfileActions() {
         setStatus(status, currentStatusText ? 'Status saved.' : 'Status cleared.', 'ok');
     };
     const saveProfileCard = async (bannerURL = undefined, cardBgURL = undefined) => {
-        const about = String((profileAboutInput && profileAboutInput.value) || '').trim();
-        if (about.length > 240) {
-            setStatus(status, 'Profile note must be 240 characters or fewer.', 'err');
-            return;
-        }
-        const accent = normalizeHexColor((profileAccentInput && profileAccentInput.value) || '') || '';
-        const bannerOpacity = percentValue(profileBannerOpacityInput, currentProfileBannerOpacity);
-        const cardBgOpacity = percentValue(profileCardBgOpacityInput, currentProfileCardBgOpacity);
-        const payload = {profile_about: about, profile_accent: accent, profile_banner_opacity: bannerOpacity, profile_card_bg_opacity: cardBgOpacity};
-        if (bannerURL !== undefined) payload.profile_banner_url = bannerURL || '';
-        if (cardBgURL !== undefined) payload.profile_card_bg_url = cardBgURL || '';
-        const r = await api('/api/profile/card', {
-            method: 'POST',
-            body: JSON.stringify(payload)
-        });
-        if (!r.ok) {
-            setStatus(status, r.data.error || 'Failed to save profile card.', 'err');
+        const isTextOnlySave = bannerURL === undefined && cardBgURL === undefined;
+        if (isTextOnlySave && profileCardSaveInFlight) {
+            profileCardSaveQueued = true;
             return false;
         }
-        currentProfileAbout = String((r.data && r.data.profile_about) || about);
-        currentProfileAccent = normalizeHexColor((r.data && r.data.profile_accent) || accent);
-        currentProfileBannerURL = String((r.data && r.data.profile_banner_url) || '');
-        currentProfileCardBgURL = String((r.data && r.data.profile_card_bg_url) || '');
-        currentProfileBannerOpacity = Math.max(0, Math.min(100, Number((r.data && r.data.profile_banner_opacity) ?? bannerOpacity)));
-        currentProfileCardBgOpacity = Math.max(0, Math.min(100, Number((r.data && r.data.profile_card_bg_opacity) ?? cardBgOpacity)));
-        if (profileBannerOpacityInput) profileBannerOpacityInput.value = String(currentProfileBannerOpacity);
-        if (profileCardBgOpacityInput) profileCardBgOpacityInput.value = String(currentProfileCardBgOpacity);
-        if (profileAboutInput) profileAboutInput.value = currentProfileAbout;
-        if (profileAccentInput && currentProfileAccent) profileAccentInput.value = currentProfileAccent;
-        if (profileBannerFileInput) profileBannerFileInput.value = '';
-        if (profileCardBgFileInput) profileCardBgFileInput.value = '';
-        setBannerHint(currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.', 'ok');
-        setCardBgHint(currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.', 'ok');
-        refreshProfileCardPreview();
-        await refreshMembers();
-        setStatus(status, 'Profile card saved for everyone.', 'ok');
-        return true;
+        if (isTextOnlySave) {
+            profileCardSaveInFlight = true;
+            profileCardSaveQueued = false;
+        }
+        const draft = profileCardDraft();
+        if (isTextOnlySave && !profileCardDraftChanged(draft)) {
+            profileCardSaveInFlight = false;
+            return true;
+        }
+        if (draft.profile_about.length > 240) {
+            setStatus(status, 'Profile note must be 240 characters or fewer.', 'err');
+            profileCardSaveInFlight = false;
+            return;
+        }
+        const payload = {...draft};
+        if (bannerURL !== undefined) payload.profile_banner_url = bannerURL || '';
+        if (cardBgURL !== undefined) payload.profile_card_bg_url = cardBgURL || '';
+        try {
+            const r = await api('/api/profile/card', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            if (!r.ok) {
+                setStatus(status, r.data.error || 'Failed to save profile card.', 'err');
+                return false;
+            }
+            currentProfileAbout = String((r.data && r.data.profile_about) || draft.profile_about);
+            currentProfileAccent = normalizeHexColor((r.data && r.data.profile_accent) || draft.profile_accent);
+            currentProfileStatusColor = normalizeHexColor((r.data && r.data.profile_status_color) || draft.profile_status_color);
+            currentProfileNoteColor = normalizeHexColor((r.data && r.data.profile_note_color) || draft.profile_note_color);
+            currentProfileBannerURL = String((r.data && r.data.profile_banner_url) || '');
+            currentProfileCardBgURL = String((r.data && r.data.profile_card_bg_url) || '');
+            currentProfileBannerOpacity = Math.max(0, Math.min(100, Number((r.data && r.data.profile_banner_opacity) ?? draft.profile_banner_opacity)));
+            currentProfileCardBgOpacity = Math.max(0, Math.min(100, Number((r.data && r.data.profile_card_bg_opacity) ?? draft.profile_card_bg_opacity)));
+            currentProfileDisableBanner = !!((r.data && r.data.profile_disable_banner) ?? draft.profile_disable_banner);
+            if (profileBannerOpacityInput) profileBannerOpacityInput.value = String(currentProfileBannerOpacity);
+            if (profileCardBgOpacityInput) profileCardBgOpacityInput.value = String(currentProfileCardBgOpacity);
+            if (profileDisableBannerInput) profileDisableBannerInput.checked = currentProfileDisableBanner;
+            if (profileAboutInput) profileAboutInput.value = currentProfileAbout;
+            if (profileAccentInput && currentProfileAccent) profileAccentInput.value = currentProfileAccent;
+            if (profileStatusColorInput) profileStatusColorInput.value = currentProfileStatusColor || '#a8b4c8';
+            if (profileNoteColorInput) profileNoteColorInput.value = currentProfileNoteColor || '#e8edf5';
+            if (profileBannerFileInput) profileBannerFileInput.value = '';
+            if (profileCardBgFileInput) profileCardBgFileInput.value = '';
+            setBannerHint(currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.', 'ok');
+            setCardBgHint(currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.', 'ok');
+            refreshProfileCardPreview();
+            await refreshMembers();
+            setStatus(status, 'Profile card saved for everyone.', 'ok');
+            return true;
+        } catch (e) {
+            setStatus(status, e.message || 'Failed to save profile card.', 'err');
+            return false;
+        } finally {
+            if (isTextOnlySave) {
+                profileCardSaveInFlight = false;
+                if (profileCardSaveQueued) {
+                    profileCardSaveQueued = false;
+                    return saveProfileCard();
+                }
+            }
+        }
     };
     const saveAnimatedProfileCardGIF = async ({file, name, readDataURL, setHint, resetCropper, fileInput, previewKey, save}) => {
         try {
@@ -1896,48 +1968,95 @@ function bindProfileActions() {
         }
     };
 
-    if (displayNameSaveBtn) {
-        displayNameSaveBtn.onclick = saveDisplayName;
-    }
     if (displayNameInput) {
+        displayNameInput.addEventListener('input', () => {
+            scheduleAutoSave('displayName', saveDisplayName);
+        });
+        displayNameInput.addEventListener('blur', () => {
+            clearAutoSave('displayName');
+            saveDisplayName();
+        });
         displayNameInput.addEventListener('keydown', async (ev) => {
             if (ev.key !== 'Enter') return;
             ev.preventDefault();
+            clearAutoSave('displayName');
             await saveDisplayName();
         });
     }
-    if (statusTextSaveBtn) {
-        statusTextSaveBtn.onclick = () => saveStatusText();
-    }
     if (statusTextClearBtn) {
-        statusTextClearBtn.onclick = () => saveStatusText('');
+        statusTextClearBtn.onclick = () => {
+            clearAutoSave('statusText');
+            saveStatusText('');
+        };
     }
     if (statusTextInput) {
+        statusTextInput.addEventListener('input', () => {
+            scheduleAutoSave('statusText', () => saveStatusText());
+        });
+        statusTextInput.addEventListener('blur', () => {
+            clearAutoSave('statusText');
+            saveStatusText();
+        });
         statusTextInput.addEventListener('keydown', async (ev) => {
             if (ev.key !== 'Enter') return;
             ev.preventDefault();
+            clearAutoSave('statusText');
             await saveStatusText();
         });
     }
-    if (profileCardSaveBtn) {
-        profileCardSaveBtn.onclick = async () => saveProfileCard();
-    }
+    const scheduleProfileCardSave = () => scheduleAutoSave('profileCard', () => saveProfileCard());
     if (profileAboutInput) {
-        profileAboutInput.addEventListener('input', () => refreshProfileCardPreview());
+        profileAboutInput.addEventListener('input', () => {
+            refreshProfileCardPreview();
+            scheduleProfileCardSave();
+        });
+        profileAboutInput.addEventListener('blur', () => {
+            clearAutoSave('profileCard');
+            saveProfileCard();
+        });
     }
     if (profileAccentInput) {
-        profileAccentInput.addEventListener('input', () => refreshProfileCardPreview());
+        profileAccentInput.addEventListener('input', () => {
+            refreshProfileCardPreview();
+            scheduleProfileCardSave();
+        });
+    }
+    if (profileStatusColorInput) {
+        profileStatusColorInput.addEventListener('input', () => {
+            refreshProfileCardPreview();
+            scheduleProfileCardSave();
+        });
+    }
+    if (profileNoteColorInput) {
+        profileNoteColorInput.addEventListener('input', () => {
+            refreshProfileCardPreview();
+            scheduleProfileCardSave();
+        });
     }
     if (profileBannerOpacityInput) {
-        profileBannerOpacityInput.addEventListener('input', () => refreshProfileCardPreview());
+        profileBannerOpacityInput.addEventListener('input', () => {
+            refreshProfileCardPreview();
+            scheduleProfileCardSave();
+        });
+    }
+    if (profileDisableBannerInput) {
+        profileDisableBannerInput.addEventListener('change', () => {
+            refreshProfileCardPreview();
+            clearAutoSave('profileCard');
+            saveProfileCard();
+        });
     }
     if (profileCardBgOpacityInput) {
-        profileCardBgOpacityInput.addEventListener('input', () => refreshProfileCardPreview());
+        profileCardBgOpacityInput.addEventListener('input', () => {
+            refreshProfileCardPreview();
+            scheduleProfileCardSave();
+        });
     }
     if (profileAboutInput) {
         profileAboutInput.addEventListener('keydown', async (ev) => {
             if (ev.key !== 'Enter' || !ev.ctrlKey) return;
             ev.preventDefault();
+            clearAutoSave('profileCard');
             await saveProfileCard();
         });
     }
@@ -1957,14 +2076,17 @@ function bindProfileActions() {
                     resetCropper: resetBannerCropper,
                     fileInput: profileBannerFileInput,
                     previewKey: 'profile_banner_url',
-                    save: (dataURL) => saveProfileCard(dataURL, undefined),
+                    save: (dataURL) => {
+                        clearAutoSave('profileCard');
+                        return saveProfileCard(dataURL, undefined);
+                    },
                 });
                 return;
             }
             setBannerHint(`Selected ${file.name || 'banner'} (${formatBytes(file.size)}). Adjust crop and save.`);
             try {
                 await openBannerCropper(file);
-                setStatus(status, 'Adjust crop and save your card banner.', 'ok');
+                setStatus(status, 'Adjust crop and apply your card banner.', 'ok');
             } catch (e) {
                 if (profileBannerFileInput) profileBannerFileInput.value = '';
                 resetBannerCropper();
@@ -2039,6 +2161,7 @@ function bindProfileActions() {
                 const bannerURL = buildCroppedBannerDataURL();
                 refreshProfileCardPreview({profile_banner_url: bannerURL});
                 setBannerHint(`Uploading ${bannerCropState.fileName || 'banner'}...`);
+                clearAutoSave('profileCard');
                 await saveProfileCard(bannerURL, undefined);
                 setBannerHint(`Saved ${bannerCropState.fileName || 'banner'}${bannerCropState.fileSize ? ` (${formatBytes(bannerCropState.fileSize)})` : ''}.`, 'ok');
                 resetBannerCropper();
@@ -2064,14 +2187,17 @@ function bindProfileActions() {
                     resetCropper: resetCardBgCropper,
                     fileInput: profileCardBgFileInput,
                     previewKey: 'profile_card_bg_url',
-                    save: (dataURL) => saveProfileCard(undefined, dataURL),
+                    save: (dataURL) => {
+                        clearAutoSave('profileCard');
+                        return saveProfileCard(undefined, dataURL);
+                    },
                 });
                 return;
             }
             setCardBgHint(`Selected ${file.name || 'background'} (${formatBytes(file.size)}). Adjust crop and save.`);
             try {
                 await openCardBgCropper(file);
-                setStatus(status, 'Adjust crop and save your card background.', 'ok');
+                setStatus(status, 'Adjust crop and apply your card background.', 'ok');
             } catch (e) {
                 if (profileCardBgFileInput) profileCardBgFileInput.value = '';
                 resetCardBgCropper();
@@ -2146,6 +2272,7 @@ function bindProfileActions() {
                 const cardBgURL = buildCroppedCardBgDataURL();
                 refreshProfileCardPreview({profile_card_bg_url: cardBgURL});
                 setCardBgHint(`Uploading ${cardBgCropState.fileName || 'background'}...`);
+                clearAutoSave('profileCard');
                 await saveProfileCard(undefined, cardBgURL);
                 setCardBgHint(`Saved ${cardBgCropState.fileName || 'background'}${cardBgCropState.fileSize ? ` (${formatBytes(cardBgCropState.fileSize)})` : ''}.`, 'ok');
                 resetCardBgCropper();
@@ -2160,6 +2287,7 @@ function bindProfileActions() {
             setBannerHint('Clearing banner...');
             resetBannerCropper();
             refreshProfileCardPreview({profile_banner_url: ''});
+            clearAutoSave('profileCard');
             await saveProfileCard('', undefined);
         };
     }
@@ -2168,6 +2296,7 @@ function bindProfileActions() {
             setCardBgHint('Clearing card background...');
             resetCardBgCropper();
             refreshProfileCardPreview({profile_card_bg_url: ''});
+            clearAutoSave('profileCard');
             await saveProfileCard(undefined, '');
         };
     }
@@ -2178,7 +2307,7 @@ function bindProfileActions() {
                 const file = avatarFileInput.files && avatarFileInput.files[0];
                 if (!file) return;
                 await openAvatarCropper(file);
-                setStatus(status, 'Adjust crop and save your profile picture.', 'ok');
+                setStatus(status, 'Adjust crop and apply your profile picture.', 'ok');
             } catch (e) {
                 setStatus(status, e.message || 'Failed to process profile picture.', 'err');
             }
