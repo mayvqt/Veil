@@ -123,31 +123,11 @@ func (s *Server) updateProfileAvatar(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 400, map[string]string{"error": "avatar image must be between 1 byte and 4MB"})
 		return
 	}
-	ext := ".png"
-	switch mime {
-	case "image/jpeg":
-		ext = ".jpg"
-	case "image/webp":
-		ext = ".webp"
-	case "image/gif":
-		ext = ".gif"
-	}
-	if err := os.MkdirAll(s.AvatarDir, 0o755); err != nil {
-		writeJSON(w, 500, map[string]string{"error": "failed to prepare avatar storage"})
-		return
-	}
-	baseName := fmt.Sprintf("user_%s_%d%s", strings.ReplaceAll(u.ID, "-", ""), time.Now().UnixNano(), ext)
-	fullPath := filepath.Join(s.AvatarDir, baseName)
-	if err := os.WriteFile(fullPath, decoded, 0o644); err != nil {
+	publicURL, fullPath, err := s.saveProfileImage(u.ID, "user", mime, decoded)
+	if err != nil {
 		writeJSON(w, 500, map[string]string{"error": "failed to save avatar"})
 		return
 	}
-	base := strings.TrimSpace(s.AvatarURLBase)
-	if base == "" {
-		base = "/avatars"
-	}
-	base = "/" + strings.Trim(base, "/")
-	publicURL := fmt.Sprintf("%s/%s?v=%d", base, baseName, time.Now().Unix())
 	if err := s.Store.SetUserAvatarURL(u.ID, publicURL); err != nil {
 		_ = os.Remove(fullPath)
 		writeJSON(w, 500, map[string]string{"error": "failed to update avatar"})
@@ -326,6 +306,14 @@ func (s *Server) profileCardMediaURL(userID string, incoming *string, previousUR
 	if len(decoded) == 0 || len(decoded) > 4*1024*1024 {
 		return "", 400, fmt.Sprintf("%s image must be between 1 byte and 4MB", label)
 	}
+	publicURL, _, err := s.saveProfileImage(userID, namePrefix, mime, decoded)
+	if err != nil {
+		return "", 500, fmt.Sprintf("failed to save %s", label)
+	}
+	return publicURL, 0, ""
+}
+
+func (s *Server) saveProfileImage(userID, namePrefix, mime string, decoded []byte) (string, string, error) {
 	ext := ".png"
 	switch mime {
 	case "image/jpeg":
@@ -336,17 +324,17 @@ func (s *Server) profileCardMediaURL(userID string, incoming *string, previousUR
 		ext = ".gif"
 	}
 	if err := os.MkdirAll(s.AvatarDir, 0o755); err != nil {
-		return "", 500, "failed to prepare profile media storage"
+		return "", "", err
 	}
 	baseName := fmt.Sprintf("%s_%s_%d%s", namePrefix, strings.ReplaceAll(userID, "-", ""), time.Now().UnixNano(), ext)
 	fullPath := filepath.Join(s.AvatarDir, baseName)
 	if err := os.WriteFile(fullPath, decoded, 0o644); err != nil {
-		return "", 500, fmt.Sprintf("failed to save %s", label)
+		return "", "", err
 	}
 	base := strings.TrimSpace(s.AvatarURLBase)
 	if base == "" {
 		base = "/avatars"
 	}
 	base = "/" + strings.Trim(base, "/")
-	return fmt.Sprintf("%s/%s?v=%d", base, baseName, time.Now().Unix()), 0, ""
+	return fmt.Sprintf("%s/%s?v=%d", base, baseName, time.Now().Unix()), fullPath, nil
 }

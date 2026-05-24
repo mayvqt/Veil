@@ -618,9 +618,8 @@ function controlPanelHTML() {
             `
                 <div class="theme-actions admin-actions-row">
                   <input id="roomNameInput" type="text" maxlength="80" placeholder="Room name" value="${esc(roomName || '')}"/>
-                  <button id="saveRoomName" class="secondary">Save Name</button>
                 </div>
-                <div id="roomNameStatus" class="status">Admins can update the room name.</div>
+                <div id="roomNameStatus" class="status">Room name autosaves as you type.</div>
               `
         )}
               ${adminSubsectionHTML(
@@ -628,9 +627,8 @@ function controlPanelHTML() {
             `
                 <div class="theme-actions admin-actions-row">
                   <input id="roomStatusTextAdminInput" type="text" maxlength="48" placeholder="${esc(DEFAULT_ROOM_STATUS_TEXT)}" value="${esc(roomStatusText)}"/>
-                  <button id="saveRoomStatusTextAdmin" class="secondary">Save Status Text</button>
                 </div>
-                <div id="roomStatusTextAdminStatus" class="status">Admins can update the room status text.</div>
+                <div id="roomStatusTextAdminStatus" class="status">Room status autosaves as you type.</div>
               `
         )}
             `

@@ -2552,10 +2552,8 @@ function bindControlActions() {
     const revokeUnusedBtn = $('revokeUnusedInvites');
     const purgeUsedRevokedBtn = $('purgeUsedRevokedInvites');
     const roomNameInput = $('roomNameInput');
-    const saveRoomNameBtn = $('saveRoomName');
     const roomNameStatus = $('roomNameStatus');
     const roomStatusTextAdminInput = $('roomStatusTextAdminInput');
-    const saveRoomStatusTextAdminBtn = $('saveRoomStatusTextAdmin');
     const roomStatusTextAdminStatus = $('roomStatusTextAdminStatus');
     const newRoomNameInput = $('newRoomNameInput');
     const createRoomBtn = $('createRoomBtn');
@@ -2683,6 +2681,72 @@ function bindControlActions() {
         auditStatus.className = 'status';
         auditList.innerHTML = items.map((item) => `<div class="admin-user"><div><strong>${esc(item.action || 'action')}</strong><div class="admin-role">${esc(item.actor_name || item.actor_id || 'system')} · ${esc(item.created_at || '')}${item.target ? ` · ${esc(item.target)}` : ''}</div></div><div class="muted">${esc(item.details || '')}</div></div>`).join('');
     };
+    const roomIdentityTimers = {name: 0, status: 0};
+    const clearRoomIdentityTimer = (key) => {
+        clearTimeout(roomIdentityTimers[key]);
+        roomIdentityTimers[key] = 0;
+    };
+    const scheduleRoomIdentitySave = (key, fn, delay = 700) => {
+        clearRoomIdentityTimer(key);
+        roomIdentityTimers[key] = window.setTimeout(fn, delay);
+    };
+    const saveRoomName = async () => {
+        const nextName = String((roomNameInput && roomNameInput.value) || '').trim();
+        if (!nextName) {
+            if (roomNameStatus) {
+                roomNameStatus.textContent = 'Enter a room name first.';
+                roomNameStatus.className = 'status err';
+            }
+            return false;
+        }
+        if (nextName === roomName) return true;
+        if (roomNameStatus) {
+            roomNameStatus.textContent = 'Saving room name...';
+            roomNameStatus.className = 'status';
+        }
+        const r = await api(withRoomQuery('/api/admin/room-name'), {method: 'POST', body: JSON.stringify({room_name: nextName})});
+        if (!r.ok) {
+            if (roomNameStatus) {
+                roomNameStatus.textContent = r.data.error || 'failed';
+                roomNameStatus.className = 'status err';
+            }
+            return false;
+        }
+        roomName = String((r.data && r.data.room_name) || nextName).trim();
+        if (roomNameInput) roomNameInput.value = roomName;
+        const roomTitleEl = document.querySelector('.room-title strong');
+        if (roomTitleEl) roomTitleEl.textContent = roomName || 'Room Chat';
+        refreshSidebarChannelsInPlace();
+        if (roomNameStatus) {
+            roomNameStatus.textContent = 'Room name saved.';
+            roomNameStatus.className = 'status ok';
+        }
+        return true;
+    };
+    const saveRoomStatusText = async () => {
+        const nextText = String((roomStatusTextAdminInput && roomStatusTextAdminInput.value) || '').trim();
+        const normalizedNextText = nextText || DEFAULT_ROOM_STATUS_TEXT;
+        if (normalizedNextText === roomStatusText) return true;
+        if (roomStatusTextAdminStatus) {
+            roomStatusTextAdminStatus.textContent = 'Saving room status...';
+            roomStatusTextAdminStatus.className = 'status';
+        }
+        const r = await api(withRoomQuery('/api/admin/room-status-text'), {method: 'POST', body: JSON.stringify({room_status_text: nextText})});
+        if (!r.ok) {
+            if (roomStatusTextAdminStatus) {
+                roomStatusTextAdminStatus.textContent = r.data.error || 'failed';
+                roomStatusTextAdminStatus.className = 'status err';
+            }
+            return false;
+        }
+        setRoomStatusText(String((r.data && r.data.room_status_text) || normalizedNextText));
+        if (roomStatusTextAdminInput) roomStatusTextAdminInput.value = roomStatusText;
+        if (roomStatusTextAdminStatus) {
+            roomStatusTextAdminStatus.textContent = 'Room status saved.';
+            roomStatusTextAdminStatus.className = 'status ok';
+        }
+        return true;
+    };
 
     if (inviteBtn) {
         inviteBtn.onclick = async () => {
@@ -2718,52 +2782,31 @@ function bindControlActions() {
             refreshInvites();
         };
     }
-    if (saveRoomNameBtn) {
-        saveRoomNameBtn.onclick = async () => {
-            const nextName = String((roomNameInput && roomNameInput.value) || '').trim();
-            if (!nextName) {
-                if (roomNameStatus) {
-                    roomNameStatus.textContent = 'Enter a room name first.';
-                    roomNameStatus.className = 'status err';
-                }
-                return;
-            }
-            const r = await api(withRoomQuery('/api/admin/room-name'), {method: 'POST', body: JSON.stringify({room_name: nextName})});
-            if (!r.ok) {
-                if (roomNameStatus) {
-                    roomNameStatus.textContent = r.data.error || 'failed';
-                    roomNameStatus.className = 'status err';
-                }
-                return;
-            }
-            roomName = String((r.data && r.data.room_name) || nextName).trim();
-            if (roomNameInput) roomNameInput.value = roomName;
-            const roomTitleEl = document.querySelector('.room-title strong');
-            if (roomTitleEl) roomTitleEl.textContent = roomName || 'Room Chat';
-            if (roomNameStatus) {
-                roomNameStatus.textContent = 'Room name updated.';
-                roomNameStatus.className = 'status ok';
-            }
-        };
+    if (roomNameInput) {
+        roomNameInput.addEventListener('input', () => scheduleRoomIdentitySave('name', saveRoomName));
+        roomNameInput.addEventListener('blur', () => {
+            clearRoomIdentityTimer('name');
+            saveRoomName();
+        });
+        roomNameInput.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            clearRoomIdentityTimer('name');
+            await saveRoomName();
+        });
     }
-    if (saveRoomStatusTextAdminBtn) {
-        saveRoomStatusTextAdminBtn.onclick = async () => {
-            const nextText = String((roomStatusTextAdminInput && roomStatusTextAdminInput.value) || '').trim();
-            const r = await api(withRoomQuery('/api/admin/room-status-text'), {method: 'POST', body: JSON.stringify({room_status_text: nextText})});
-            if (!r.ok) {
-                if (roomStatusTextAdminStatus) {
-                    roomStatusTextAdminStatus.textContent = r.data.error || 'failed';
-                    roomStatusTextAdminStatus.className = 'status err';
-                }
-                return;
-            }
-            setRoomStatusText(String((r.data && r.data.room_status_text) || nextText || DEFAULT_ROOM_STATUS_TEXT));
-            if (roomStatusTextAdminInput) roomStatusTextAdminInput.value = roomStatusText;
-            if (roomStatusTextAdminStatus) {
-                roomStatusTextAdminStatus.textContent = 'Room status text updated.';
-                roomStatusTextAdminStatus.className = 'status ok';
-            }
-        };
+    if (roomStatusTextAdminInput) {
+        roomStatusTextAdminInput.addEventListener('input', () => scheduleRoomIdentitySave('status', saveRoomStatusText));
+        roomStatusTextAdminInput.addEventListener('blur', () => {
+            clearRoomIdentityTimer('status');
+            saveRoomStatusText();
+        });
+        roomStatusTextAdminInput.addEventListener('keydown', async (ev) => {
+            if (ev.key !== 'Enter') return;
+            ev.preventDefault();
+            clearRoomIdentityTimer('status');
+            await saveRoomStatusText();
+        });
     }
     if (createRoomBtn) {
         createRoomBtn.onclick = async () => {
