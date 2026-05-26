@@ -1012,10 +1012,6 @@
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 5%, transparent);
 }
 
-.public-profile-status-bubble::before {
-    content: none;
-}
-
 .public-profile-status-bubble-text {
     display: inline-block;
     max-width: 100%;

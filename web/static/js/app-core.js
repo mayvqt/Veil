@@ -856,8 +856,11 @@ function profileCardHTML(member = {}) {
     const disableBanner = !!member.profile_disable_banner;
     const avatar = avatarMarkup(name, member.avatar_url || '', member);
     const roleBadges = `${roleBadgeHTML(member.role)}${roleBadgeHTML(member.room_role)}`;
-    const bannerImage = isAvatarImageURL(bannerURL) ? `url('${esc(bannerURL)}')` : 'none';
-    const cardBgImage = isAvatarImageURL(cardBgURL) ? `url('${esc(cardBgURL)}')` : 'none';
+    const statusStyle = statusColor ? ` style="color:${esc(statusColor)}"` : '';
+    const noteStyle = noteColor ? ` style="color:${esc(noteColor)}"` : '';
+    const statusHTML = status ? `<div class="public-profile-status-bubble"${statusStyle}><span class="public-profile-status-bubble-text">${esc(status)}</span></div>` : '';
+    const bannerImage = profileCardImageCSSValue(bannerURL);
+    const cardBgImage = profileCardImageCSSValue(cardBgURL);
     return `
       <div class="public-profile-card${disableBanner ? ' no-banner' : ''}" style="--profile-card-accent:${esc(accent)};--profile-banner-image:${bannerImage};--profile-card-bg-image:${cardBgImage};--profile-banner-opacity:${esc(String(bannerOpacity / 100))};--profile-card-bg-opacity:${esc(String(cardBgOpacity / 100))}">
         <div class="public-profile-banner"></div>
@@ -866,12 +869,16 @@ function profileCardHTML(member = {}) {
             <div class="public-profile-avatar">${avatar}</div>
             <div class="public-profile-heading">
               <div class="public-profile-name"><span class="public-profile-identity"><strong>${esc(name)}</strong>${roleBadges}</span></div>
-              ${status ? `<div class="public-profile-status-bubble"${statusColor ? ` style="color:${esc(statusColor)}"` : ''}><span class="public-profile-status-bubble-text">${esc(status)}</span></div>` : ''}
+              ${statusHTML}
             </div>
           </div>
-          <div class="public-profile-about"${noteColor ? ` style="color:${esc(noteColor)}"` : ''}>${about ? renderRichText(about) : '<span class="muted">No profile note yet.</span>'}</div>
+          <div class="public-profile-about"${noteStyle}>${about ? renderRichText(about) : '<span class="muted">No profile note yet.</span>'}</div>
         </div>
       </div>`;
+}
+
+function profileCardImageCSSValue(src) {
+    return isAvatarImageURL(src) ? `url('${esc(src)}')` : 'none';
 }
 
 function scheduleProfileStatusOverflowUpdate() {
