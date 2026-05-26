@@ -365,97 +365,113 @@ function profilePanelHTML() {
       <div class="panel utility-panel">
         <div class="settings-stack profile-settings">
           ${settingsSectionHTML('Identity', `
-          <div class="profile-summary" id="profilePreview">
-            ${profilePreview}
-            <div><strong>${esc(currentDisplayName || 'member')}${roleBadgeHTML(myRole)}</strong><span>${esc(myRole || 'member')} · version ${esc(appVersion || APP_VERSION)}</span></div>
+          <div class="profile-identity-grid">
+            <div class="profile-summary" id="profilePreview">
+              ${profilePreview}
+              <div><strong>${esc(currentDisplayName || 'member')}${roleBadgeHTML(myRole)}</strong><span>${esc(myRole || 'member')} · version ${esc(appVersion || APP_VERSION)}</span></div>
+            </div>
+            <div class="profile-identity-fields">
+              <div class="theme-row file-row">
+                <label for="profile-display-name">Display Name<span>Shown to everyone</span></label>
+                <input id="profile-display-name" type="text" maxlength="48" value="${esc(currentDisplayName || '')}" placeholder="Display name"/>
+              </div>
+              <div class="profile-status-row">
+                <label for="profile-status-text">Status<span>Shown in member lists and your profile card</span></label>
+                <div class="profile-status-input-wrap">
+                  <input id="profile-status-text" type="text" maxlength="120" value="${esc(currentStatusText || '')}" placeholder="Available, focusing, away..."/>
+                  <button id="profileStatusTextClear" class="secondary" type="button">Clear</button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="theme-row file-row">
-            <label for="profile-display-name">Display Name<span>Shown to everyone</span></label>
-            <input id="profile-display-name" type="text" maxlength="48" value="${esc(currentDisplayName || '')}" placeholder="Display name"/>
-          </div>
-          <div class="theme-row file-row">
-            <label for="profile-status-text">Status<span>Shown in member lists</span></label>
-            <input id="profile-status-text" type="text" maxlength="120" value="${esc(currentStatusText || '')}" placeholder="Available, focusing, away..."/>
-          </div>
-          <div class="theme-actions settings-footer">
-            <button id="profileStatusTextClear" class="secondary">Clear</button>
-          </div>
-          `)}
+          `, 'profile-identity-section')}
           ${settingsSectionHTML('Profile Card', `
-          <div id="profileCardPreview" class="profile-card-preview">${profileCardHTML(profileCardPreviewMember)}</div>
-          <div class="theme-row file-row">
-            <label for="profile-about">Profile Note<span>Shown on avatar click</span></label>
-            <textarea id="profile-about" maxlength="240" rows="3" placeholder="A short note for your profile card">${esc(currentProfileAbout || '')}</textarea>
-          </div>
-          <div class="theme-row">
-            <label for="profile-status-color">Status Text Color<span>Profile card status bubble</span></label>
-            <input id="profile-status-color" type="color" value="${esc(currentProfileStatusColor || '#a8b4c8')}"/>
-          </div>
-          <div class="theme-row">
-            <label for="profile-note-color">Note Text Color<span>Profile card note body</span></label>
-            <input id="profile-note-color" type="color" value="${esc(currentProfileNoteColor || '#e8edf5')}"/>
-          </div>
-          <div class="theme-row">
-            <label for="profile-accent">Card Accent<span>Shown on your profile card</span></label>
-            <input id="profile-accent" type="color" value="${esc(currentProfileAccent || currentUserChatColor || userColor(currentDisplayName || ''))}"/>
-          </div>
-          <div class="theme-row file-row">
-            <label for="profile-banner-file">Card Banner<span>PNG, JPEG, WebP, or GIF</span></label>
-            <input id="profile-banner-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
-          </div>
-          <div id="profileBannerHint" class="file-feedback muted">${currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.'}</div>
-          <div class="theme-row wide-control compact-control">
-            <label for="profile-banner-opacity">Banner Opacity<span>${esc(String(currentProfileBannerOpacity))}%</span></label>
-            <input id="profile-banner-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileBannerOpacity))}"/>
-          </div>
-          ${switchControlHTML('profile-disable-banner', 'Disable Banner', currentProfileDisableBanner)}
-          <div class="file-feedback muted">Use only the background image (great for larger GIFs).</div>
-          <div id="bannerCropper" class="avatar-cropper banner-cropper" style="display:none;">
-            <div class="avatar-cropper-preview-wrap banner-cropper-preview-wrap">
-              <canvas id="bannerCropCanvas" width="320" height="92" aria-label="Card banner crop preview"></canvas>
+          <div class="profile-card-layout">
+            <div class="profile-card-preview-rail">
+              <div id="profileCardPreview" class="profile-card-preview">${profileCardHTML(profileCardPreviewMember)}</div>
             </div>
-            <div class="avatar-cropper-controls">
-              <div class="theme-row wide-control">
-                <label for="bannerCropZoom">Zoom<span id="bannerCropZoomLabel">100%</span></label>
-                <input id="bannerCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+            <div class="profile-card-controls">
+              <div class="theme-row file-row">
+                <label for="profile-about">Profile Note<span>Shown on avatar click</span></label>
+                <textarea id="profile-about" maxlength="240" rows="3" placeholder="A short note for your profile card">${esc(currentProfileAbout || '')}</textarea>
               </div>
-              <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
-            </div>
-            <div class="theme-actions settings-footer">
-              <button id="bannerCropSave">Apply Banner Crop</button>
-              <button id="bannerCropCancel" class="secondary">Cancel</button>
-            </div>
-          </div>
-          <div class="theme-row file-row">
-            <label for="profile-card-bg-file">Card Background<span>PNG, JPEG, WebP, or GIF</span></label>
-            <input id="profile-card-bg-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
-          </div>
-          <div id="profileCardBgHint" class="file-feedback muted">${currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.'}</div>
-          <div class="theme-row wide-control compact-control">
-            <label for="profile-card-bg-opacity">Background Opacity<span>${esc(String(currentProfileCardBgOpacity))}%</span></label>
-            <input id="profile-card-bg-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileCardBgOpacity))}"/>
-          </div>
-          <div id="cardBgCropper" class="avatar-cropper card-bg-cropper" style="display:none;">
-            <div class="avatar-cropper-preview-wrap card-bg-cropper-preview-wrap">
-              <canvas id="cardBgCropCanvas" width="320" height="220" aria-label="Card background crop preview"></canvas>
-            </div>
-            <div class="avatar-cropper-controls">
-              <div class="theme-row wide-control">
-                <label for="cardBgCropZoom">Zoom<span id="cardBgCropZoomLabel">100%</span></label>
-                <input id="cardBgCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+              <div class="profile-color-grid">
+                <div class="theme-row">
+                  <label for="profile-status-color">Status Text<span>Profile card bubble</span></label>
+                  <input id="profile-status-color" type="color" value="${esc(currentProfileStatusColor || '#a8b4c8')}"/>
+                </div>
+                <div class="theme-row">
+                  <label for="profile-note-color">Note Text<span>Profile card body</span></label>
+                  <input id="profile-note-color" type="color" value="${esc(currentProfileNoteColor || '#e8edf5')}"/>
+                </div>
+                <div class="theme-row">
+                  <label for="profile-accent">Card Accent<span>Border and banner</span></label>
+                  <input id="profile-accent" type="color" value="${esc(currentProfileAccent || currentUserChatColor || userColor(currentDisplayName || ''))}"/>
+                </div>
               </div>
-              <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
-            </div>
-            <div class="theme-actions settings-footer">
-              <button id="cardBgCropSave">Apply Background Crop</button>
-              <button id="cardBgCropCancel" class="secondary">Cancel</button>
+              <div class="profile-media-group">
+                <div class="theme-row file-row">
+                  <label for="profile-banner-file">Card Banner<span>PNG, JPEG, WebP, or GIF</span></label>
+                  <input id="profile-banner-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+                </div>
+                <div id="profileBannerHint" class="file-feedback muted">${currentProfileBannerURL ? 'Current banner saved.' : 'No banner selected.'}</div>
+                <div class="theme-row wide-control compact-control">
+                  <label for="profile-banner-opacity">Banner Opacity<span>${esc(String(currentProfileBannerOpacity))}%</span></label>
+                  <input id="profile-banner-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileBannerOpacity))}"/>
+                </div>
+                ${switchControlHTML('profile-disable-banner', 'Disable Banner', currentProfileDisableBanner)}
+                <div class="file-feedback muted">Use only the background image (great for larger GIFs).</div>
+              </div>
+              <div id="bannerCropper" class="avatar-cropper banner-cropper" style="display:none;">
+                <div class="avatar-cropper-preview-wrap banner-cropper-preview-wrap">
+                  <canvas id="bannerCropCanvas" width="320" height="92" aria-label="Card banner crop preview"></canvas>
+                </div>
+                <div class="avatar-cropper-controls">
+                  <div class="theme-row wide-control">
+                    <label for="bannerCropZoom">Zoom<span id="bannerCropZoomLabel">100%</span></label>
+                    <input id="bannerCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+                  </div>
+                  <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
+                </div>
+                <div class="theme-actions settings-footer">
+                  <button id="bannerCropSave">Apply Banner Crop</button>
+                  <button id="bannerCropCancel" class="secondary">Cancel</button>
+                </div>
+              </div>
+              <div class="profile-media-group">
+                <div class="theme-row file-row">
+                  <label for="profile-card-bg-file">Card Background<span>PNG, JPEG, WebP, or GIF</span></label>
+                  <input id="profile-card-bg-file" type="file" accept="image/png,image/jpeg,image/webp,image/gif"/>
+                </div>
+                <div id="profileCardBgHint" class="file-feedback muted">${currentProfileCardBgURL ? 'Current card background saved.' : 'No card background selected.'}</div>
+                <div class="theme-row wide-control compact-control">
+                  <label for="profile-card-bg-opacity">Background Opacity<span>${esc(String(currentProfileCardBgOpacity))}%</span></label>
+                  <input id="profile-card-bg-opacity" type="range" min="0" max="100" step="1" value="${esc(String(currentProfileCardBgOpacity))}"/>
+                </div>
+              </div>
+              <div id="cardBgCropper" class="avatar-cropper card-bg-cropper" style="display:none;">
+                <div class="avatar-cropper-preview-wrap card-bg-cropper-preview-wrap">
+                  <canvas id="cardBgCropCanvas" width="320" height="220" aria-label="Card background crop preview"></canvas>
+                </div>
+                <div class="avatar-cropper-controls">
+                  <div class="theme-row wide-control">
+                    <label for="cardBgCropZoom">Zoom<span id="cardBgCropZoomLabel">100%</span></label>
+                    <input id="cardBgCropZoom" type="range" min="100" max="300" step="1" value="100"/>
+                  </div>
+                  <div class="avatar-crop-hint">Drag to position. Scroll to zoom.</div>
+                </div>
+                <div class="theme-actions settings-footer">
+                  <button id="cardBgCropSave">Apply Background Crop</button>
+                  <button id="cardBgCropCancel" class="secondary">Cancel</button>
+                </div>
+              </div>
+              <div class="theme-actions settings-footer">
+                <button id="profileBannerClear" class="secondary">Clear Banner</button>
+                <button id="profileCardBgClear" class="secondary">Clear Background</button>
+              </div>
             </div>
           </div>
-          <div class="theme-actions settings-footer">
-            <button id="profileBannerClear" class="secondary">Clear Banner</button>
-            <button id="profileCardBgClear" class="secondary">Clear Background</button>
-          </div>
-          `)}
+          `, 'profile-card-section')}
           ${settingsSectionHTML('Chat Appearance', `
           <div class="theme-row">
             <label for="profile-chat-color">Name Color<span>Shown in chat</span></label>
@@ -484,7 +500,7 @@ function profilePanelHTML() {
           <div class="theme-actions settings-footer">
             <button id="profileAvatarClear" class="secondary">Clear Picture</button>
           </div>
-          `)}
+          `, 'profile-chat-section')}
           ${settingsSectionHTML('Avatar Ring', `
           <div class="profile-subhead"><strong>Ring Controls</strong><span>Glow around your profile picture in chat and profile cards.</span></div>
           <div class="settings-list">
@@ -542,7 +558,7 @@ function profilePanelHTML() {
             <button id="profileAvatarRingMatchName" class="secondary">Match Name Color</button>
             <button id="profileAvatarRingClear" class="secondary">Clear Ring</button>
           </div>
-          `)}
+          `, 'profile-ring-section')}
           ${settingsSectionHTML('Local Background', `
           <div class="theme-row file-row">
             <label for="profile-background-file">Background Image<span>This browser</span></label>
@@ -555,7 +571,7 @@ function profilePanelHTML() {
           <div class="theme-actions settings-footer">
             <button id="profileBackgroundClear" class="secondary">Clear Background</button>
           </div>
-          `)}
+          `, 'profile-background-section')}
           ${settingsSectionHTML('Notifications', `
           <div class="settings-list">
             ${switchControlHTML('profileSoundToggle', 'Notification sound', notifySoundEnabled)}
@@ -572,7 +588,7 @@ function profilePanelHTML() {
             <button id="profileNotifyTest" class="secondary">Test Sound</button>
             <button id="profileNotifyClear" class="secondary">Clear Sound</button>
           </div>
-          `)}
+          `, 'profile-notifications-section')}
           <div id="profileStatus" class="status">Profile preferences apply immediately.</div>
         </div>
       </div>

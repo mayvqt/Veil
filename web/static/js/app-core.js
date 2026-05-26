@@ -864,9 +864,11 @@ function profileCardHTML(member = {}) {
         <div class="public-profile-body">
           <div class="public-profile-header">
             <div class="public-profile-avatar">${avatar}</div>
-            ${status ? `<div class="public-profile-status-bubble"${statusColor ? ` style="color:${esc(statusColor)}"` : ''}><span class="public-profile-status-bubble-text">${esc(status)}</span></div>` : ''}
+            <div class="public-profile-heading">
+              <div class="public-profile-name"><span class="public-profile-identity"><strong>${esc(name)}</strong>${roleBadges}</span></div>
+              ${status ? `<div class="public-profile-status-bubble"${statusColor ? ` style="color:${esc(statusColor)}"` : ''}><span class="public-profile-status-bubble-text">${esc(status)}</span></div>` : ''}
+            </div>
           </div>
-          <div class="public-profile-name"><span class="public-profile-identity"><strong>${esc(name)}</strong>${roleBadges}</span></div>
           <div class="public-profile-about"${noteColor ? ` style="color:${esc(noteColor)}"` : ''}>${about ? renderRichText(about) : '<span class="muted">No profile note yet.</span>'}</div>
         </div>
       </div>`;
