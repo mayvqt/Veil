@@ -124,6 +124,7 @@ function bindChatActions() {
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closePublicProfileCard();
         });
+        document.addEventListener('scroll', closePublicProfileCard, {capture: true, passive: true});
     }
     const updateJumpLatestVisibility = () => {
         if (!messages || !jumpLatestBtn) return;

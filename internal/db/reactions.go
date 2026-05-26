@@ -10,11 +10,11 @@ func (s *Store) ToggleMessageReaction(roomID, messageID, userID, emoji string) (
 	defer tx.Rollback()
 
 	var existing int
-	if err := tx.QueryRow("SELECT COUNT(*) FROM message_reactions r JOIN messages m ON m.id=r.message_id WHERE r.message_id=? AND m.room_id=? AND r.user_id=? AND r.emoji=?", messageID, roomID, userID, emoji).Scan(&existing); err != nil {
+	if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM message_reactions r JOIN messages m ON m.id=r.message_id WHERE r.message_id=? AND m.room_id=? AND r.user_id=? AND r.emoji=?)", messageID, roomID, userID, emoji).Scan(&existing); err != nil {
 		return 0, false, err
 	}
 	active := false
-	if existing > 0 {
+	if existing == 1 {
 		if _, err := tx.Exec("DELETE FROM message_reactions WHERE message_id=? AND user_id=? AND emoji=?", messageID, userID, emoji); err != nil {
 			return 0, false, err
 		}
@@ -35,11 +35,11 @@ func (s *Store) ToggleMessageReaction(roomID, messageID, userID, emoji string) (
 }
 
 func (s *Store) MessageExists(roomID, messageID string) (bool, error) {
-	var c int
-	if err := s.DB.QueryRow("SELECT COUNT(*) FROM messages WHERE id=? AND room_id=?", messageID, roomID).Scan(&c); err != nil {
+	var exists int
+	if err := s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM messages WHERE id=? AND room_id=?)", messageID, roomID).Scan(&exists); err != nil {
 		return false, err
 	}
-	return c > 0, nil
+	return exists == 1, nil
 }
 
 func (s *Store) ListMessageReactions(messageIDs []string, viewerUserID string) (MessageReactions, error) {
@@ -53,9 +53,9 @@ func (s *Store) ListMessageReactions(messageIDs []string, viewerUserID string) (
 	}
 	placeholders := strings.Repeat("?,", len(messageIDs))
 	placeholders = placeholders[:len(placeholders)-1]
-	args := make([]any, 0, len(messageIDs))
-	for _, id := range messageIDs {
-		args = append(args, id)
+	args := make([]any, len(messageIDs))
+	for i, id := range messageIDs {
+		args[i] = id
 	}
 	rows, err := s.DB.Query("SELECT r.message_id, r.emoji, r.user_id, u.display_name FROM message_reactions r JOIN users u ON u.id = r.user_id WHERE r.message_id IN ("+placeholders+") ORDER BY r.created_at ASC, u.display_name COLLATE NOCASE ASC", args...)
 	if err != nil {

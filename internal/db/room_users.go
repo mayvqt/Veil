@@ -85,11 +85,11 @@ func uniqueRoomID(tx *sql.Tx, roomName string) (string, error) {
 			return "", err
 		}
 		id := normalizeRoomID(base + digits)
-		var count int
-		if err := tx.QueryRow("SELECT COUNT(*) FROM rooms WHERE id=?", id).Scan(&count); err != nil {
+		var exists int
+		if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM rooms WHERE id=?)", id).Scan(&exists); err != nil {
 			return "", err
 		}
-		if count == 0 {
+		if exists == 0 {
 			return id, nil
 		}
 	}
@@ -124,12 +124,13 @@ func (s *Store) CreateRoom(roomID, roomName, statusText, actorUserID string) (Ro
 	if err := tx.QueryRow("SELECT COALESCE(MAX(sort_order), 0) + 1 FROM rooms").Scan(&sortOrder); err != nil {
 		return Room{}, err
 	}
-	if _, err := tx.Exec("INSERT INTO rooms (id, name, status_text, sort_order, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)", id, name, statusText, sortOrder, actorUserID, now()); err != nil {
+	createdAt := now()
+	if _, err := tx.Exec("INSERT INTO rooms (id, name, status_text, sort_order, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?)", id, name, statusText, sortOrder, actorUserID, createdAt); err != nil {
 		return Room{}, err
 	}
 	if _, err := tx.Exec(`
 INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
-SELECT ?, id, ? FROM users WHERE active=1`, id, now()); err != nil {
+SELECT ?, id, ? FROM users WHERE active=1`, id, createdAt); err != nil {
 		return Room{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -198,11 +199,11 @@ func (s *Store) GetRoomRole(roomID, userID string) (string, error) {
 }
 
 func (s *Store) RoomExists(roomID string) (bool, error) {
-	var c int
-	if err := s.DB.QueryRow("SELECT COUNT(*) FROM rooms WHERE id=?", roomID).Scan(&c); err != nil {
+	var exists int
+	if err := s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM rooms WHERE id=?)", roomID).Scan(&exists); err != nil {
 		return false, err
 	}
-	return c > 0, nil
+	return exists == 1, nil
 }
 
 func (s *Store) GetRoomName() (string, error) {
@@ -294,31 +295,32 @@ func (s *Store) InitRoom(roomName, displayName, publicKey, credentialID, roomKey
 	}
 	defer tx.Rollback()
 
-	var count int
-	if err := tx.QueryRow("SELECT COUNT(*) FROM users").Scan(&count); err != nil {
+	var userExists int
+	if err := tx.QueryRow("SELECT EXISTS(SELECT 1 FROM users)").Scan(&userExists); err != nil {
 		return nil, err
 	}
-	if count > 0 {
+	if userExists == 1 {
 		return nil, errors.New("room already initialized")
 	}
 
 	u := &User{ID: uuid.NewString(), DisplayName: displayName, Role: "root_admin"}
 	u.ChatColor = defaultChatColorForUserID(u.ID)
-	if _, err := tx.Exec("INSERT INTO users (id, display_name, role, chat_color, created_at) VALUES (?, ?, ?, ?, ?)", u.ID, u.DisplayName, u.Role, u.ChatColor, now()); err != nil {
+	createdAt := now()
+	if _, err := tx.Exec("INSERT INTO users (id, display_name, role, chat_color, created_at) VALUES (?, ?, ?, ?, ?)", u.ID, u.DisplayName, u.Role, u.ChatColor, createdAt); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, device_secret_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, optionalString(deviceSecretHash), now()); err != nil {
+	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, device_secret_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, optionalString(deviceSecretHash), createdAt); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("UPDATE room_state SET room_name=?, initialized=1, room_key_enc=?, created_at=? WHERE id=1", roomName, roomKeyEnc, now()); err != nil {
+	if _, err := tx.Exec("UPDATE room_state SET room_name=?, initialized=1, room_key_enc=?, created_at=? WHERE id=1", roomName, roomKeyEnc, createdAt); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT OR IGNORE INTO rooms (id, name, status_text, created_by, created_at) VALUES (?, ?, ?, ?, ?)", DefaultRoomID, roomName, DefaultRoomStatusText, u.ID, now()); err != nil {
+	if _, err := tx.Exec("INSERT OR IGNORE INTO rooms (id, name, status_text, created_by, created_at) VALUES (?, ?, ?, ?, ?)", DefaultRoomID, roomName, DefaultRoomStatusText, u.ID, createdAt); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec(`
 INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
-SELECT id, ?, ? FROM rooms`, u.ID, now()); err != nil {
+SELECT id, ?, ? FROM rooms`, u.ID, createdAt); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -335,15 +337,16 @@ func (s *Store) AddMember(displayName, publicKey, credentialID string, deviceSec
 		return nil, err
 	}
 	defer tx.Rollback()
-	if _, err := tx.Exec("INSERT INTO users (id, display_name, role, chat_color, created_at) VALUES (?, ?, ?, ?, ?)", u.ID, u.DisplayName, u.Role, u.ChatColor, now()); err != nil {
+	createdAt := now()
+	if _, err := tx.Exec("INSERT INTO users (id, display_name, role, chat_color, created_at) VALUES (?, ?, ?, ?, ?)", u.ID, u.DisplayName, u.Role, u.ChatColor, createdAt); err != nil {
 		return nil, err
 	}
-	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, device_secret_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, optionalString(deviceSecretHash), now()); err != nil {
+	if _, err := tx.Exec("INSERT INTO devices (id, user_id, public_key, credential_id, device_secret_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)", uuid.NewString(), u.ID, publicKey, credentialID, optionalString(deviceSecretHash), createdAt); err != nil {
 		return nil, err
 	}
 	if _, err := tx.Exec(`
 INSERT OR IGNORE INTO room_memberships (room_id, user_id, joined_at)
-SELECT id, ?, ? FROM rooms`, u.ID, now()); err != nil {
+SELECT id, ?, ? FROM rooms`, u.ID, createdAt); err != nil {
 		return nil, err
 	}
 	if err := tx.Commit(); err != nil {

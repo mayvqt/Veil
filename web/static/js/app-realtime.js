@@ -335,7 +335,9 @@ function renderMembersList() {
 }
 
 function updateMemberStatusOverflow() {
-    document.querySelectorAll('.member-status').forEach((statusEl) => {
+    const listEl = document.getElementById('memberList');
+    if (!listEl) return;
+    listEl.querySelectorAll('.member-status').forEach((statusEl) => {
         const textEl = statusEl.querySelector('.member-status-text');
         if (!textEl) return;
         statusEl.classList.remove('is-overflowing');
