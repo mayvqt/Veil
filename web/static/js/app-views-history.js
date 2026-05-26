@@ -666,11 +666,6 @@ function controlPanelHTML() {
     <section class="main utility">
       ${viewTopbarHTML('Control Center', 'Room administration', `<span class="muted">${esc(myRole)}</span>`)}
       <div class="panel utility-panel">
-        <div class="admin-overview">
-          <div><strong>Room Ops</strong><span>Members, invites, channels, media, retention, and audit controls.</span></div>
-          <div><strong>${esc(roomName || 'Veil')}</strong><span>${esc(roomStatusText || DEFAULT_ROOM_STATUS_TEXT)}</span></div>
-          <div><strong>${esc(myRole || 'member')}</strong><span>${canManageUsers ? 'Full control available' : 'Limited controls'}</span></div>
-        </div>
         <div class="admin-layout">
           <div class="admin-column admin-column-main">
             ${adminCardHTML(
