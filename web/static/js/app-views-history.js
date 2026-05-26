@@ -200,33 +200,44 @@ function chatPanelHTML() {
 function keysPanelHTML() {
     return `
     <section class="main utility">
-      <header class="topbar"><div><strong>Key Vault</strong><small>Backup, restore, and recovery controls</small></div><div class="top-actions">${userMenuHTML({showLabel: false})}</div></header>
+      ${viewTopbarHTML('Key Vault', 'Backup, restore, and device sync', '<span class="muted">encrypted</span>')}
       <div class="panel utility-panel">
-        <section class="card">
-          <h3>Backup + Restore</h3>
-          <div class="muted">Use one strong passphrase for export and import. Key material never leaves this browser unencrypted.</div>
-          <input id="passphrase" placeholder="Restore passphrase"/>
-          <div class="theme-actions">
-            <button id="genPass" class="secondary">Generate Passphrase</button>
-            <button id="export">Export room.keys (encrypted)</button>
+        <div class="settings-stack keys-settings">
+          ${settingsSectionHTML('Backup', `
+          <div class="vault-panel">
+            <div class="vault-panel-copy">
+              <strong>Encrypted key export</strong>
+              <span>Use one strong passphrase for export and import. Key material stays encrypted before it leaves this browser.</span>
+            </div>
+            <input id="passphrase" placeholder="Restore passphrase"/>
+            <div class="theme-actions">
+              <button id="genPass" class="secondary">Generate Passphrase</button>
+              <button id="export">Export room.keys</button>
+            </div>
           </div>
-          <div class="divider"></div>
-          <input id="importFile" type="file" accept=".keys,application/json"/>
-          <button id="importBtn" class="secondary">Import + Restore Session</button>
+          <div class="vault-restore-panel">
+            <input id="importFile" type="file" accept=".keys,application/json"/>
+            <button id="importBtn" class="secondary">Import + Restore Session</button>
+          </div>
           <div id="importOut" class="status">Store your passphrase securely. Anyone with both files can decrypt room history.</div>
-          <div class="status-note">Tip: after admin-level removals, rotate room keys if you need strict forward secrecy.</div>
-        </section>
-        <section class="card">
-          <h3>Add Device (Quick Sync)</h3>
-          <div class="muted">Generate a protected sync code and paste it on your other device’s Returning User screen.</div>
-          <input id="deviceSyncPassphrase" placeholder="Sync passphrase"/>
-          <div class="theme-actions">
-            <button id="makeDeviceSync">Generate Sync Code</button>
-            <button id="copyDeviceSync" class="secondary">Copy Code</button>
+          <div class="status-note">After admin-level removals, rotate room keys if you need strict forward secrecy.</div>
+          `, 'keys-backup-section')}
+          ${settingsSectionHTML('Add Device', `
+          <div class="vault-panel">
+            <div class="vault-panel-copy">
+              <strong>Quick sync code</strong>
+              <span>Generate a protected sync code and paste it on another trusted device.</span>
+            </div>
+            <input id="deviceSyncPassphrase" placeholder="Sync passphrase"/>
+            <div class="theme-actions">
+              <button id="makeDeviceSync">Generate Sync Code</button>
+              <button id="copyDeviceSync" class="secondary">Copy Code</button>
+            </div>
           </div>
           <textarea id="deviceSyncCode" rows="5" placeholder="Device sync code appears here"></textarea>
           <div id="deviceSyncStatus" class="status">Keep this code private. Anyone with code and passphrase can restore this identity.</div>
-        </section>
+          `, 'keys-sync-section')}
+        </div>
       </div>
     </section>
   `;
@@ -655,6 +666,11 @@ function controlPanelHTML() {
     <section class="main utility">
       ${viewTopbarHTML('Control Center', 'Room administration', `<span class="muted">${esc(myRole)}</span>`)}
       <div class="panel utility-panel">
+        <div class="admin-overview">
+          <div><strong>Room Ops</strong><span>Members, invites, channels, media, retention, and audit controls.</span></div>
+          <div><strong>${esc(roomName || 'Veil')}</strong><span>${esc(roomStatusText || DEFAULT_ROOM_STATUS_TEXT)}</span></div>
+          <div><strong>${esc(myRole || 'member')}</strong><span>${canManageUsers ? 'Full control available' : 'Limited controls'}</span></div>
+        </div>
         <div class="admin-layout">
           <div class="admin-column admin-column-main">
             ${adminCardHTML(
@@ -766,10 +782,13 @@ async function bootView() {
     app.innerHTML = `
     <section class="boot-wrap">
       <div class="boot-card setup-card">
-        <div class="boot-header">
-          <div class="eyebrow">first launch</div>
-          <div class="boot-title">Create your Veil room</div>
-          <div class="muted">This becomes the private room and your first root admin identity.</div>
+        <div class="boot-identity">
+          <div class="boot-mark">V</div>
+          <div class="boot-header">
+            <div class="eyebrow">first launch</div>
+            <div class="boot-title">Create your Veil room</div>
+            <div class="muted">This becomes the private room and your first root admin identity.</div>
+          </div>
         </div>
         <div class="boot-grid boot-form">
           <input id="room" placeholder="Room name" autocomplete="organization"/>
@@ -796,10 +815,13 @@ async function accessView() {
     app.innerHTML = `
     <section class="boot-wrap">
       <div class="boot-card auth-shell">
-        <div class="boot-header">
-          <div class="eyebrow">room found</div>
-          <div class="boot-title">Welcome Back</div>
-          <div class="muted">Restore your saved identity to re-enter this Veil room.</div>
+        <div class="boot-identity">
+          <div class="boot-mark">V</div>
+          <div class="boot-header">
+            <div class="eyebrow">room found</div>
+            <div class="boot-title">Welcome Back</div>
+            <div class="muted">Restore your saved identity to re-enter this Veil room.</div>
+          </div>
         </div>
         <div class="auth-grid">
           <section class="auth-card">
@@ -894,10 +916,13 @@ async function inviteView(token) {
     app.innerHTML = `
     <section class="boot-wrap">
       <div class="boot-card auth-shell invite-shell">
-        <div class="boot-header">
-          <div class="eyebrow">invite link</div>
-          <div class="boot-title">Join Veil Room</div>
-          <div class="muted">Create your room identity with a display name to continue.</div>
+        <div class="boot-identity">
+          <div class="boot-mark">V</div>
+          <div class="boot-header">
+            <div class="eyebrow">invite link</div>
+            <div class="boot-title">Join Veil Room</div>
+            <div class="muted">Create your room identity with a display name to continue.</div>
+          </div>
         </div>
         <section class="auth-card">
           <h3>New Member</h3>
