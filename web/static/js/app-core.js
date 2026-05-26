@@ -409,6 +409,12 @@ function normalizeTheme(theme) {
     return out;
 }
 
+function themesEqual(a, b) {
+    const left = normalizeTheme(a);
+    const right = normalizeTheme(b);
+    return Object.keys(DEFAULT_THEME).every((key) => left[key] === right[key]);
+}
+
 function applyTheme(theme) {
     const t = normalizeTheme(theme);
     const root = document.documentElement.style;

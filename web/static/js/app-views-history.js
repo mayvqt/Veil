@@ -278,44 +278,98 @@ function adminSubsectionHTML(title, body) {
   `;
 }
 
+function themePreviewStyle(theme) {
+    const t = normalizeTheme(theme);
+    return `--preview-bg:${esc(t.bg)};--preview-bg-2:${esc(t.bg2)};--preview-panel:${esc(t.panel)};--preview-surface:${esc(t.surface)};--preview-ink:${esc(t.ink)};--preview-muted:${esc(t.muted)};--preview-accent:${esc(t.accent)};--preview-accent-2:${esc(t.accent2)};--preview-danger:${esc(t.danger)};--preview-mention:${esc(t.mentionSelf)}`;
+}
+
+function themePresetButtonHTML(key, label, currentThemeValue) {
+    const theme = THEME_PRESETS[key] || DEFAULT_THEME;
+    const active = themesEqual(currentThemeValue, theme);
+    return `
+      <button class="theme-preset-card secondary${active ? ' active' : ''}" data-theme-preset="${esc(key)}" type="button" aria-pressed="${active ? 'true' : 'false'}">
+        <span class="theme-preset-name">${esc(label)}</span>
+        <span class="theme-preset-swatches" aria-hidden="true">
+          <span style="background:${esc(theme.bg)}"></span>
+          <span style="background:${esc(theme.panel)}"></span>
+          <span style="background:${esc(theme.accent)}"></span>
+          <span style="background:${esc(theme.accent2)}"></span>
+        </span>
+      </button>
+    `;
+}
+
+function themeColorRowHTML(key, label, hint, theme) {
+    return `<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(theme[key])}"/></div>`;
+}
+
 function themePanelHTML() {
     const t = currentTheme();
-    const fields = [
-        ['bg', 'Background', 'Page base'],
-        ['bg2', 'Depth', 'Page gradient'],
-        ['panel', 'Panel', 'Cards and chat log'],
-        ['surface', 'Surface', 'Inputs and rails'],
-        ['ink', 'Text', 'Primary copy'],
-        ['muted', 'Muted', 'Secondary copy'],
-        ['accent', 'Accent', 'Active states'],
-        ['accent2', 'Secondary', 'Highlights'],
-        ['danger', 'Danger', 'Warnings'],
-        ['mentionSelf', 'Mention (You)', 'Self @mention text']
+    const presets = [
+        ['veil', 'Veil'],
+        ['ember', 'Ember'],
+        ['midnight', 'Midnight'],
+        ['graphite', 'Graphite']
+    ];
+    const colorGroups = [
+        ['Foundation', [
+            ['bg', 'Background', 'Page base'],
+            ['bg2', 'Depth', 'Page gradient'],
+            ['panel', 'Panel', 'Cards and chat log'],
+            ['surface', 'Surface', 'Inputs and rails']
+        ]],
+        ['Text', [
+            ['ink', 'Text', 'Primary copy'],
+            ['muted', 'Muted', 'Secondary copy'],
+            ['mentionSelf', 'Mention You', 'Self mention text']
+        ]],
+        ['Accents', [
+            ['accent', 'Accent', 'Active states'],
+            ['accent2', 'Secondary', 'Highlights'],
+            ['danger', 'Danger', 'Warnings']
+        ]]
     ];
     return `
     <section class="main utility">
       ${viewTopbarHTML('Theme Studio', 'Local display preferences', '<span class="muted">local only</span>')}
       <div class="panel utility-panel">
-        <div class="settings-stack">
-          ${settingsSectionHTML('Presets', `
-          <div class="theme-actions">
-            <button class="secondary" data-theme-preset="veil">Veil</button>
-            <button class="secondary" data-theme-preset="ember">Ember</button>
-            <button class="secondary" data-theme-preset="midnight">Midnight</button>
-            <button class="secondary" data-theme-preset="graphite">Graphite</button>
+        <div class="settings-stack theme-settings">
+          ${settingsSectionHTML('Preview', `
+          <div class="theme-studio-hero">
+            <div id="themePreview" class="theme-preview-card" style="${themePreviewStyle(t)}">
+              <div class="theme-preview-topline"><span></span><span></span><span></span></div>
+              <div class="theme-preview-message">
+                <strong>Veil</strong>
+                <span>Encrypted room preview</span>
+              </div>
+              <div class="theme-preview-bubbles">
+                <span>Accent</span>
+                <span>Secondary</span>
+                <span>Danger</span>
+              </div>
+            </div>
+            <div class="theme-preset-grid">
+              ${presets.map(([key, label]) => themePresetButtonHTML(key, label, t)).join('')}
+            </div>
           </div>
           <div class="theme-actions settings-footer">
             <button id="copyTheme" class="secondary">Copy Theme</button>
             <button id="importTheme" class="secondary">Import Theme</button>
+            <button id="resetTheme" class="secondary">Reset Theme</button>
           </div>
-          `)}
-          ${settingsSectionHTML('Custom Colors', `
-          ${settingsDetailsHTML('Advanced color controls', `
-            <div class="theme-grid">
-              ${fields.map(([key, label, hint]) => `<div class="theme-row"><label for="theme-${key}">${label}<span>${hint}</span></label><input id="theme-${key}" data-theme-key="${key}" type="color" value="${esc(t[key])}"/></div>`).join('')}
-            </div>
-          `)}
-          `)}
+          `, 'theme-preview-section')}
+          ${settingsSectionHTML('Colors', `
+          <div class="theme-color-groups">
+            ${colorGroups.map(([title, fields]) => `
+              <div class="theme-color-group">
+                <h4>${esc(title)}</h4>
+                <div class="theme-grid">
+                  ${fields.map(([key, label, hint]) => themeColorRowHTML(key, label, hint, t)).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          `, 'theme-colors-section')}
           ${settingsSectionHTML('Display', `
           <div class="settings-list">
             ${switchControlHTML('themeAvatarToggle', 'Show avatars', showAvatars)}
@@ -323,10 +377,9 @@ function themePanelHTML() {
             ${switchControlHTML('themeTimestampToggle', 'Show timestamps on hover', timestampMode === 'hover')}
           </div>
           <div class="theme-actions settings-footer">
-            <button id="resetTheme" class="secondary">Reset</button>
             <button id="resetDisplayPrefs" class="secondary">Reset Display</button>
           </div>
-          `)}
+          `, 'theme-display-section')}
           <div id="themeStatus" class="status">Theme changes save immediately.</div>
         </div>
       </div>

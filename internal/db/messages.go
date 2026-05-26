@@ -9,27 +9,17 @@ import (
 	"github.com/google/uuid"
 )
 
-func (s *Store) SaveMessage(roomID, senderID, displayName, ciphertext, nonce, replyToID string) (*Message, error) {
+func (s *Store) SaveMessage(roomID, senderID, _ string, ciphertext, nonce, replyToID string) (*Message, error) {
 	if len(ciphertext) > 24*1024*1024 || len(nonce) > 128 {
 		return nil, errors.New("message too large")
 	}
-	msg := &Message{
-		ID:          uuid.NewString(),
-		SenderID:    senderID,
-		DisplayName: displayName,
-		Ciphertext:  ciphertext,
-		Nonce:       nonce,
-		ReplyToID:   replyToID,
-		CreatedAt:   now(),
-	}
-	_, err := s.DB.Exec("INSERT INTO messages (id, room_id, sender_id, ciphertext, nonce, reply_to_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)", msg.ID, roomID, senderID, ciphertext, nonce, replyToID, msg.CreatedAt)
+	messageID := uuid.NewString()
+	createdAt := now()
+	_, err := s.DB.Exec("INSERT INTO messages (id, room_id, sender_id, ciphertext, nonce, reply_to_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)", messageID, roomID, senderID, ciphertext, nonce, replyToID, createdAt)
 	if err != nil {
 		return nil, err
 	}
-	if err := s.DB.QueryRow("SELECT rowid FROM messages WHERE id=?", msg.ID).Scan(&msg.RowID); err != nil {
-		return nil, err
-	}
-	return s.getMessageByID(msg.ID)
+	return s.getMessageByID(messageID)
 }
 
 func (s *Store) ListRecentMessages(roomID string, limit int, beforeRowID int64) ([]map[string]string, error) {

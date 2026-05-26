@@ -1147,6 +1147,7 @@ function bindThemeActions() {
     const copyThemeBtn = $('copyTheme');
     const importThemeBtn = $('importTheme');
     const resetDisplayBtn = $('resetDisplayPrefs');
+    const preview = $('themePreview');
     const readThemeFromInputs = () => {
         const theme = {};
         for (const input of inputs) theme[input.dataset.themeKey] = input.value;
@@ -1156,10 +1157,24 @@ function bindThemeActions() {
         const t = normalizeTheme(theme);
         for (const input of inputs) input.value = t[input.dataset.themeKey];
     };
+    const updateThemePreview = (theme) => {
+        if (preview) preview.setAttribute('style', themePreviewStyle(theme));
+        document.querySelectorAll('button[data-theme-preset]').forEach((btn) => {
+            const preset = THEME_PRESETS[btn.dataset.themePreset] || DEFAULT_THEME;
+            const active = themesEqual(theme, preset);
+            btn.classList.toggle('active', active);
+            btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+        });
+    };
+    const saveThemeFromInputs = () => {
+        const theme = saveTheme(readThemeFromInputs());
+        updateThemePreview(theme);
+        return theme;
+    };
 
     inputs.forEach((input) => {
         input.addEventListener('input', () => {
-            saveTheme(readThemeFromInputs());
+            saveThemeFromInputs();
             setStatus(status, 'Theme saved.', 'ok');
         });
     });
@@ -1168,7 +1183,8 @@ function bindThemeActions() {
         btn.addEventListener('click', () => {
             const preset = THEME_PRESETS[btn.dataset.themePreset] || DEFAULT_THEME;
             fillInputs(preset);
-            saveTheme(preset);
+            const theme = saveTheme(preset);
+            updateThemePreview(theme);
             setStatus(status, 'Theme preset saved.', 'ok');
         });
     });
@@ -1191,7 +1207,8 @@ function bindThemeActions() {
             try {
                 const nextTheme = normalizeTheme(JSON.parse(raw));
                 fillInputs(nextTheme);
-                saveTheme(nextTheme);
+                const theme = saveTheme(nextTheme);
+                updateThemePreview(theme);
                 setStatus(status, 'Theme imported.', 'ok');
             } catch {
                 setStatus(status, 'Theme JSON was not valid.', 'err');
@@ -1203,6 +1220,7 @@ function bindThemeActions() {
         resetBtn.onclick = () => {
             resetTheme();
             fillInputs(DEFAULT_THEME);
+            updateThemePreview(DEFAULT_THEME);
             setStatus(status, 'Theme reset.', 'ok');
         };
     }
